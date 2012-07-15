@@ -1,0 +1,80 @@
+\documentclass{book}
+\usepackage[a4paper, top=3cm, bottom=3cm]{geometry}
+\usepackage[latin1]{inputenc}
+\usepackage{setspace}
+\usepackage{fancyhdr}
+\usepackage{tocloft}
+\usepackage{graphicx}
+
+\begin{document}
+
+
+\pagestyle{empty}
+%\pagenumbering{}
+% Set book title
+\title{\textbf{Hazelcast}}
+% Include Author name and Copyright holder name
+\author{Peter Veentjer}
+
+% 1st page for the Title
+%-------------------------------------------------------------------------------
+\maketitle
+
+
+% 2nd page, thanks message
+%-------------------------------------------------------------------------------
+\thispagestyle{empty}
+Hazelcast
+Peter Veentjer.
+\newpage
+
+% General definitions for all Chapters
+%-------------------------------------------------------------------------------
+
+% Define Page style for all chapters
+\pagestyle{fancy}
+% Delete the current section for header and footer
+\fancyhf{}
+% Set custom header
+\lhead[]{\thepage}
+\rhead[\thepage]{}
+
+% Set arabic (1,2,3...) page numbering
+\pagenumbering{arabic}
+
+% Set double spacing for the text
+\doublespacing
+
+% If the chapter ends in an odd page, you may want to skip having the page
+%  number in the empty page
+% \thispagestyle{empty}
+
+
+\chapter*{Pragmatic Bookshelf}
+Many of the designations used by manufacturers and sellers to distinguish their products are claimed as trademarks. Where those designations appear in this book, and The Pragmatic Programmers, LLC was aware of a trademark claim, the designations have been printed in initial capital letters or in all capitals. The Pragmatic Starter Kit, The Pragmatic Programmer, Pragmatic Programming, Pragmatic Bookshelf, PragProg and the linking g device are trade- marks of The Pragmatic Programmers, LLC.
+Every precaution was taken in the preparation of this book. However, the publisher assumes no responsibility for errors or omissions, or for damages that may result from the use of information (including program listings) contained herein.
+Our Pragmatic courses, workshops, and other products can help you and your team create better software and have more fun. For more information, as well as the latest Pragmatic titles, please visit us at http://pragprog.com.
+The team that produced this book includes:
+\begin{enumerate}
+\item people
+\end{enumerate}
+
+\input{ack}
+\input{preface}
+% Last pages for ToC
+%-------------------------------------------------------------------------------
+% Include dots between chapter name and page number
+\renewcommand{\cftchapdotsep}{\cftdotsep}
+
+\tableofcontents
+
+\input{learningthebasics}
+\input{distributeddatastructures}
+\input{distributedexecutor}
+\input{distributedmap-basics}
+\input{distributedmap-advanced}
+\input{distributedservices}
+\input{clusterconfiguration}
+
+\end{document}
+
