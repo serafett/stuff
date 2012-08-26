@@ -13,13 +13,12 @@ First we create the entity Customer.
 
 \begin{verbatim}
 public class Customer implements Serializable{
-    private final String id = UUID.randomUUID().toString();
-    private String name;
-	
-    public Customer(String name){this.name = name;}
-    public String getId(){return id;}
-    public String getName(){return name;}
-    public void setName(String newName){this.name = newName;}
+  private final String id = UUID.randomUUID().toString();
+  private String name;
+  public Customer(String name){this.name = name;}
+  public String getId(){return id;}
+  public String getName(){return name;}
+  public void setName(String newName){this.name = newName;}
 }
 \end{verbatim}
 
@@ -35,24 +34,25 @@ The Java code for this Customer Service looks like this:
 
 \begin{verbatim}
 public class CustomerService{
-    private final Map<String,Customer> customerMap = Hazelcast.getMap("customers");
-    
-    public String create(String name){
-        Customer c = new Customer(name);
-        customerMap.put(c.getId(), customer);
-        System.out.printf("Customer %s with id %s and name %s created\n",name,c.getId(),name);
-        return customer.getId();
-   }
-   public Customer get(String id){
-      return customerMap.get(id);
-   } 
+  private final Map<String,Customer> customerMap = Hazelcast.getMap("customers");
+  public String create(String name){
+    Customer c = new Customer(name);
+    customerMap.put(c.getId(), customer);
+    System.out.printf(
+      "Customer %s with id %s and name %s created\n",
+        name,c.getId(),name);
+    return customer.getId();
+  }
+  public Customer get(String id){
+    return customerMap.get(id);
+  } 
 }
 
 public class Main{
-	public static void main(String[] args){
-		CustomerService customerService = new CustomerService();
-		customerService.create("john");
-	}
+  public static void main(String[] args){
+    CustomerService customerService = new CustomerService();
+    customerService.create("john");
+  }
 }
 \end{verbatim}
 
@@ -73,9 +73,11 @@ So make sure you deal with getting a new instance every time a map.get is called
 Important: Design considerations
 
 In some cases it is an worth considering to create different types of versions for domain objects.
-objects that go over the line; Data Transfer Object (DTO).
-objects that are used the domain; the entities.
-objects that are stored into the Hazelcast.
+\begin{enumerate}
+\item objects that go over the line; Data Transfer Object (DTO).
+\item objects that are used the domain; the entities.
+\item objects that are stored into the Hazelcast.
+\end{enumerate}
 
 I had the displeasure to work with a complex system where this distinction was not made, and although in the beginning features could be implemented relatively quickly, after a while it started to become a tangled mess because:
 tight coupling between the users of the api and the implementation of the domain objects. This would have been solved by introducing a DTO, where the DTO contains only the fields that need to be exposed, shielding the users of the DTO from internal implementation details.
@@ -95,23 +97,23 @@ In the previous section the added functionality for getting and creating Custome
 We are going to extend the CustomerService with updating the name of the customer and we'll start with a very basic implementation of this functionality:
 
 \begin{verbatim}
-    public void updateName(String customerId, String newName){
-        Customer customer = customerMap.get(customerId);
-        if(customer == null)throw new IllegalArgumentException();
-        customer.setName(newName);
-        customerMap.put(customerId, customer);
-    }
+  public void updateName(String customerId, String newName){
+    Customer customer = customerMap.get(customerId);
+    if(customer == null)throw new IllegalArgumentException();
+    customer.setName(newName);
+    customerMap.put(customerId, customer);
+  }
 \end{verbatim}
 
 And the call would look like this:
 
 \begin{verbatim}
 public class Main {
-    public static void main(String[] args){
-    	CustomerService customerService = new CustomerService();
-    	String id = customerService.create("Homer");
-       customerService.updateName(id, "Bart");
-    }
+  public static void main(String[] args){
+    CustomerService customerService = new CustomerService();
+    String id = customerService.create("Homer");
+    customerService.updateName(id, "Bart");
+  }
 }
 \end{verbatim}
 
@@ -136,13 +138,13 @@ import java.io.Serializable;
 import java.util.UUID;
 
 public class Counter implements Serializable {
-    private final String id = UUID.randomUUID().toString();
-    private long value;
-    public Counter(long value) {this.value = value;}
-    public String getId() {return id;}
-    public void setValue(long newValue) {this.value = newValue;}
-    public void inc() {value++;}
-    public long getValue() {return value;}
+  private final String id = UUID.randomUUID().toString();
+  private long value;
+  public Counter(long value) {this.value = value;}
+  public String getId() {return id;}
+  public void setValue(long newValue) {this.value = newValue;}
+  public void inc() {value++;}
+  public long getValue() {return value;}
 }
 \end{verbatim}
 
@@ -153,20 +155,20 @@ import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.IMap;
 
 public class CounterService {
-    private final IMap<String, Counter> counterMap = Hazelcast.getMap("counters");
-    public String create(int value) {
-        Counter counter = new Counter(value);
-        counterMap.put(counter.getId(), counter);
-        return counter.getId();
-    }
-    public long count(String id){
-        return counterMap.get(id).getValue();
-    }
-    public void increment(String counterId) {
-        Counter counter = counterMap.get(counterId);
-        if (counter == null) throw new IllegalArgumentException();
-        counter.inc();
-    }
+  private final IMap<String, Counter> counterMap = Hazelcast.getMap("counters");
+  public String create(int value) {
+    Counter counter = new Counter(value);
+    counterMap.put(counter.getId(), counter);
+    return counter.getId();
+  }
+  public long count(String id){
+    return counterMap.get(id).getValue();
+  }
+  public void increment(String counterId) {
+    Counter counter = counterMap.get(counterId);
+    if (counter == null) throw new IllegalArgumentException();
+    counter.inc();
+  }
 }
 \end{verbatim}
 
@@ -175,41 +177,41 @@ And a test harness to do the actual testing:
 \begin{verbatim}
 public class Main {
 
-    public static final int INCREMENT_COUNT_PER_THREAD = 1000 * 1000;
+  public static final int INCREMENT_COUNT_PER_THREAD = 1000 * 1000;
 
-    public static void main(String[] args) throws InterruptedException {
-        CounterService counterService = new CounterService();
-        String id = counterService.create(0);
+  public static void main(String[] args) throws InterruptedException {
+    CounterService counterService = new CounterService();
+    String id = counterService.create(0);
 
-        Thread[] threads = new Thread[2];
-        for (int k = 0; k < threads.length; k++)
-            threads[k] = new IncrementThread(counterService, id);
+    Thread[] threads = new Thread[2];
+    for (int k = 0; k < threads.length; k++)
+      threads[k] = new IncrementThread(counterService, id);
 
-        for (Thread thread : threads) thread.start();
+    for (Thread thread : threads) thread.start();
 
-        for (Thread thread : threads) thread.join();
+    for (Thread thread : threads) thread.join();
 
-        long actualCount = counterService.count(id);
-        long expectedCount = INCREMENT_COUNT_PER_THREAD * threads.length;
-        System.out.printf("Lost update detected: %s\n" + (actualCount != expectedCount));
-        System.out.printf("Expected count: %s\n", expectedCount);
-        System.out.printf("Actual count: %s\n", actualCount);
+    long actualCount = counterService.count(id);
+    long expectedCount = INCREMENT_COUNT_PER_THREAD * threads.length;
+    System.out.printf("Lost update detected: %s\n" + (actualCount != expectedCount));
+    System.out.printf("Expected count: %s\n", expectedCount);
+    System.out.printf("Actual count: %s\n", actualCount);
+  }
+
+  static class IncrementThread extends Thread {
+    private final CounterService counterService;
+    private final String counterId;
+
+    IncrementThread(CounterService counterService, String counterId) {
+      this.counterService = counterService;
+      this.counterId = counterId;
     }
 
-    static class IncrementThread extends Thread {
-        private final CounterService counterService;
-        private final String counterId;
-
-        IncrementThread(CounterService counterService, String counterId) {
-            this.counterService = counterService;
-            this.counterId = counterId;
-        }
-
-        public void run() {
-            for (int k = 0; k < INCREMENT_COUNT_PER_THREAD; k++)
-                counterService.increment(counterId);
-        }
+    public void run() {
+      for (int k = 0; k < INCREMENT_COUNT_PER_THREAD; k++)
+        counterService.increment(counterId);
     }
+  }
 }
 \end{verbatim}
 
@@ -413,9 +415,18 @@ public Set<Customer> getWithName(String name){
 \end{verbatim}
 
 Although the code is simple it contains a few problems:
-Not parallelizable: One node will iterate over all customers; imagine that there are millions of customers. So this approach doesn't make use of the computing capacity of the machines.
-Inefficient: all customers need to be pulled into memory, so need to be rematerialized. After the rematerialization only a single field is read and then the object is discarded.
-..
+\begin{enumerate}
+\item Not parallelizable: One node will iterate over all customers; imagine that there are millions of customers. So this approach doesn't make use of the computing capacity of the machines.
+\item Inefficient: all customers need to be pulled into memory, so need to be rematerialized. After the rematerialization only a single field is read and then the object is discarded. 
+\end{enumerate}
+
+Luckily Hazelcast solves these problems by supporting distributed queries using 2 different mechanisms:
+\begin{enumerate}
+\item Criteria API
+\item Distributed SQL Query
+\end{enumerate}
+
+\subsection{Criteria API}
 
 The distributed version looks like this:
 
@@ -429,8 +440,7 @@ public Set<Customer> getWithName(String name){
 
 Explain EntryObject, Predicate.
 
-example with and.. or.. etc
-
+\subsection{Distributed SQL Query}
 It also is possible instead of using the programmatic api to create a query, to use a more SQL like language:
 
 \begin{verbatim}
@@ -440,4 +450,63 @@ public Set<Customer> getWithName(String name){
 }
 \end{verbatim}
 
+supported SQL syntax:
+TODO: Is it case sensitive?
+
+\subsubsection{AND/OR}
+<expression> AND <expression> AND <expression>...
+\begin{enumerate}
+\item active AND age>30
+\item active=false OR age = 45 OR name = 'Joe'
+\item active AND (age >20 OR salary < 60000)
+\end{enumerate}
+
+\subsection{=, !=, <, <=, >, >=}
+<expression> = value
+\begin{enumerate}
+\item age <= 30
+\item name ="Joe"
+\item salary != 50000
+\end{enumerate}
+
+\subsubsection{BETWEEN}
+<attribute> [NOT] BETWEEN <value1> AND <value2>
+
+\begin{enumerate}
+\item age BETWEEN 20 AND 33 (same as age >=20 AND age<=33)
+\item age NOT BETWEEN 30 AND 40 (same as age <30 OR age>40)
+\end{enumerate}
+
+%\subsection{LIKE}
+%<attribute> [NOT] LIKE 'expression'
+% (percentage sign) is placeholder for many characters, _ (underscore) is placeholder for only one character.
+%\begin{enumerate}
+%\item name LIKE 'Jo%' (true for 'Joe', 'Josh', 'Joseph' etc.)
+%\item name LIKE 'Jo_' (true for 'Joe'; false for 'Josh')
+%\item name NOT LIKE 'Jo_' (true for 'Josh'; false for 'Joe')
+%\item name LIKE 'J_s%' (true for 'Josh', 'Joseph'; false 'John', 'Joe')
+%\begin{enumerate}
+
+\subsubsection{IN}
+<attribute> [NOT] IN (val1, val2, ...)
+\begin{enumerate}
+\item age IN (20, 30, 40)
+\item age NOT IN (60, 70)
+\end{enumerate}
+
 \section{What is next}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi libero sem,
+interdum eget varius vel, faucibus placerat purus. Sed vulputate diam sit amet
+risus dapibus dignissim. Praesent lobortis eleifend augue. Cum sociis natoque
+penatibus et magnis dis parturient montes, nascetur ridiculus mus. Morbi libero
+turpis, viverra ac vulputate a, faucibus vel quam. Quisque interdum congue
+lacus, in tempus nisl tincidunt at. Curabitur sed eros eu enim vehicula
+fermentum quis nec justo. Vestibulum rutrum laoreet est, eget condimentum justo
+feugiat at. Cras ac sem ac magna ornare tempor non nec nisl. Maecenas feugiat
+fringilla nisl, vitae ullamcorper ante posuere a. Sed mollis lacinia interdum.
+Vivamus vel urna metus. Nulla eget tellus sem. Praesent volutpat suscipit nulla,
+nec dictum arcu iaculis id. Duis pharetra vestibulum sapien, quis pulvinar odio
+pharetra id. Cras at erat velit, vel tincidunt elit. Curabitur vehicula leo eu
+odio vulputate ac consequat nulla ultricies. Maecenas venenatis condimentum
+urna ut ultrices. Aliquam blandit fermentum eros, ac lacinia sem scelerisque
+at. Nullam vitae nisi at erat posuere cursus a non velit.

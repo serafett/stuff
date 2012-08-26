@@ -1,0 +1,274 @@
+\chapter{Distributed Collections}
+
+Hazelcast provides a bunch of collections that implement interfaces from the java collection 
+framework and make it easy to integration distributed collections without too many code changes.
+This chapter will example distributed collections like:
+\begin{enumerate}
+\item BlockingQueue
+\item Set
+\item List
+\end{enumerate}
+The distributed map functionality provided by Hazelcast is so extensive that 2 separate chapters
+have been dedicated to it,
+
+\section{Distributed Queue}
+
+A queue is one of the working horses for concurrent and distributed system because it 
+allows producers and consumers of messages to work in different speeds but also at different
+locations.
+
+Take a look at the following producer/consumer example. There are 2 Java Processes, 1 that
+produces messages and another one that consumes messages. The queue that is shared between
+these processes is provided by Hazelcast.
+
+The Producer:
+\begin{verbatim}
+import com.hazelcast.core.*;
+import java.util.concurrent.*;
+public class ProducerMain{
+    public static void main(String[] args){
+        final BlockingQueue<String> queue = Hazelcast.getQueue("queue");
+        Runnable runnable = new Runnable(){
+            public void run(){
+                try{
+                    for(int k=1;k<1000;k++){
+                        queue.put(""+k);
+                        System.our.println("producing: "+k)
+                    }
+                }catch(InterruptedException ex){
+                    ex.printStackTrace();
+                }
+            };
+        new Thread(runnable).start();
+    }
+}
+\end{verbatim}
+
+The Consumer:
+\begin{verbatim}
+import com.hazelcast.core.*;
+import java.util.concurrent.*;
+public class ConsumerMain{
+    public static void main(String[] args){
+        final BlockingQueue<String> queue = Hazelcast.getQueue("queue");
+            Runnable runnable = new Runnable(){
+                public void run(){
+                    try{
+                        while(true)
+                            System.out.println("consumed: "+queue.take());
+                    }catch(InterruptedException ex){
+                        ex.printStackTrace();
+                    }
+            }
+        };
+        new Thread(runnable).start();
+    }
+}
+\end{verbatim}
+
+When you run these examples, you will see the following for the Producer:
+\begin{verbatim}
+produced 1
+produced 2
+produced 3
+....
+\end{verbatim}
+
+And for the consumer you will see:
+\begin{verbatim}
+consumed 1
+consumed 2
+consumed 3
+....
+\end{verbatim}
+
+To improve scalability, you can create as many producers and consumers as you want; just launch 
+more of them. One thing to watch out for however, eventually the queue will become the bottleneck 
+for similar reasons a normal BlockingQueue implementation will suffer; and that is contention. One 
+way of solving this problem is to introduce multiple queues.
+
+Realize that although the queue itself preserves ordering of the messages (so the messages
+are taken from the queue in the order they were put on the queue), if there are multiple consumers 
+on the same queue, the order in which items get processed is not guaranteed. This is because processing
+of messages taken happens in parallel and queue will not provide any ordering guarantees on messages
+after they are taken from the queue.
+
+\subsection{Capacity}
+
+In the previous example we created a basic producer consumer implementation with a shared
+Hazelcast BlockingQueue. Because the production of messages is separated from the consumption
+of messages, the speed of production of messages is not influenced by the speed of consumption.
+
+If producing of messages goes quicker than the consumption the queue will increase in size. If 
+there is no bound on the capacity of the queue, machines can run out of memory. With the traditional 
+BlockingQueue implementations like the LinkedBlockingQueue a capacity can be set. With the maximum 
+capacity is reached, placement of new items either fail, or block depending on the operation used
+to place an item on the queue. This prevents the queue from growing beyond a healthy capacity.
+
+Hazelcast also provided control in the capacity, but instead of having a fixed capacity, Hazelcast
+provides a scalable capacity by setting a queue capacity per jvm. So if the capacity per jvm is 1000
+and there are 5 jvm's, the total capacity is 5000. So capacity depends on the size of the cluster; 
+add more machines and the capacity of the queue will grow. Remove machines from the cluster and 
+the capacity of the queue will shrink 
+
+TODO: (what will happen when the queue is 'full' and machine is removed?) 
+
+\begin{verbatim}
+import com.hazelcast.core.*;
+import java.util.concurrent.*;
+public class ProducerMain{
+    public static void main(String[] args){
+        QueueConfig queueConfig = new QueueConfig()
+            .setName("queue")
+            .setMaxSizePerJVM(10);
+        //TODO: How to obtain a queue based on some queue config.
+        final BlockingQueue<String> queue = Hazelcast.getQueue("queue");
+        Runnable runnable = new Runnable(){
+            public void run(){
+                try{
+                    for(int k=1;k<1000;k++){
+                        queue.put(""+k);
+                        System.out.println("produced:"+k)
+                     }
+                 }catch(InterruptedException ex){
+                    ex.printStackTrace();
+                }
+            };
+        new Thread(runnable).start();
+    }
+}
+\end{verbatim}
+
+//TODO: Does the Consumer need to be configured with the same settings
+\begin{verbatim}
+import com.hazelcast.core.*;
+import java.util.concurrent.*;
+public class ConsumerMain{
+    public static void main(String[] args){
+        final BlockingQueue<String> queue = Hazelcast.getQueue("queue");
+            Runnable runnable = new Runnable(){
+                public void run(){
+                    try{
+                        while(true){
+                            Thread.sleep(1000)
+                            System.out.println("consumed: "+queue.take());
+                        }
+                    }catch(InterruptedException e){
+                        ex.printStackTrace();
+                    }
+            }
+        };
+        new Thread(runnable).start();
+    }
+}
+\end{verbatim}
+
+\subsection{Time to live}
+TODO: Is there also a distributed dequeue?
+
+\section{Distributed List}
+
+After the distributed queue, we have the list. As you most likely know a list is a 
+datastructure where the ordering of elements matters. 
+
+An example of Distributed List in Hazelcast.
+
+\begin{verbatim}
+public class ListExample{
+    public static void main(String[] args){
+	
+    }
+}
+\end{verbatim}
+
+TODO: read mostly?
+
+\section{Distributed Set}
+
+A Set is a collection where every element only occurs ones. In Hazelcast a Set has 
+
+TODO: Good explanation of equals/hash
+
+\begin{verbatim}
+public class ListExample{
+    public static void main(String[] args){
+	
+    }
+}
+\end{verbatim}
+
+
+\section{Collection Item Listeners}
+
+When in Hazelcast a distributed List,Set or Queue is retrieved, these collection implement
+the ICollection interface. The nice thing is that Hazelcast enriches the existing collections api
+with item listeners. The following example shows an itemListener that listens to all changes made
+in a queue, but to listen to changes in a Set or List are similar.
+
+\begin{verbatim}
+import org.hazelcast.core.*;	
+public class ItemListenerMain{
+    public static void main(String[] args){
+        IQueue<String> queue = Hazelcast.getQueue("queue");
+        queue.addItemListener(
+            new ItemListener<String>{
+                public void itemAdded(String item){
+                    System.out.println("item added: "+item);
+                }
+                public void itemRemoved(String item){ 
+                    System.out.println("item removed:"+item);
+                }
+            }
+        );
+    }
+}
+\end{verbatim}
+
+And to see that the ItemListeners really are working, start up the ItemListenerMain
+first, and after that run the following ItemChangerMain:
+
+\begin{verbatim}
+import org.hazelcast.core.*;	
+public class ItemChangerMain{
+    public static void main(String[] args){
+        IQueue<String> queue = Hazelcast.getQueue("queue");
+        queue.put("foo");
+        queue.put("bar");
+        queue.take();
+        queue.take();
+    }
+}
+\end{verbatim}
+
+The output of the ItemListenerMain will show the following:
+\begin{verbatim}
+item added: foo
+item added: bar
+item removed: bar
+item removed: foo
+\end{verbatim}
+
+ItemListeners are useful if you need to react upon changes in collections. But realize that listeners 
+are executed asynchronously, so it could be that at the time your listener runs, that the collection 
+has changed again.
+
+TODO: Will item listeners be executed in parallel?
+
+\section{ITopic}
+
+\section{What is next?}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi libero sem,
+interdum eget varius vel, faucibus placerat purus. Sed vulputate diam sit amet
+risus dapibus dignissim. Praesent lobortis eleifend augue. Cum sociis natoque
+penatibus et magnis dis parturient montes, nascetur ridiculus mus. Morbi libero
+turpis, viverra ac vulputate a, faucibus vel quam. Quisque interdum congue
+lacus, in tempus nisl tincidunt at. Curabitur sed eros eu enim vehicula
+fermentum quis nec justo. Vestibulum rutrum laoreet est, eget condimentum justo
+feugiat at. Cras ac sem ac magna ornare tempor non nec nisl. Maecenas feugiat
+fringilla nisl, vitae ullamcorper ante posuere a. Sed mollis lacinia interdum.
+Vivamus vel urna metus. Nulla eget tellus sem. Praesent volutpat suscipit nulla,
+nec dictum arcu iaculis id. Duis pharetra vestibulum sapien, quis pulvinar odio
+pharetra id. Cras at erat velit, vel tincidunt elit. Curabitur vehicula leo eu
+odio vulputate ac consequat nulla ultricies. Maecenas venenatis condimentum
+urna ut ultrices. Aliquam blandit fermentum eros, ac lacinia sem scelerisque
+at. Nullam vitae nisi at erat posuere cursus a non velit.

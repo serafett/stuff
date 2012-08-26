@@ -1,0 +1,203 @@
+\chapter{Distributed Primitives}
+
+This chapter explains the following distributed primitives:
+\begin{enumerate}
+\item Lock
+\item ISemaphore
+\item ICountdownLatch
+\item INumber
+\item IdGenerator
+\end{enumerate}
+
+\section{Distributed Lock}
+
+A lock makes it possible to provide mutual exclusion, meaning that only a single
+thread will have access to a certain resources. With the introduction of Java 5,
+the java.util.concurrent.locks.Lock is introduced. Hazelcast makes it possible
+to create a Lock that is distributed, so can be shared between multiple processes
+running on different machines.
+
+Example:
+
+\begin{verbatim}
+public class DistributedLock{
+    public static void main(String[] args){
+    }
+}
+\end{verbatim}
+
+\section{ISemaphore}
+
+The ISemaphore in Hazelcast is distributed version of the java.util.concurrent.Semaphore
+implementation. a counting semaphore; it can be seen as a structure with 
+a limit number of permits. When a permit needs to be obtained, a few things can happen:
+\begin{enumerate}
+\item a permit is available; the number of permits in the semaphore is decreased by one 
+and the calling thread returns.
+\item no permit is available; the calling thread will block until a permit comes available,
+a timeout happens, the thread is interrupted or when the semaphore is destroyed a InstanceDestroyedException
+will be thrown.
+\end{enumerate}
+
+A semaphore that is initialized with the value 1, will have similar behavior as a lock,
+but with the big difference that with a semaphore a different thread is allowed to release
+the permit than the thread that acquired the permit.
+
+\begin{verbatim}
+public class SemaphoreMain{
+    public static void main(String[] args)throws Exception{
+        SemaphoreConfig config = new SemaphoreConfig()
+            .setName("semaphore")
+            .setInitialPermits(2);
+        //todo: how to create a semaphore based on some config
+        ISemaphore semaphore = Hazelcast.getSemaphore("semaphore");
+        AtomicNumber counter = Hazelcast.getAtomicNumber("counter");
+        for(int k=0;k<1000000;k++){
+            semaphore.acquire();
+            try{
+                Thread.sleep(1000);
+            }finally{
+                semaphore.release();
+            }
+        }
+    }
+}
+\end{verbatim}
+
+\section{ICountDownLatch}
+The CountDownLatch was introduced in Java 1.5 and is a synchronization structure that makes it
+possible for threads to wait until a set of operations being performed in another thread complete.
+
+In Hazelcast there also is a CountDownLatch; the org.hazelcast.core.ICountDownLatch. An example:
+
+//TODO: There is no config object???
+
+\begin{verbatim}
+public class Followers{
+    public static void main(String[] args)throws Exception{
+        CountdownLatchConfig config = new CountDownLatchConfig()
+            .setName("countdownlatch")
+            .set
+        ICountDownLatch latch = Hazelcast.getCountDownLatch("countDownLatch");
+        System.out.println("Waiting");
+        latch.await();
+        System.out.println("Complete!")
+    }
+}
+\end{verbatim}
+We can spawn as many of these waiters as we want, and all will be displaying.
+
+\begin{verbatim}
+Waiting
+\end{verbatim}
+
+And we start a single leader, 
+\begin{verbatim}
+public class Leader{
+    public static void main(String[] args)throws Exception{
+        CountdownLatchConfig config = new CountDownLatchConfig()
+            .setName("countdownlatch")
+            .set
+        ICountDownLatch latch = Hazelcast.getCountDownLatch("countDownLatch");
+        latch.countDown();
+		System.out.println("Leader completed all")
+    }
+}
+\end{verbatim}
+
+Once this leader is started, all followers will complete and show the following output:
+
+\begin{verbatim}
+Waiting
+Complete!
+\end{verbatim}
+
+This example show a CountdownSemaphore with only a single 'step'. But if the process has multiple,
+the counting semaphore can be initialized with different value. In the following example a 
+process that is made up of 2 steps is shown.
+
+\begin{verbatim}
+public class MultiStepLeader{
+    public static void main(String[] args)throws Exception{
+        CountdownLatchConfig config = new CountDownLatchConfig()
+            .setName("countdownlatch")
+            .set
+        ICountDownLatch latch = Hazelcast.getCountDownLatch("countDownLatch");
+        
+        latch.countDown();
+        System.out.println("Leader completed first step")
+        Thread.sleep(2000); 
+
+        latch.countDown();
+        System.out.println("Leader completed both steps")
+    }
+}
+\end{verbatim}
+
+Although the ICountdownLatch is a very useful synchronization aid, it probably isn't one
+you will use on a daily basis.
+
+Unlike Java's implementation, Hazelcast's ICountDownLatch count can be re-set
+after a countdown has finished but not during an active count. This allows the same
+proxy instance to be reused.
+
+\section{AtomicNumber}
+
+The AtomicNumber is the distributed version of the java.util.concurrent.atomic.AtomicLong.
+Unfortunately the classes of the atomic package or not based on interfaces, unlike for example
+the BlockingQueue. 
+
+\begin{verbatim}
+public class AtomicNumberMain{
+    public static void main(String[] args){
+        AtomicNumber number = Hazelcast.getAtomicNumber("counter");
+        for(int k=0;k<1000000;k++){
+            number.incrementAndGet();
+        }
+    }
+}
+\end{verbatim}
+
+The AtomicNumber exposes most of the operations the AtomicLong provides, so if you have used the
+AtomicLong before, working with the AtomicNumber should feel similar.
+
+With the AtomicNumbers can be used in lock free algorithms, although you need to 
+take care that uncontrolled repeating can lead to livelocking; the system is appears to do
+something, but in reality it is only burning cpu cycles. In case of a distributed version 
+the system will also be consuming network resources. 
+
+There currently is only support for the long. But you can always use this to simulate
+\begin{enumerate}
+\item boolean: 0 for true and 1 for false.
+\item double: a 64 bit double can be encoded into 64 bits, which can be stored in a long which is also 64 bits.
+\end{enumerate}
+
+\section{IDGenerator}
+
+In the previous section we introduced the AtomicNumber and one of the things it
+can be used for is to generated unique id's within a cluster. Although it will work,
+it probably isn't the most scalable solution since all member will content on incrementing
+the value. If we are only interested in id's and not in the order the id's are generated 
+(or even when elements are skipped) we can have a look at the IdGenerator.
+
+Apart from the IDGenerator, here are other options for creating cluster wide unique id's.
+One of them is the java.util.UUID, although it will take up more space than a long. 
+
+Important: If the cluster restarts then id generation will start from 0.
+
+\section{What is next?}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi libero sem,
+interdum eget varius vel, faucibus placerat purus. Sed vulputate diam sit amet
+risus dapibus dignissim. Praesent lobortis eleifend augue. Cum sociis natoque
+penatibus et magnis dis parturient montes, nascetur ridiculus mus. Morbi libero
+turpis, viverra ac vulputate a, faucibus vel quam. Quisque interdum congue
+lacus, in tempus nisl tincidunt at. Curabitur sed eros eu enim vehicula
+fermentum quis nec justo. Vestibulum rutrum laoreet est, eget condimentum justo
+feugiat at. Cras ac sem ac magna ornare tempor non nec nisl. Maecenas feugiat
+fringilla nisl, vitae ullamcorper ante posuere a. Sed mollis lacinia interdum.
+Vivamus vel urna metus. Nulla eget tellus sem. Praesent volutpat suscipit nulla,
+nec dictum arcu iaculis id. Duis pharetra vestibulum sapien, quis pulvinar odio
+pharetra id. Cras at erat velit, vel tincidunt elit. Curabitur vehicula leo eu
+odio vulputate ac consequat nulla ultricies. Maecenas venenatis condimentum
+urna ut ultrices. Aliquam blandit fermentum eros, ac lacinia sem scelerisque
+at. Nullam vitae nisi at erat posuere cursus a non velit.

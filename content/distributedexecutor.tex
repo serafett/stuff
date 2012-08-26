@@ -10,16 +10,14 @@ import java.io.Serializable;
 
 public class Echo implements Callable<String>, Serializable {
     String input = null;
-
     public Echo() {
     }
-
     public Echo(String input) {
         this.input = input;
     }
-
     public String call() {
-        return Hazelcast.getCluster().getLocalMember().toString() + ":" + input;
+        return Hazelcast.getCluster()
+          .getLocalMember().toString() + ":" + input;
     }
 }
 \end{verbatim}
@@ -56,28 +54,26 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.Future;   
 import java.util.Set;
 
-public void echoOnTheMember(String input, Member member) throws Exception {
-   FutureTask<String> task = new DistributedTask<String>(new Echo(input), member);
+public void echoOnTheMember(String i, Member m) throws Exception {
+   FutureTask<String> task = new DistributedTask<String>(new Echo(i), m);
    ExecutorService executorService = Hazelcast.getExecutorService();
    executorService.execute(task);
    String echoResult = task.get();
 }
-
-public void echoOnTheMemberOwningTheKey(String input, Object key) throws Exception {
-   FutureTask<String> task = new DistributedTask<String>(new Echo(input), key);
+public void echoOnTheMemberOwningTheKey(String i, Object key) throws Exception {
+   FutureTask<String> task = new DistributedTask<String>(new Echo(i), key);
    ExecutorService executorService = Hazelcast.getExecutorService();
    executorService.execute(task);
    String echoResult = task.get();
 }
-
-public void echoOnSomewhere(String input) throws Exception { 
+public void echoOnSomewhere(String i) throws Exception { 
    ExecutorService executorService = Hazelcast.getExecutorService();
-   Future<String> task = executorService.submit(new Echo(input));
+   Future<String> task = executorService.submit(new Echo(i));
    String echoResult = task.get();
 }
 
-public void echoOnMembers(String input, Set<Member> members) throws Exception {
-   MultiTask<String> task = new MultiTask<String>(new Echo(input), members);
+public void echoOnMembers(String i, Set<Member> m) throws Exception {
+   MultiTask<String> task = new MultiTask<String>(new Echo(i), m);
    ExecutorService executorService = Hazelcast.getExecutorService();
    executorService.execute(task);
    Collection<String> results = task.get();
@@ -93,18 +89,14 @@ What if the code you execute in cluster takes longer than acceptable. If you can
 \begin{verbatim}
 public class Fibonacci<Long> implements Callable<Long>, Serializable {
     int input = 0; 
-
     public Fibonacci() { 
     } 
-
     public Fibonacci(int input) { 
         this.input = input;
     } 
-
     public Long call() {
         return calculate (input);
     }
-
     private long calculate (int n) {
         if (Thread.currentThread().isInterrupted()) return 0;
         if (n <= 1) return n;
@@ -180,3 +172,18 @@ es.execute(new DistributedTask<String>(new Fibonacci<Long>(10)) {
 \end{verbatim}
 
 \section{What is next}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi libero sem,
+interdum eget varius vel, faucibus placerat purus. Sed vulputate diam sit amet
+risus dapibus dignissim. Praesent lobortis eleifend augue. Cum sociis natoque
+penatibus et magnis dis parturient montes, nascetur ridiculus mus. Morbi libero
+turpis, viverra ac vulputate a, faucibus vel quam. Quisque interdum congue
+lacus, in tempus nisl tincidunt at. Curabitur sed eros eu enim vehicula
+fermentum quis nec justo. Vestibulum rutrum laoreet est, eget condimentum justo
+feugiat at. Cras ac sem ac magna ornare tempor non nec nisl. Maecenas feugiat
+fringilla nisl, vitae ullamcorper ante posuere a. Sed mollis lacinia interdum.
+Vivamus vel urna metus. Nulla eget tellus sem. Praesent volutpat suscipit nulla,
+nec dictum arcu iaculis id. Duis pharetra vestibulum sapien, quis pulvinar odio
+pharetra id. Cras at erat velit, vel tincidunt elit. Curabitur vehicula leo eu
+odio vulputate ac consequat nulla ultricies. Maecenas venenatis condimentum
+urna ut ultrices. Aliquam blandit fermentum eros, ac lacinia sem scelerisque
+at. Nullam vitae nisi at erat posuere cursus a non velit.
