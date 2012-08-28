@@ -1,0 +1,5 @@
+TODO:
+
+- The Hazelcast.getXXX methods needs to be changed since they are deprecated.
+
+- The Config of the HazelcastInstance needs to be set before creating objects.
