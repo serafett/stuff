@@ -1,30 +1,177 @@
 \chapter{Distributed Primitives}
 
-This chapter explains the following distributed primitives:
+If you have programmed in Java you have probably worked with concurrency primitives
+like the synchronized statement (the intrinsic lock) or perhaps even the new concurrency
+library that was introduced in Java 5 under java.util.concurrent like the Executor,
+Lock and AtomicReference. And with every new release of Java all kinds of new functionality 
+is added like the Fork/Join framework in Java 7.
+
+This concurrency functionality is useful if you want to write a Java application that use multiple 
+threads. The focus of this functionality however is to provide concurrency abstractions to be used 
+in a single jvm, although you can always connect multiple JVM's together either using raw sockets 
+or some kind of more higher level remoting library (RMI, Servlets etc)
+
+Hazelcast provides direct support for synchronization primitives that are distributed. The advantage
+of using distributed data-structures is:
 \begin{enumerate}
+\item failover; so if one machine fails, the system will still be working
+\item scalability; just add more machines and you will get more capacity. Although this doesn't mean
+that your system will automatically become better scalable when you introduce Hazelcast 
+\end{enumerate}
+
+In this chapter the following distributed primitives will be explained:
+\begin{enumerate}
+\item AtomicNumber
 \item Lock
 \item ISemaphore
 \item ICountdownLatch
-\item INumber
 \item IdGenerator
 \end{enumerate}
 
-\section{Distributed Lock}
+\section{AtomicNumber}
 
-A lock makes it possible to provide mutual exclusion, meaning that only a single
-thread will have access to a certain resources. With the introduction of Java 5,
-the java.util.concurrent.locks.Lock is introduced. Hazelcast makes it possible
-to create a Lock that is distributed, so can be shared between multiple processes
-running on different machines.
+The AtomicNumber is the distributed version of the java.util.concurrent.atomic.AtomicLong.
+The main reason I'm using the AtomicNumber for is for are counters. 
 
-Example:
-
+Below is a small example:
 \begin{verbatim}
-public class DistributedLock{
+public class AtomicNumberMain{
     public static void main(String[] args){
+        AtomicNumber counter = Hazelcast.getAtomicNumber("counter");
+        int count = 1000 * 1000;
+        for(int k=0;k<count;k++){
+            counter.incrementAndGet();
+        }
+        System.out.printf("Count is %s\n",counter.get());
     }
 }
 \end{verbatim}
+In this case the counter is incremented 1000*1000 times and if you run this application
+in parallel, then the total count should be equal to 1000*1000 times the number of applications
+you have started.
+
+The AtomicNumber exposes most of the operations the AtomicLong provides like:
+\begin{enumerate}
+\item get
+\item set
+\item getAndSet
+\item compareAndSet
+\item incrementAndGet
+\end{enumerate}
+so if you have used the AtomicLong before, working with the AtomicNumber should feel similar.
+
+With the AtomicNumbers can be used in lock free algorithms, although you need to 
+take care that uncontrolled repeating can lead to live-locking; the system is appears to do
+something, but in reality it is only burning cpu cycles. In case of a distributed version 
+the system will also be consuming network resources. 
+
+If the counter is going to be a contention point in your system, you can either create
+a stripe (an array) of counters and pick one to increment. With n counters in place, you 
+should have n times more scalability. Another option is to store increments locally and 
+only once and a while increment the shared counter. The downside of this approach is that
+you could loose counts if a node goes down for example. Another downside is that the newest
+count is not always immediately visible. 
+
+There currently is only support for the long. But you can always use this to simulate
+\begin{enumerate}
+\item boolean: 0 for true and 1 for false.
+\item double: a 64 bit double can be encoded into 64 bits, which can be stored in a long 
+      which is also 64 bits.
+\end{enumerate}
+
+
+\section{Distributed Lock}
+
+The Hazelcast ILock (which extends the java.util.concurrent.locks.Lock) is perhaps
+to most basic concurrency primitive. As you know a Lock makes it possible that only
+a single thread is able to get access to a critical section of code; if multiple threads
+at the same moment would access that critical section concurrently, you would get race 
+problems. 
+
+With the Hazelcast ILock you can not only create a critical section within a single JVM,
+you can do it within a cluster of JVM's; so if one node in that cluster acquired that lock,
+other nodes in the cluster will not; they will need to wait till the lock is released.
+
+In the following example we have 2 atomic numbers and they will be incremented without
+using a lock.
+\begin{verbatim}
+import com.hazelcast.core.AtomicNumber;
+import com.hazelcast.core.Hazelcast;
+
+public class NoLockMain {
+    public static void main(String[] args) throws InterruptedException {
+        AtomicNumber number1 = Hazelcast.getAtomicNumber("number1");
+        AtomicNumber number2 = Hazelcast.getAtomicNumber("number2");
+        System.out.println("Started");
+        for (int k = 0; k < 1000000; k++) {
+            if (k % 10000 == 0) System.out.println("At: " + k);
+            if (k % 2 == 0) {
+                long n1 = number1.get();
+                Thread.sleep(100);
+                long n2 = number2.get();
+                if (n1 - n2 != 0) System.out.println("Difference detected!");
+            } else {
+                number1.incrementAndGet();
+                number2.incrementAndGet();
+            }
+        }
+        System.out.println("Finished");
+    }
+}
+\end{verbatim}
+
+After we the application multiple times we are going to see the following 
+in the console:
+\begin{verbatim}
+At 0
+Difference detected!
+Difference detected!
+...
+\end{verbatim}	
+
+The reason is that the writing and the reading of the 2 numbers is not an atomic
+operation. To make reading or writing to both the numbers atomic, we can make use 
+of the Hazelcast distributed lock:
+
+\begin{verbatim}
+import com.hazelcast.core.AtomicNumber;
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.ILock;
+
+public class LockMain {
+    public static void main(String[] args) throws InterruptedException {
+        AtomicNumber number1 = Hazelcast.getAtomicNumber("number1");
+        AtomicNumber number2 = Hazelcast.getAtomicNumber("number2");
+        ILock lock = Hazelcast.getLock("lock");
+        System.out.println("Started");
+        for (int k = 0; k < 10000; k++) {
+            if (k % 100 == 0) System.out.println("at: " + k);
+            lock.lock();
+            try {
+                if (k % 2 == 0) {
+                    long n1 = number1.get();
+                    Thread.sleep(10);
+                    long n2 = number2.get();
+                    if (n1 - n2 != 0) System.out.println("Difference detected!");
+                } else {
+                    number1.incrementAndGet();
+                    number2.incrementAndGet();
+                }
+            } finally {
+                lock.unlock();
+            }
+        }
+        System.out.println("Finished");
+    }
+}
+\end{verbatim}
+
+When this code is executed; you will not see "Difference detected!" anymore. This is because
+the lock provides a critical section around writing and reading of the numbers. 
+
+With the java.util.concurrent.locks.Lock it also is possible to create a java.util.concurrent.locks.Condition
+object to wait for a certain condition to happen; e.g. a custom made queue just received an element. Unfortunately
+the Condition functionality is not supported by Hazelcast at the moment.
 
 Important: when a node has acquired a lock and this node goes down, then that lock will
 automatically be released. This prevents threads that are waiting for a lock to wait 
@@ -88,6 +235,7 @@ And we start a single leader,
 public class Leader{
     public static void main(String[] args)throws Exception{
         ICountDownLatch latch = Hazelcast.getCountDownLatch("countDownLatch");
+        System.out.println("Starting");
         //we init the latch with 1, since we only need to complete a single step.
         latch.setCount(1); 
         //do some sleeping to simulate doing something    
@@ -108,12 +256,12 @@ And we also need followers; so Java applications that are going to wait for the
 latch to notify them.
 
 \begin{verbatim}
-public class Followers{
+public class Follower{
     public static void main(String[] args)throws Exception{
         ICountDownLatch latch = Hazelcast.getCountDownLatch("countDownLatch");
         System.out.println("Waiting");
         latch.await();
-        System.out.println("Complete!")
+        System.out.println("Complete!");
     }
 }
 \end{verbatim}
@@ -169,56 +317,6 @@ and is responsible for staying connected to the cluster until the count reaches 
 becomes disconnected prior to count reaching zero all awaiting threads will be notified. This provides 
 a safety mechanism in the distributed environment.
 
-\section{AtomicNumber}
-
-The AtomicNumber is the distributed version of the java.util.concurrent.atomic.AtomicLong.
-The main reason I'm using the AtomicNumber for is for are counters. 
-
-Below is a small example:
-\begin{verbatim}
-public class AtomicNumberMain{
-    public static void main(String[] args){
-        AtomicNumber counter = Hazelcast.getAtomicNumber("counter");
-        int count = 1000 * 1000;
-        for(int k=0;k<count;k++){
-            counter.incrementAndGet();
-        }
-        System.out.printf("Count is %s\n",counter.get());
-    }
-}
-\end{verbatim}
-In this case the counter is incremented 1000*1000 times and if you run this application
-in parallel, then the total count should be equal to 1000*1000 times the number of applications
-you have started.
-
-The AtomicNumber exposes most of the operations the AtomicLong provides like:
-\begin{enumerate}
-\item get
-\item set
-\item getAndSet
-\item compareAndSet
-\item incrementAndGet
-\end{enumerate}
-so if you have used the AtomicLong before, working with the AtomicNumber should feel similar.
-
-With the AtomicNumbers can be used in lock free algorithms, although you need to 
-take care that uncontrolled repeating can lead to live-locking; the system is appears to do
-something, but in reality it is only burning cpu cycles. In case of a distributed version 
-the system will also be consuming network resources. 
-
-If the counter is going to be a contention point in your system, you can either create
-a stripe (an array) of counters and pick one to increment. With n counters in place, you 
-should have n times more scalability. Another option is to store increments locally and 
-only once and a while increment the shared counter. The downside of this approach is that
-you could loose counts if a node goes down for example. Another downside is that the newest
-count is not always immediately visible. 
-
-There currently is only support for the long. But you can always use this to simulate
-\begin{enumerate}
-\item boolean: 0 for true and 1 for false.
-\item double: a 64 bit double can be encoded into 64 bits, which can be stored in a long 
-      which is also 64 bits.
-\end{enumerate}
 
 \section{IdGenerator}
 
