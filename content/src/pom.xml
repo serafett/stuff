@@ -40,5 +40,6 @@
     <modules>
         <module>chapter-distributed-collections</module>
         <module>chapter-distributed-primitives</module>
+        <module>chapter-distributed-executor</module>
     </modules>
 </project>
