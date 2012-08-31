@@ -1,8 +1,13 @@
 \chapter{Distributed Executor Service}
 
-One of the coolest new futures of Java 1.5 is the Executor framework, which allows you to asynchronously execute your tasks, logical units of works, such as database query, complex calculation, image rendering etc. So one nice way of executing such tasks would be running them asynchronously and doing other things meanwhile. When ready, get the result and move on. If execution of the task takes longer than expected, you may consider canceling the task execution. In Java Executor framework, tasks are implemented as java.util.concurrent.Callable andjava.util.Runnable.
+Java 5 was perhaps the most fundamental upgrade since Java was released. On a language level we got generics, static imports, enumerations, enhanced for loop and annotations. From a correctness point of view we get the new Java Memory Model. And we also got the executor framework in the java.util.concurrent library.
 
-TODO: The task is also run on client nodes, this is not always what you want. So if this is an issue, inject a custom LoadBalancer in the Executor that prevent sending to lite members.
+With the executor you can create tasks (java.util.Runnable) in one thread, and hand them over to be executed by another thread; so these tasks are executed asynchronously. Often these worker threaded are pooled threads since threads can be quite expensive to create. 
+
+There is virtually no limit in what you can place in such a task; you could execute complex database operations, intensive cpu or io operations. The problem in a distributed system however, is that the default implementations of the Executor are designed to be run within a single machine. So the thread responsible for creating a tasks will be running in the same JVM as the thread that executed the task.
+
+Hazelcast extends the functionality provided by the Executor framework to make it fit to run in a distributed environment. This means that tasks placed by one JVM can executed on a different JVM. This makes it very easy to scale; just add more machines and the total capacity of processing tasks will increase.
+
 
 \begin{lstlisting}[language=java]
 import java.util.concurrent.Callable;
@@ -21,6 +26,9 @@ public class Echo implements Callable<String>, Serializable {
     }
 }
 \end{lstlisting}
+
+
+TODO: The task is also run on client nodes, this is not always what you want. So if this is an issue, inject a custom LoadBalancer in the Executor that prevent sending to lite members.
 
 Echo callable above, for instance, in its call() method, is returning the local member and the input passed in. Remember that Hazelcast.getCluster().getLocalMember() returns the local member and toString() returns the member's address (ip + port) in String form, just to see which member actually executed the code for our example. Of course, call() method can do and return anything you like. Executing a task by using executor framework is very straight forward. Simply obtain a ExecutorService instance, generally via Executors and submit the task which returns aFuture. After executing task, you don't have to wait for execution to complete, you can process other things and when ready use the future object to retrieve the result as show in code below.
 

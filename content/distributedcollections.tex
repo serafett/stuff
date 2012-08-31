@@ -165,15 +165,16 @@ TODO: Is there also a distributed dequeue?
 
 \section{Distributed List}
 
-After the distributed queue, we have the list. As you most likely know a list is a 
-datastructure where the ordering of elements matters. 
+After the distributed queue, we have the list. As you most likely know, a list is a 
+datastructure where the ordering and occurrence of the elements matters. List is not a 
+structure you will on a day to day basis, but when you need it, is fine to have in Hazelcast.
 
 An example of Distributed List in Hazelcast.
 
 \begin{lstlisting}[language=java]
 public class ListExample{
     public static void main(String[] args){
-	
+
     }
 }
 \end{lstlisting}
@@ -182,18 +183,35 @@ TODO: read mostly?
 
 \section{Distributed Set}
 
-A Set is a collection where every element only occurs ones. In Hazelcast a Set has 
+A Set is a collection where every element only occurs ones. Also the Hazelcast
+
+And you can always use a Map as a set; just ignore the value and only focus on the key.
+
+TODO: Is this how the set is implemented?
 
 TODO: Good explanation of equals/hash
 
 \begin{lstlisting}[language=java]
-public class ListExample{
-    public static void main(String[] args){
-	
+import com.hazelcast.core.Hazelcast;
+import java.util.Set;
+
+public class SetMain {
+    public static void main(String[] args) {
+        Set<Long> set = Hazelcast.getSet("set");
+        for (int k = 0; k < 5; k++) {
+            set.add(System.nanoTime());
+        }
+
+        System.out.println("size: " + set.size());
     }
 }
 \end{lstlisting}
 
+The first time you execute this, you will see 'size: 5', but the second time you execute it you will see 'size: 10'. This is because the
+set is distributed and on the second run, the set already contains the elements from the first run.
+
+In Hazelcast the distributed set is implemented based on the distributed map functionality; the element is used as key in the map and the
+value is null. 
 
 \section{Collection Item Listeners}
 
