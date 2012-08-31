@@ -1,6 +1,6 @@
 \chapter{Distributed Collections}
 
-Hazelcast provides a bunch of collections that implement interfaces from the java collection 
+Hazelcast provides a set of collections that implement interfaces from the java collection 
 framework and make it easy to integration distributed collections without too many code changes.
 This chapter will example distributed collections like:
 \begin{enumerate}
@@ -9,91 +9,125 @@ This chapter will example distributed collections like:
 \item List
 \end{enumerate}
 The distributed map functionality provided by Hazelcast is so extensive that 2 separate chapters
-have been dedicated to it,
+have been dedicated to it. 
+
+One of the cool thing about distributed collections in Hazelcast is that when a node fails that
+a manages (a part of) a distributed collection, another node will immediately take over without
+any elements in the collection getting lost.
 
 \section{Distributed Queue}
 
-A queue is one of the working horses for concurrent and distributed system because it 
-allows producers and consumers of messages to work in different speeds but also at different
-locations.
+A blocking queue is one of the working horses for concurrent system because it 
+allows producers and consumers of messages to work in different speeds. The Hazelcast BlockingQueue
+implementation not only allows threads from the same machine to interact with that queue, but
+since the queue is distributed it also allows different jvm's to interact with it.
 
-Take a look at the following producer/consumer example. There are 2 Java Processes, 1 that
-produces messages and another one that consumes messages. The queue that is shared between
-these processes is provided by Hazelcast.
+As an example we have a BlockingQueue that stores Integers. We have an java process that produces
+integers; the Producer. And we also have a Java process that consumes Integers; the Consumer. When the
+Producer is finished, it will post -1 on the queue to indicate to the consumers that they can stop. Such
+a special control message also is called a poison pill.
 
 The Producer:
 \begin{verbatim}
-import com.hazelcast.core.*;
-import java.util.concurrent.*;
-public class ProducerMain{
-    public static void main(String[] args){
-        final BlockingQueue<String> queue = Hazelcast.getQueue("queue");
-        Runnable runnable = new Runnable(){
-            public void run(){
-                try{
-                    for(int k=1;k<1000;k++){
-                        queue.put(""+k);
-                        System.our.println("producing: "+k)
-                    }
-                }catch(InterruptedException ex){
-                    ex.printStackTrace();
-                }
-            };
-        new Thread(runnable).start();
+import com.hazelcast.core.Hazelcast;
+import java.util.concurrent.BlockingQueue;
+public class ProducerMain {
+    public static void main(String[] args) throws Exception {
+        BlockingQueue<Integer> queue = Hazelcast.getQueue("producerConsumerQueue");
+        for (int k = 1; k < 1000; k++) {
+            Thread.sleep(1000);  
+            queue.put(k);
+            System.out.println("Producing: " + k);
+        }
+        queue.put(-1);
+        System.out.println("Producer Finished!");
     }
 }
 \end{verbatim}
 
 The Consumer:
 \begin{verbatim}
-import com.hazelcast.core.*;
-import java.util.concurrent.*;
-public class ConsumerMain{
-    public static void main(String[] args){
-        final BlockingQueue<String> queue = Hazelcast.getQueue("queue");
-            Runnable runnable = new Runnable(){
-                public void run(){
-                    try{
-                        while(true)
-                            System.out.println("consumed: "+queue.take());
-                    }catch(InterruptedException ex){
-                        ex.printStackTrace();
-                    }
-            }
-        };
-        new Thread(runnable).start();
+import com.hazelcast.core.Hazelcast;
+import java.util.concurrent.BlockingQueue;
+public class ConsumerMain {
+    public static void main(String[] args) throws Exception {
+        BlockingQueue<Integer> queue = Hazelcast.getQueue("producerConsumerQueue");
+        while (true){
+            Thread.sleep(1000);  
+            int item = queue.take();
+            System.out.println("Consumed: " + item);
+            if(item == -1){
+                queue.put(-1);
+                break;
+            }           
+        }
+        System.out.println("Consumer Finished!");
     }
 }
 \end{verbatim}
+If you take a closer look at consuming the message, we see that when the consumer receives the poison pill,
+that before it ends the loop, it put the poison pill back on the queue. This is done to make sure that all
+consumer will receive the poison pill, and not only the one that received it first.
 
-When you run these examples, you will see the following for the Producer:
+When you begin with starting a single producer, you will see the following output:
 \begin{verbatim}
-produced 1
-produced 2
-produced 3
+Produced 1
+Produced 2
+Produced 3
 ....
 \end{verbatim}
 
-And for the consumer you will see:
+When you start a single consumer, you will see the following output:
 \begin{verbatim}
-consumed 1
-consumed 2
-consumed 3
+Consumed 1
+Consumed 2
+Consumed 3
 ....
 \end{verbatim}
 
 To improve scalability, you can create as many producers and consumers as you want; just launch 
-more of them. One thing to watch out for however, eventually the queue will become the bottleneck 
-for similar reasons a normal BlockingQueue implementation will suffer; and that is contention. One 
-way of solving this problem is to introduce multiple queues.
+more of them. For example if we start another consumer, we'll see that on consumer takes care of
+on half of the elements and the other consumer takes care of the other half.
 
-Realize that although the queue itself preserves ordering of the messages (so the messages
+Consumer 1:
+\begin{verbatim}
+Consumed 20
+Consumed 22
+Consumed 24
+....
+\end{verbatim}
+
+Consumer 2:
+\begin{verbatim}
+Consumed 21
+Consumed 23
+Consumed 25
+....
+\end{verbatim}
+
+And when you kill one of the consumers, the remaining consumer will process all elements again:
+
+Consumer 1:
+\begin{verbatim}
+Consumed 40  
+Consumed 42 
+Consumed 44 
+Consumed 45
+Consumed 46
+....
+\end{verbatim}
+
+One thing to watch out for however, eventually the queue will become the bottleneck for similar reasons a normal 
+BlockingQueue implementation will; and that is contention. One way of solving this problem is to introduce 
+a stripe (a list) of BlockingQueues but ordering is no longer guaranteed that way.
+
+\emph{Important}: Realize that although the queue itself preserves ordering of the messages (so the messages
 are taken from the queue in the order they were put on the queue), if there are multiple consumers 
 on the same queue, the order in which items get processed is not guaranteed. This is because processing
 of messages taken happens in parallel and queue will not provide any ordering guarantees on messages
 after they are taken from the queue.
 
-\subsection{Capacity}
+\subsection{BlockingQueue Capacity}
 
 In the previous example we created a basic producer consumer implementation with a shared
 Hazelcast BlockingQueue. Because the production of messages is separated from the consumption
@@ -113,55 +147,18 @@ the capacity of the queue will shrink
 
 TODO: (what will happen when the queue is 'full' and machine is removed?) 
 
+To give our producerConsumerQueue a capacity, we add the following to our hazelcast.xml file.
 \begin{verbatim}
-import com.hazelcast.core.*;
-import java.util.concurrent.*;
-public class ProducerMain{
-    public static void main(String[] args){
-        QueueConfig queueConfig = new QueueConfig()
-            .setName("queue")
-            .setMaxSizePerJVM(10);
-        //TODO: How to obtain a queue based on some queue config.
-        final BlockingQueue<String> queue = Hazelcast.getQueue("queue");
-        Runnable runnable = new Runnable(){
-            public void run(){
-                try{
-                    for(int k=1;k<1000;k++){
-                        queue.put(""+k);
-                        System.out.println("produced:"+k)
-                     }
-                 }catch(InterruptedException ex){
-                    ex.printStackTrace();
-                }
-            };
-        new Thread(runnable).start();
-    }
-}
+<hazelcast>
+    <queue name="producerConsumerQueue">
+        <max-size-per-jvm>10</max-size-per-jvm>
+    </queue>
+</hazelcast>
 \end{verbatim}
 
-//TODO: Does the Consumer need to be configured with the same settings
-\begin{verbatim}
-import com.hazelcast.core.*;
-import java.util.concurrent.*;
-public class ConsumerMain{
-    public static void main(String[] args){
-        final BlockingQueue<String> queue = Hazelcast.getQueue("queue");
-            Runnable runnable = new Runnable(){
-                public void run(){
-                    try{
-                        while(true){
-                            Thread.sleep(1000)
-                            System.out.println("consumed: "+queue.take());
-                        }
-                    }catch(InterruptedException e){
-                        ex.printStackTrace();
-                    }
-            }
-        };
-        new Thread(runnable).start();
-    }
-}
-\end{verbatim}
+When we start a single producer, we'll see that 10 items are produced and than the producer
+blocks. When we start a single consumer, we'll immediately see that the producer will continue
+since the total capacity is now 20 (2 jvm's and each jvm'1 has 10 for max-size-per-jvm). 
 
 \subsection{Time to live}
 TODO: Is there also a distributed dequeue?

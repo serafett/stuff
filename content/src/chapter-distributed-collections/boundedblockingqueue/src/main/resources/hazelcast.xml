@@ -1,0 +1,5 @@
+<hazelcast>
+    <queue name="producerConsumerQueue">
+        <max-size-per-jvm>10</max-size-per-jvm>
+    </queue>
+</hazelcast>

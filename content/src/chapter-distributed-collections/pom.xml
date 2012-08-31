@@ -19,6 +19,7 @@
 
     <modules>
         <module>blockingqueue</module>
+        <module>boundedblockingqueue</module>
         <module>list</module>
         <module>set</module>
     </modules>
