@@ -13,7 +13,7 @@ have been dedicated to it.
 
 One of the cool thing about distributed collections in Hazelcast is that when a node fails that
 a manages (a part of) a distributed collection, another node will immediately take over without
-any elements in the collection getting lost.
+any elements in the collection getting lost
 
 \section{Distributed Queue}
 
@@ -28,7 +28,7 @@ Producer is finished, it will post -1 on the queue to indicate to the consumers 
 a special control message also is called a poison pill.
 
 The Producer:
-\begin{verbatim}
+\begin{lstlisting}[language=java]
 import com.hazelcast.core.Hazelcast;
 import java.util.concurrent.BlockingQueue;
 public class ProducerMain {
@@ -43,10 +43,10 @@ public class ProducerMain {
         System.out.println("Producer Finished!");
     }
 }
-\end{verbatim}
+\end{lstlisting}
 
 The Consumer:
-\begin{verbatim}
+\begin{lstlisting}[language=java]
 import com.hazelcast.core.Hazelcast;
 import java.util.concurrent.BlockingQueue;
 public class ConsumerMain {
@@ -64,7 +64,7 @@ public class ConsumerMain {
         System.out.println("Consumer Finished!");
     }
 }
-\end{verbatim}
+\end{lstlisting}
 If you take a closer look at consuming the message, we see that when the consumer receives the poison pill,
 that before it ends the loop, it put the poison pill back on the queue. This is done to make sure that all
 consumer will receive the poison pill, and not only the one that received it first.
@@ -170,13 +170,13 @@ datastructure where the ordering of elements matters.
 
 An example of Distributed List in Hazelcast.
 
-\begin{verbatim}
+\begin{lstlisting}[language=java]
 public class ListExample{
     public static void main(String[] args){
 	
     }
 }
-\end{verbatim}
+\end{lstlisting}
 
 TODO: read mostly?
 
@@ -186,13 +186,13 @@ A Set is a collection where every element only occurs ones. In Hazelcast a Set h
 
 TODO: Good explanation of equals/hash
 
-\begin{verbatim}
+\begin{lstlisting}[language=java]
 public class ListExample{
     public static void main(String[] args){
 	
     }
 }
-\end{verbatim}
+\end{lstlisting}
 
 
 \section{Collection Item Listeners}
@@ -202,7 +202,7 @@ the ICollection interface. The nice thing is that Hazelcast enriches the existin
 with item listeners. The following example shows an itemListener that listens to all changes made
 in a queue, but to listen to changes in a Set or List are similar.
 
-\begin{verbatim}
+\begin{lstlisting}[language=java]
 import org.hazelcast.core.*;	
 public class ItemListenerMain{
     public static void main(String[] args){
@@ -219,12 +219,12 @@ public class ItemListenerMain{
         );
     }
 }
-\end{verbatim}
+\end{lstlisting}
 
 And to see that the ItemListeners really are working, start up the ItemListenerMain
 first, and after that run the following ItemChangerMain:
 
-\begin{verbatim}
+\begin{lstlisting}[language=java]
 import org.hazelcast.core.*;	
 public class ItemChangerMain{
     public static void main(String[] args){
@@ -235,7 +235,7 @@ public class ItemChangerMain{
         queue.take();
     }
 }
-\end{verbatim}
+\end{lstlisting}
 
 The output of the ItemListenerMain will show the following:
 \begin{verbatim}

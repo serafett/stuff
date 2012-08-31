@@ -34,7 +34,7 @@ The AtomicNumber is the distributed version of the java.util.concurrent.atomic.A
 The main reason I'm using the AtomicNumber for is for are counters. 
 
 Below is a small example:
-\begin{verbatim}
+\begin{lstlisting}[language=java]
 public class AtomicNumberMain{
     public static void main(String[] args){
         AtomicNumber counter = Hazelcast.getAtomicNumber("counter");
@@ -45,7 +45,7 @@ public class AtomicNumberMain{
         System.out.printf("Count is %s\n",counter.get());
     }
 }
-\end{verbatim}
+\end{lstlisting}
 In this case the counter is incremented 1000*1000 times and if you run this application
 in parallel, then the total count should be equal to 1000*1000 times the number of applications
 you have started.
@@ -94,7 +94,7 @@ other nodes in the cluster will not; they will need to wait till the lock is rel
 
 In the following example we have 2 atomic numbers and they will be incremented without
 using a lock.
-\begin{verbatim}
+\begin{lstlisting}[language=java]
 import com.hazelcast.core.AtomicNumber;
 import com.hazelcast.core.Hazelcast;
 
@@ -118,7 +118,7 @@ public class NoLockMain {
         System.out.println("Finished");
     }
 }
-\end{verbatim}
+\end{lstlisting}
 
 After we the application multiple times we are going to see the following 
 in the console:
@@ -133,7 +133,7 @@ The reason is that the writing and the reading of the 2 numbers is not an atomic
 operation. To make reading or writing to both the numbers atomic, we can make use 
 of the Hazelcast distributed lock:
 
-\begin{verbatim}
+\begin{lstlisting}[language=java]
 import com.hazelcast.core.AtomicNumber;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.ILock;
@@ -164,7 +164,7 @@ public class LockMain {
         System.out.println("Finished");
     }
 }
-\end{verbatim}
+\end{lstlisting}
 
 When this code is executed; you will not see "Difference detected!" anymore. This is because
 the lock provides a critical section around writing and reading of the numbers. 
@@ -197,7 +197,7 @@ A semaphore that is initialized with the value 1, will have similar behavior as 
 but with the big difference that with a semaphore a different thread is allowed to release
 the permit than the thread that acquired the permit.
 
-\begin{verbatim}
+\begin{lstlisting}[language=java]
 public class SemaphoreMain{
     public static void main(String[] args)throws Exception{
         SemaphoreConfig config = new SemaphoreConfig()
@@ -216,7 +216,7 @@ public class SemaphoreMain{
         }
     }
 }
-\end{verbatim}
+\end{lstlisting}
 
 TODO: Explain attach
 
@@ -231,7 +231,7 @@ The following example is made up by 2 parts; 1 part is the 'Leader'. It will cre
 and do a 'countdown' to release it:
 
 And we start a single leader, 
-\begin{verbatim}
+\begin{lstlisting}[language=java]
 public class Leader{
     public static void main(String[] args)throws Exception{
         ICountDownLatch latch = Hazelcast.getCountDownLatch("countDownLatch");
@@ -248,14 +248,14 @@ public class Leader{
         latch.destroy();
     }
 }
-\end{verbatim}
+\end{lstlisting}
 
 TODO: What happens when the latch is destroyed before all the followers are notitifed?
 
 And we also need followers; so Java applications that are going to wait for the 
 latch to notify them.
 
-\begin{verbatim}
+\begin{lstlisting}[language=java]
 public class Follower{
     public static void main(String[] args)throws Exception{
         ICountDownLatch latch = Hazelcast.getCountDownLatch("countDownLatch");
@@ -264,7 +264,7 @@ public class Follower{
         System.out.println("Complete!");
     }
 }
-\end{verbatim}
+\end{lstlisting}
 We can spawn as many of these waiters as you want, and all will be displaying.
 
 \begin{verbatim}
@@ -281,7 +281,7 @@ Complete!
 This example show a CountdownSemaphore with only a single 'step'. But if the process has n steps,
 the countdownlatch can be initialized with n. In the following example a process that is made up of 2 steps is shown.
 
-\begin{verbatim}
+\begin{lstlisting}[language=java]
 public class MultiStepLeader{
     public static void main(String[] args)throws Exception{
         ICountDownLatch latch = Hazelcast.getCountDownLatch("countDownLatch");
@@ -297,7 +297,7 @@ public class MultiStepLeader{
         latch.destroy();
     }
 }
-\end{verbatim}
+\end{lstlisting}
 
 Although the ICountdownLatch is a very useful synchronization aid, it probably isn't one
 you will use on a daily basis.
@@ -326,7 +326,7 @@ it probably isn't the most scalable solution since all member will content on in
 the value. If you are only interested in id's and not in the order the id's are generated 
 (or even when elements are skipped) you can have a look at the IdGenerator.
 
-\begin{verbatim}
+\begin{lstlisting}[language=java]
 public class IdGeneratorMain{
     public static void main(String[] args){
         IdGenerator idGenerator = Hazelcast.getIdGenerator("idGenerator");
@@ -337,7 +337,7 @@ public class IdGeneratorMain{
         }
     }
 }
-\end{verbatim}
+\end{lstlisting}
 
 The way the org.hazelcast.core.IdGenerator works is that each node claims a segment of 
 id's to generate, e.g. 0..999999. This is done behind the scenes by incrementing a shared 
