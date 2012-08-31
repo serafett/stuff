@@ -152,11 +152,15 @@ public class OrderService{
 }
 \end{verbatim}
 
-The problem is that the Orders are very likely to be stored on a different partition than the customers since the customer will be partitioned with the customer id, and the order with the order id. 
+The problem is that the Orders are very likely to be stored on a different partition than the customers since the customer will 
+be partitioned with the customer id, and the order with the order id. 
 
-This can be solved by making use of the PartitionAware interface. If a key for the IMap implements this interface, instead of using the hashcode of the object to determine the correct partition, the PartitionAware.getPartitionKey() method will be called and the result of this method will be used to determine the right partition.
+This can be solved by making use of the PartitionAware interface. If a key for the IMap implements this interface, instead 
+of using the hashcode of the object to determine the correct partition, the PartitionAware.getPartitionKey() method will be 
+called and the result of this method will be used to determine the right partition.
 
-In our case we introduce an intermediate object: the OrderKey that implements this PartitionAware interface and returns the customerId as the partitionKey.
+In our case we introduce an intermediate object: the OrderKey that implements this PartitionAware interface and returns the 
+customerId as the partitionKey.
 
 \begin{verbatim}
 import com.hazelcast.core.PartitionAware;
@@ -232,11 +236,14 @@ OrderPartition: 206
 
 As you can see, the partition where the Customer is stored, is the same as the partition where the Order of that same customer is stored. 
 
-Being able to control what data is placed in the same partition, is a very powerful feature and needs to be taking into consideration from the beginning. Once this is done correctly, it will be a lot easier to write a high performance and scalable system. 
+Being able to control what data is placed in the same partition, is a very powerful feature and needs to be taking into consideration from 
+the beginning. Once this is done correctly, it will be a lot easier to write a high performance and scalable system. 
 
 \section{Near Cache}
 
-Till so far all our data is bound to a specific partition, e.g. the orders, the customer etc. But in some cases data needs to be available on all machines, an example of such data is reference data. Hazelcast luckily supports a feature called the near cache that makes data available on all partitions instead of a single one.
+Till so far all our data is bound to a specific partition, e.g. the orders, the customer etc. But in some cases 
+data needs to be available on all machines, an example of such data is reference data. Hazelcast luckily supports 
+a feature called the near cache that makes data available on all partitions instead of a single one.
 
 To explain the near cache, we are going to introduce the article domain object. We could define it like this:
 

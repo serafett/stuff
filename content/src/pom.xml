@@ -13,7 +13,7 @@
     </description>
 
     <properties>
-        <hazelcast.version>2.1.2</hazelcast.version>
+        <hazelcast.version>2.3</hazelcast.version>
         <hazelblast.version>2.1.1</hazelblast.version>
         <spring.version>3.1.0.RELEASE</spring.version>
         <junit.version>4.10</junit.version>
@@ -28,18 +28,12 @@
         </dependency>
     </dependencies>
 
-    <build>
-        <testSourceDirectory>src/test/java</testSourceDirectory>
-        <testResources>
-            <testResource>
-                <directory>src/test/resources</directory>
-            </testResource>
-        </testResources>
-    </build>
-
     <modules>
         <module>chapter-distributed-collections</module>
         <module>chapter-distributed-primitives</module>
         <module>chapter-distributed-executor</module>
+        <module>chapter-clients</module>
+        <module>chapter-distributed-map</module>
+        <module>chapter-distributed-map-advanced</module>
     </modules>
 </project>

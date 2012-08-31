@@ -1,18 +1,33 @@
 \chapter{Learning the basics}
-Hazelcast is a datagrid implementation for the JVM, so any language that runs on the JVM can make use of Hazelcast. Hazelcast makes it easy to create scalable and high available applications.
+Hazelcast is a clustering and highly scalable data distribution platform for Java. It is written in Java, so there 
+is no native part and it can be used in an Language running on top of the JVM.
+
+
+\begin{enumerate}
+  \item distributed collections like BlockingQueue, Map, Set etc.
+  \item distributed primitives like locks, semaphore, countdownlatches etc.
+  \item distributed execution of tasks, so tasks can be submitted on one JVM and executed 
+        on another.
+  \item Scaling to hundreds of servers; just add more nodes to add additional capacity to your clustered system.
+  \item Providing high availability; so if one node in the cluster fails anther node will take over.
+\end{enumerate}
 
 \section{Installing Hazelcast}
 
-First you need to make sure that Java 5 or higher is installed on your machine. If not installed, it can be downloaded from the Oracle site:
-http://java.com/en/download/index.jsp. After you ensured that Java is installed, Hazelcast can be downloaded from http://www.hazelcast.com/downloads.jsp. There are 2 versions:
+First you need to make sure that Java 5 or higher is installed on your machine. If not installed, it can 
+be downloaded from the Oracle site: http://java.com/en/download/index.jsp. After you ensured that Java is 
+installed, Hazelcast can be downloaded from http://www.hazelcast.com/downloads.jsp. There are 2 versions:
 
 \includegraphics[scale=0.60]{hazelcast-editions.png}
 
-For our purposes of this book we'll rely on the community edition. If your project relies on Maven, there is no need to install Hazelcast. Setting the dependencies is enough, see next chapter.
+For our purposes of this book we'll rely on the community edition. If your project relies on Maven, there 
+is no need to install Hazelcast. Setting the dependencies is enough, see next chapter.
 
 \section{Hazelcast and Maven}
 
-Hazelcast is very easy to include in your Maven project without needing to install Hazelcast at all.  Hazelcast can be found in the standard maven repositories, so no need to added additional repositories to your Maven project. To include Hazelcast in your project, just add the following to your pom.xml:
+Hazelcast is very easy to include in your Maven project without needing to install Hazelcast at all.  
+Hazelcast can be found in the standard maven repositories, so no need to added additional repositories to 
+your Maven project. To include Hazelcast in your project, just add the following to your pom.xml:
 
 \begin{verbatim}
 <dependencies>	
@@ -28,13 +43,27 @@ Hazelcast is very easy to include in your Maven project without needing to insta
 
 Make sure that you check the Hazelcast website to make use of the most recent version. 
 
-After this dependency is added, Maven will automatically downloaded the dependencies needed. The lack of needing to install Hazelcast is something I really like because it saves up quite a lot of time, so we can spend that time doing more useful things.
+After this dependency is added, Maven will automatically downloaded the dependencies needed. 
+The lack of needing to install Hazelcast is something I really like because it saves up quite a lot of time, 
+so we can spend that time doing more useful things.
 
 \section{Configuring Hazelcast}
-
-Programmatic, Spring, xml-configuration file.
+Hazelcast can be configured in different ways:
+\begin{enumerate}
+\item Programmatic:
+\item Spring
+\item XML-configuration file
+\end{enumerate}
+In this book we'll use the xml configuration file. When you are running a maven project; just add
+a resources directory under your src/main/ and create a file 'hazelcast.xml'. The following shows
+an empty configuration:
+\begin{verbatim}
+<hazelcast>
+</hazelcast>
+\end{verbatim}
 
 \section{Downloading example sources}
 
 \section{Configure logging}
+
 
