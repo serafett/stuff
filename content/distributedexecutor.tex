@@ -221,9 +221,98 @@ In the sections below I will explain the other routing mechanisms.
 \subsection{Executing on a specific cluster member}
 
 \subsection{Executing on a node hosting a specific partition}
-Often you want to have locality of reference; so the data being used for a specific process should be close to the process. In hazelcast this can be done by sending a task to the member that owns the data in a specific partition. This has the advantage that you don't need to go over the network to retrieve data, as long as it all is in the same partition. When you start writing a distributed system, perhaps the most fundamental step to do right in the beginning is to get the partitioning schema right.
+Often you want to have locality of reference; so the data being used for a specific process should be close to the process. Locality of reference is important for a scalable system since the amount of network communication (which is also a shared resource) will be reduced.
 
-In Hazelcast sending a task to node that owns the partition can be done in 2 ways; either let the task implement com.hazelcast.core.PartitionAware interface or make use of the com.hazelcast.core.DistributedTask.
+In hazelcast this can be done by sending a task to the member that owns the data in a specific partition. This has the advantage that you don't need to go over the network to retrieve data, as long as it all is in the same partition. When you start writing a distributed system, perhaps the most fundamental step to do right in the beginning is to get the partitioning schema right.
+
+In Hazelcast sending a task to node that owns the partition can be done in 2 ways; either let the task implement com.hazelcast.core.PartitionAware interface or make use of the com.hazelcast.core.DistributedTask or let the task implement the PartitionAware interface.
+
+As an example we are going to create a clustered system where there is some dummy data in a map and for every key in that map we are going to execute a task. This task will verify if it has been executed on the same node as where that key is residing.
+
+Lets begin with the task:
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.*;
+import java.io.Serializable;
+public class PartitionedTask implements
+        Runnable, PartitionAware, Serializable, HazelcastInstanceAware {
+    private final String partitionId;
+    private HazelcastInstance hazelcastInstance;
+
+    public PartitionedTask(String partitionId) {
+        this.partitionId = partitionId;
+    }
+
+    @Override
+    public void setHazelcastInstance(HazelcastInstance hazelcastInstance) {
+        this.hazelcastInstance = hazelcastInstance;
+    }
+
+    @Override
+    public void run() {
+        IMap map =hazelcastInstance.getMap("map");
+
+        boolean localKey = map.localKeySet().contains(partitionId);
+        System.out.println("key is local:" + localKey);
+    }
+
+    @Override
+    public Object getPartitionKey() {
+        return partitionId;
+    }
+}
+\end{lstlisting}
+The PartitionedTask is implementing various interfaces. The most important one in this case is the PartitionAware interface that exposes the 'getPartitionKey' method. This indicates to Hazelcast that when this task is executed, that ghet getPartitionKey method should be called to determine the actual node the tasks is going to be executed. If null is returned as partitionKey, this indicates to Hazelcast that any node will do.
+
+Then we create some slave nodes:
+
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
+public class SlaveNode {
+    public static void main(String[] args){
+        Hazelcast.getDefaultInstance();
+    }
+}
+\end{lstlisting}
+Start up a single instance of this slave and keep it running.
+
+And then we create the master node:
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.*;
+import java.util.*;
+import java.util.concurrent.*;
+public class MasterNode {
+
+    public static void main(String[] args) throws Exception {
+        HazelcastInstance defaultInstance = Hazelcast.getDefaultInstance();
+
+        Map<String, String> map = defaultInstance.getMap("map");
+        for (int k = 0; k < 10; k++) {
+            map.put(UUID.randomUUID().toString(), "");
+        }
+
+        ExecutorService executor = defaultInstance.getExecutorService();
+        for (String key : map.keySet()) {
+            executor.execute(new PartitionedTask(key));
+        }
+    }
+}
+\end{lstlisting}
+In the master node we first create some dummy data in a map. And then we are
+executing a partition task on every key in that map. 
+
+After you run the MasterNode, you will get the following output:
+\begin{verbatim}
+key is local:true
+key is local:true
+key is local:true
+key is local:true
+key is local:true
+\end{verbatim}
+As you can see, the tasks are now executed on the same node as where the data is living. 
+So with Hazelcast it is quite easy to group data and functions operating on this data.
+
+Another nice experiment is to let the PartitionedTask.getPartitionKey method return null. This will cause the task to be executed on a random node and therefor there will not be a locality of reference.
 
 \subsection{Executing on all or subset of members}
 In some cases you want to execute a task on multiple machines; in my experience it will mostly be on all machines. You need to use this task wisely since it will cause load on multiple machines (potentially all machines).

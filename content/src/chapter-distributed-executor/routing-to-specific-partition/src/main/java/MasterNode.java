@@ -2,22 +2,22 @@ import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 public class MasterNode {
 
     public static void main(String[] args) throws Exception {
         HazelcastInstance defaultInstance = Hazelcast.getDefaultInstance();
-        Map map = defaultInstance.getMap("data");
-        map.put("1","1");
-        map.put("2","2");
-        map.put("3","3");
+
+        Map<String, String> map = defaultInstance.getMap("map");
+        for (int k = 0; k < 10; k++) {
+            map.put(UUID.randomUUID().toString(), "");
+        }
 
         ExecutorService executor = defaultInstance.getExecutorService();
-
-
-        executor.execute(new PartitionedTask("1"));
-        executor.execute(new PartitionedTask("1"));
-        executor.execute(new PartitionedTask("1"));
+        for (String key : map.keySet()) {
+            executor.execute(new PartitionedTask(key));
+        }
     }
 }
