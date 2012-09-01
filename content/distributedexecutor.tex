@@ -9,7 +9,7 @@ With the executor you can create task object which need to be implementations of
 \item java.util.concurrent.Callable: if your task does need to return a value.
 \end{enumerate}
 These tasks are created by one thread, and this thread puts these tasks in the executor where they are
-stored in a queue to be picked up by other threads; the worker threads. So while these worker threads are processing the tasks, the task that orignally submitted the tasks is free to do other work. So tasks are being executed asynchronously, although if you use a future you can sync on task completion. Often these worker threaded are pooled threads since threads can be quite expensive to create. 
+stored in a queue to be picked up by other threads; the worker threads. So while these worker threads are processing the tasks, the task that submitted the tasks is free to do other work. So tasks are being executed asynchronously, although if you use a future you can sync on task completion. Often these worker threaded are pooled threads since threads can be quite expensive to create. 
 
 A very short example:
 \begin{lstlisting}[language=java]
@@ -58,7 +58,7 @@ The next structure we are going to create is the EchoTaskMain:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.Hazelcast;
 import java.util.concurrent.Executor;
-public class EchoTaskMain {
+public class MasterNode {
     public static void main(String[] args) throws Exception {
         Executor executor = Hazelcast.getExecutorService("executor");
         for (int k = 0; k < 1000; k++) {
@@ -85,7 +85,7 @@ By default Hazelcast configures the executor to have 40 threads in the pool. For
 </hazelcast>
 \end{lstlisting}
 
-When we run running the EchoTaskMain you will get output like this:
+When we run running the MasterNode you will get output like this:
 \begin{verbatim}
 Producing echo task: 1
 Producing echo task: 2
@@ -161,9 +161,9 @@ To scale out we just need to launch one of these:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
-public class EchoTaskWorker {
+public class SlaveNode {
     public static void main(String[] args) {
-        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
+        Hazelcast.getDefaultInstance();
     }
 }
 \end{lstlisting}
@@ -209,20 +209,139 @@ public class SumTask implements Callable<Integer>, Serializable {
 
 \section{Routing}
 
-Till so far we didn't care about which node did the actual processing of the task. But in some cases you want to have control on which node is going to execute. Luckily Hazelcast provides different ways to rout messages:
+Till so far we didn't care about which node did the actual processing of the task; as long as any member picked it up. But in some cases you want to have control on which node is going to execute. Luckily Hazelcast provides different ways to route messages:
 \begin{enumerate}
-\item on any member (the default)
-\item on a specific cluster member you choose.
-\item on a node hosting a specific partition
-\item on all or subset of the cluster members.
+\item executing on any member. This is the default configuration.
+\item executing on a specific cluster member
+\item executing on a node hosting a specific partition
+\item executing on all or subset of the cluster members.
 \end{enumerate}
-In the sections below I will explain these different routing mechanisms.
+In the sections below I will explain the other routing mechanisms.
 
-\subsection{Executing a task on a specific member}
+\subsection{Executing on a specific cluster member}
 
-\subsection{Executing a task on a specific partition}
+\subsection{Executing on a node hosting a specific partition}
+Often you want to have locality of reference; so the data being used for a specific process should be close to the process. In hazelcast this can be done by sending a task to the member that owns the data in a specific partition. This has the advantage that you don't need to go over the network to retrieve data, as long as it all is in the same partition. When you start writing a distributed system, perhaps the most fundamental step to do right in the beginning is to get the partitioning schema right.
 
-\subsection{On all or subset of the cluster members}
+In Hazelcast sending a task to node that owns the partition can be done in 2 ways; either let the task implement com.hazelcast.core.PartitionAware interface or make use of the com.hazelcast.core.DistributedTask.
+
+\subsection{Executing on all or subset of members}
+In some cases you want to execute a task on multiple machines; in my experience it will mostly be on all machines. You need to use this task wisely since it will cause load on multiple machines (potentially all machines).
+
+We are going to create an example where there are a bunch of nodes. And on this nodes there is a shared map containing 100 entries. Each entry will have a key 1..100 and the value will always be null. To show the functionality of executing on all members, we are going to do a distributed count operation.
+
+Lets begin with the count task:
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.IMap;
+import java.io.Serializable;
+import java.util.concurrent.Callable;
+public class CountTask implements Callable<Integer>, Serializable {
+
+    @Override
+    public Integer call() throws Exception {
+        IMap<String, Integer> map = Hazelcast.getMap("map");
+        int result = 0;
+        for (String key : map.localKeySet()) {
+            result+=map.get(key);
+        }
+        return result;
+    }
+}
+\end{lstlisting}
+When this CountTask is called it retrieved the map and then it iterates over all keys that are local within the node and adds the mapped value and after it has finished iterating it returns the result.
+
+The next thing are the slave node's:
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
+public class SlaveNode {
+    public static void main(String[] args){
+        Hazelcast.getDefaultInstance();
+    }
+}
+\end{lstlisting}
+Lets starts 2 of these slaves and keep them running.
+
+And the last part is the master node. This node will be responsible for inserting the test data, and doing the count operation:
+
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.core.Member;
+import com.hazelcast.core.MultiTask;
+
+import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+
+public class MasterNode {
+
+    public static void main(String[] args) throws Exception {
+        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
+        insertDummyData(hazelcastInstance);
+        System.out.println("Result: " + count(hazelcastInstance));
+    }
+
+    private static int count(HazelcastInstance hazelcastInstance) throws Exception {
+        Set<Member> members = hazelcastInstance.getCluster().getMembers();
+        MultiTask<Integer> task = new MultiTask<Integer>(new CountTask(), members);
+        ExecutorService executorService = hazelcastInstance.getExecutorService();
+        executorService.execute(task);
+
+        Collection<Integer> results = task.get();
+        int x = 0;
+        for (Integer i : results) x += i;
+        return x;
+    }
+
+    private static void insertDummyData(HazelcastInstance hazelcastInstance) {
+        Map map = hazelcastInstance.getMap("map");
+
+        for (int k = 0; k < 15; k++) {
+            map.put(""+k, 1);
+        }
+    }
+}
+\end{lstlisting}
+The most important part here is the count method. First we are going to retrieve all members in the custer using "hazelcastInstance.getCluster().getMembers()". Then we are going to create a Hazelcast MultiTask; which receives our CountTask (the operation to be executed on a member) and a set of members to execute this count task on (so the task will be forked to all members). After that we call we join on task.get() and aggregate the results.
+
+When you execute this, you will see something like this for slave node 1
+\begin{verbatim}
+Calculating for key: 11
+Calculating for key: 0
+Calculating for key: 4
+Calculating for key: 5
+Local Result: 4
+\end{verbatim}
+
+And slavenode 2
+\begin{verbatim}
+Calculating for key: 10
+Calculating for key: 1
+Calculating for key: 13
+Calculating for key: 3
+Local Result: 4
+\end{verbatim}
+
+And masternode:
+\begin{verbatim}
+Calculating for key: 12
+Calculating for key: 8
+Calculating for key: 6
+Calculating for key: 2
+Calculating for key: 7
+Calculating for key: 14
+Calculating for key: 9
+Local Result: 7
+Result: 15
+\end{verbatim}
+
+As you can see the load is 'equally' spread among all the members. 
+
+TODO: Map/Reduce
 
 \section{Execution Cancellation}
 
