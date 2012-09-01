@@ -8,8 +8,7 @@ With the executor you can create task object which need to be implementations of
 \item java.util.Runnable: if your tasks doesn't need to return a value.
 \item java.util.concurrent.Callable: if your task does need to return a value.
 \end{enumerate}
-These tasks are created by one thread, and this thread puts these tasks in the executor where they are
-stored in a queue to be picked up by other threads; the worker threads. So while these worker threads are processing the tasks, the task that submitted the tasks is free to do other work. So tasks are being executed asynchronously, although if you use a future you can sync on task completion. Often these worker threaded are pooled threads since threads can be quite expensive to create. 
+These tasks are created by one thread, and this thread puts these tasks in the executor where they are stored in a queue to be picked up by other threads; the worker threads. So while these worker threads are processing the tasks, the task that submitted the tasks is free to do other work. So tasks are being executed asynchronously, although if you use a future you can sync on task completion. Often these worker threaded are pooled threads since threads can be quite expensive to create. 
 
 A very short example:
 \begin{lstlisting}[language=java]
@@ -169,7 +168,6 @@ public class SlaveNode {
 \end{lstlisting}
 We don't need to do anything else. This EchoTaskWorker loads the hazelcast.xml, and since the executor is declared there, it will automatically start the executor and the thread in the thread pool. 
 
-
 When you spawn one of these EchoTaskWorkers, you will see that it start picking up work:
 \begin{verbatim}
 echo:31
@@ -178,14 +176,34 @@ echo:35
 \end{verbatim}
 So in only a few lines of code, we are now able to scale out! If you want you can spawn more EchoTaskWorkers, but with 1 messages/second being processed and 0.2 messages/second being consumed per node (including the EchoTaskProducer), having more than 5 nodes will not speed things up.
 
-\subsection{Callable}
+\section{Executors and HazelcastInstanceAware}
+In a lot of cases when you create a task, the task needs to get access to the HazelcastInstance to retrieve all kinds of datastructures. This can be done very easily by letting the Runnable/Callable implement the HazelcastInstanceAware interface, e.g.
+
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.*;
+import java.io.Serializable;
+public class SomeTask implements
+        Runnable, Serializable, HazelcastInstanceAware {
+    private transient HazelcastInstance hazelcastInstance;
+    @Override
+    public void setHazelcastInstance(HazelcastInstance hazelcastInstance) {
+        this.hazelcastInstance = hazelcastInstance;
+    }
+    @Override
+    public void run() {
+        ....
+    }
+}
+\end{lstlisting}
+When this Task is executed (not when it is submitted), the Hazelcast executor checks if the task implements HazelcastInstanceAware. And if so, it will inject the HazelcastInstance by calling the 'setHazelcastInstance' method. The hazelcastInstance field can be transitive since it will never be send over the line. 
+
+\section{Callable}
 The ExecutorService not only allows instances of the Runnable interface to be submitted, also the callable instances can be send. Callable's are useful if you want to return a value.
 
 Lets start with a very basic Callable implementation that adds 2 int's and returns the result:
 \begin{lstlisting}[language=java]
 import java.util.concurrent.Callable;
 import java.io.Serializable;
-
 public class SumTask implements Callable<Integer>, Serializable {
     final int a;
     final int b;
@@ -193,6 +211,7 @@ public class SumTask implements Callable<Integer>, Serializable {
         this.a = a;
         this.b = b;
     }
+    @Override
     public Integer call() {
         try {
             Thread.sleep(5000); 
@@ -205,7 +224,11 @@ public class SumTask implements Callable<Integer>, Serializable {
 
 \end{lstlisting}
 
-\subsection{Future}
+\section{Future}
+
+\section{Execution Cancellation}
+
+\section{Execution Callback}
 
 \section{Routing}
 
@@ -233,20 +256,17 @@ Lets begin with the task:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
 import java.io.Serializable;
-public class PartitionedTask implements
+public class LocalTask implements
         Runnable, PartitionAware, Serializable, HazelcastInstanceAware {
     private final String partitionId;
     private HazelcastInstance hazelcastInstance;
-
     public PartitionedTask(String partitionId) {
         this.partitionId = partitionId;
     }
-
     @Override
     public void setHazelcastInstance(HazelcastInstance hazelcastInstance) {
         this.hazelcastInstance = hazelcastInstance;
     }
-
     @Override
     public void run() {
         IMap map =hazelcastInstance.getMap("map");
@@ -254,17 +274,15 @@ public class PartitionedTask implements
         boolean localKey = map.localKeySet().contains(partitionId);
         System.out.println("key is local:" + localKey);
     }
-
     @Override
     public Object getPartitionKey() {
         return partitionId;
     }
 }
 \end{lstlisting}
-The PartitionedTask is implementing various interfaces. The most important one in this case is the PartitionAware interface that exposes the 'getPartitionKey' method. This indicates to Hazelcast that when this task is executed, that ghet getPartitionKey method should be called to determine the actual node the tasks is going to be executed. If null is returned as partitionKey, this indicates to Hazelcast that any node will do.
+The LocalTask is implementing various interfaces. The most important one in this case is the PartitionAware interface that exposes the 'getPartitionKey' method. Adding this interface to a task indicates to Hazelcast that when this task is executed, that the getPartitionKey method should be called to determine the actual node the tasks is going to be executed. If null is returned as partitionKey, Hazelcast has the freedom to execute the task on any node.
 
 Then we create some slave nodes:
-
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
@@ -282,7 +300,6 @@ import com.hazelcast.core.*;
 import java.util.*;
 import java.util.concurrent.*;
 public class MasterNode {
-
     public static void main(String[] args) throws Exception {
         HazelcastInstance defaultInstance = Hazelcast.getDefaultInstance();
 
@@ -293,7 +310,7 @@ public class MasterNode {
 
         ExecutorService executor = defaultInstance.getExecutorService();
         for (String key : map.keySet()) {
-            executor.execute(new PartitionedTask(key));
+            executor.execute(new LocalTask(key));
         }
     }
 }
@@ -310,7 +327,7 @@ key is local:true
 key is local:true
 \end{verbatim}
 As you can see, the tasks are now executed on the same node as where the data is living. 
-So with Hazelcast it is quite easy to group data and functions operating on this data.
+So with Hazelcast it is quite easy to group data and functions operating on this data. 
 
 Another nice experiment is to let the PartitionedTask.getPartitionKey method return null. This will cause the task to be executed on a random node and therefor there will not be a locality of reference.
 
@@ -321,22 +338,28 @@ We are going to create an example where there are a bunch of nodes. And on this 
 
 Lets begin with the count task:
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.IMap;
+import com.hazelcast.core.*;
 import java.io.Serializable;
 import java.util.concurrent.Callable;
-public class CountTask implements Callable<Integer>, Serializable {
-
+public class CountTask implements Callable<Integer>, Serializable, HazelcastInstanceAware {
+    private transient HazelcastInstance hazelcastInstance;
+    @Override
+    public void setHazelcastInstance(HazelcastInstance hazelcastInstance) {
+        this.hazelcastInstance = hazelcastInstance;
+    }
     @Override
     public Integer call() throws Exception {
-        IMap<String, Integer> map = Hazelcast.getMap("map");
+        IMap<String, Integer> map = hazelcastInstance.getMap("map");
         int result = 0;
         for (String key : map.localKeySet()) {
-            result+=map.get(key);
+            System.out.println("Calculating for key: " + key);
+            result += map.get(key);
         }
+        System.out.println("Local Result: " + result);
         return result;
     }
 }
+
 \end{lstlisting}
 When this CountTask is called it retrieved the map and then it iterates over all keys that are local within the node and adds the mapped value and after it has finished iterating it returns the result.
 
@@ -355,25 +378,15 @@ Lets starts 2 of these slaves and keep them running.
 And the last part is the master node. This node will be responsible for inserting the test data, and doing the count operation:
 
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.core.Member;
-import com.hazelcast.core.MultiTask;
-
-import java.util.Collection;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-
+import com.hazelcast.core.*;
+import java.util.*;
+import java.util.concurrent.*;
 public class MasterNode {
-
     public static void main(String[] args) throws Exception {
         HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
         insertDummyData(hazelcastInstance);
         System.out.println("Result: " + count(hazelcastInstance));
     }
-
     private static int count(HazelcastInstance hazelcastInstance) throws Exception {
         Set<Member> members = hazelcastInstance.getCluster().getMembers();
         MultiTask<Integer> task = new MultiTask<Integer>(new CountTask(), members);
@@ -385,10 +398,8 @@ public class MasterNode {
         for (Integer i : results) x += i;
         return x;
     }
-
     private static void insertDummyData(HazelcastInstance hazelcastInstance) {
         Map map = hazelcastInstance.getMap("map");
-
         for (int k = 0; k < 15; k++) {
             map.put(""+k, 1);
         }
@@ -432,11 +443,9 @@ As you can see the load is 'equally' spread among all the members.
 
 TODO: Map/Reduce
 
-\section{Execution Cancellation}
+\section{What is next}
+In this chapter we explored the distributed execution of tasks using the Hazelcast ExecutorService. 
 
-\section{Execution Callback}
-
-\section{Gotcha's and miscellaneous}
 When you have worked with the ExecutorService before, you know that there are some gotcha's that can cause spending a lot of time on something that is easy to solve. Hazelcast also introduces some gotcha's that are important to know up front.
 
 \emph{Executors doesn't log exceptions:} when a task fails with an exception (or an error), this exception will not be logged by Hazelcast. This is in line with the ThreadPoolExecutorService from Java and it can be really annoying when you are spending a lot of time on why something doesn't work. It can easily be fixed; either add a try/catch in your runnable and log the exception. Or wrap the runnable/callable in a proxy that does the logging; the last option will keep your code a bit cleaner. 
@@ -447,23 +456,5 @@ When you have worked with the ExecutorService before, you know that there are so
 
 \emph{No workqueue capacity control:} with the normal ThreadPoolExecutor you can limit the amount of unprocessed work on the workqueue and you also can control what happens with surplus of work. With the Hazelcast Distributed Executor there is no control. So it could be that you swamp a system with unprocessed work. And this can lead to an java.lang.OutOfMemoryError.
 
-TODO: Config options
-
 TODO: Finding back context
 
-\section{What is next}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi libero sem,
-interdum eget varius vel, faucibus placerat purus. Sed vulputate diam sit amet
-risus dapibus dignissim. Praesent lobortis eleifend augue. Cum sociis natoque
-penatibus et magnis dis parturient montes, nascetur ridiculus mus. Morbi libero
-turpis, viverra ac vulputate a, faucibus vel quam. Quisque interdum congue
-lacus, in tempus nisl tincidunt at. Curabitur sed eros eu enim vehicula
-fermentum quis nec justo. Vestibulum rutrum laoreet est, eget condimentum justo
-feugiat at. Cras ac sem ac magna ornare tempor non nec nisl. Maecenas feugiat
-fringilla nisl, vitae ullamcorper ante posuere a. Sed mollis lacinia interdum.
-Vivamus vel urna metus. Nulla eget tellus sem. Praesent volutpat suscipit nulla,
-nec dictum arcu iaculis id. Duis pharetra vestibulum sapien, quis pulvinar odio
-pharetra id. Cras at erat velit, vel tincidunt elit. Curabitur vehicula leo eu
-odio vulputate ac consequat nulla ultricies. Maecenas venenatis condimentum
-urna ut ultrices. Aliquam blandit fermentum eros, ac lacinia sem scelerisque
-at. Nullam vitae nisi at erat posuere cursus a non velit.

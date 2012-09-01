@@ -17,7 +17,7 @@ public class MasterNode {
 
         ExecutorService executor = defaultInstance.getExecutorService();
         for (String key : map.keySet()) {
-            executor.execute(new PartitionedTask(key));
+            executor.execute(new LocalTask(key));
         }
     }
 }
