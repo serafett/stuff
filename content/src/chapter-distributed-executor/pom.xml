@@ -21,6 +21,9 @@
         <module>basicexecutor</module>
         <module>scale-up</module>
         <module>scale-out</module>
+        <module>routing-to-specific-member</module>
+        <module>routing-to-specific-partition</module>
+        <module>routing-to-subset-of-members</module>
     </modules>
 
 </project>

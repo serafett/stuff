@@ -74,10 +74,13 @@ As you can see we can retrieve the executor using Hazelcast.getExecutor and then
 By default Hazelcast configures the executor to have 40 threads in the pool. For this example we only want a single thread per executor, so we configure it like this:
 
 \begin{lstlisting}[language=xml]
-<hazelcast>
+<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config
+            hazelcast-config-2.0.xsd"
+           xmlns="http://www.hazelcast.com/schema/config"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <executor-service name="executor">
-        <corePoolSize>1</corePoolSize>
-        <maxPoolSize>1</maxPoolSize>
+        <max-pool-size>1</max-pool-size>
+        <core-pool-size>1</core-pool-size>
     </executor-service>
 </hazelcast>
 \end{lstlisting}
@@ -99,6 +102,7 @@ echo:2
 Producing echo task: 11
 Producing echo task: 12	
 \end{verbatim}
+
 As you can see the production of messages is 1/second and the consumption is 0.2 per second (each echo task sleeps 5 seconds). There are few ways to speed things up (apart from making the echo task faster):
 \begin{enumerate}
 \item scale up 
@@ -106,7 +110,7 @@ As you can see the production of messages is 1/second and the consumption is 0.2
 \end{enumerate}
 Both of the strategies to scale are explained below and in practice they are often combined. 
 
-\subsection{Scaling up}
+\section{Scaling up}
 (also called vertical scaling): to increase the capacity of the system we could launch more threads by setting the corePoolSize/maxPoolSize, since each thread can do 0.2 messages/second, if you run 5 threads in parallel, you can process 0.2 messages/second * 5 = 1.0 messages/second. When you scale up you need to look carefully at the machine if it can handle the additional load. If not; you need to increase its resources (either cpu, disk, memory etc); if you fail to do so, the performance could go down instead of up. But scaling up quickly becomes very expensive and scaling out stops to be cost efficient. 
 
 Scaling up the ExecutorService in Hazelcast is very simple, just increment the max-pool-size and core-pool-size. Since we know that having 5 threads is going to give maximum performance, lets set it to five.
@@ -116,9 +120,7 @@ Scaling up the ExecutorService in Hazelcast is very simple, just increment the m
            xmlns="http://www.hazelcast.com/schema/config"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <network>
-        <join>
-            <multicast enabled="true"/>
-        </join>
+        <join><multicast enabled="true"/></join>
     </network>
 
     <executor-service name="executor">
@@ -149,7 +151,9 @@ Producing echo task: 11
 \end{verbatim}
 As you can see, the tasks are being processed as quickly as they are being produced. So we now have scale the system to its maximum capacity.
 
-\subsection{Scaling out}
+TODO: explain poolsize growing and time to live stuff of the threads
+
+\section{Scaling out}
 (also called horizontal scaling): we can increase the capacity of the system we just launch more boxes. In our case we are going to scale up be launching multiple jvm's since processing the echo tasks doesn't consume any resources because it does a simple wait. But in production system you probably want to add more machines to a cluster
 
 To scale out we just need to launch one of these:
@@ -175,193 +179,69 @@ echo:35
 So in only a few lines of code, we are now able to scale out! If you want you can spawn more EchoTaskWorkers, but with 1 messages/second being processed and 0.2 messages/second being consumed per node (including the EchoTaskProducer), having more than 5 nodes will not speed things up.
 
 \subsection{Callable}
+The ExecutorService not only allows instances of the Runnable interface to be submitted, also the callable instances can be send. Callable's are useful if you want to return a value.
 
-\subsection{Future}
-
-TODO: Explain lite members also running tasks.
-
-TODO: The executor will be configured with 40 threads core poolsize and 40 threads max pool size.
-
-TODO: Config options
-
-TODO: Finding back context.s
-
-TODO: Explain about workqueue and overflowing. Can it be configured with a blocking queue?
-And is there 
-
-TODO: Executor and exceptions. Just verified; with default settings, you don't see any logging.
-
-TODO: 
-
+Lets start with a very basic Callable implementation that adds 2 int's and returns the result:
 \begin{lstlisting}[language=java]
 import java.util.concurrent.Callable;
 import java.io.Serializable;
 
-public class Echo implements Callable<String>, Serializable {
-    String input = null;
-    public Echo() {
+public class SumTask implements Callable<Integer>, Serializable {
+    final int a;
+    final int b;
+    public SumTask(int a, int b) {
+        this.a = a;
+        this.b = b;
     }
-    public Echo(String input) {
-        this.input = input;
-    }
-    public String call() {
-        return Hazelcast.getCluster()
-          .getLocalMember().toString() + ":" + input;
+    public Integer call() {
+        try {
+            Thread.sleep(5000); 
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }	    
+        return a+b;
     }
 }
+
 \end{lstlisting}
 
+\subsection{Future}
 
-TODO: The task is also run on client nodes, this is not always what you want. So if this is an issue, inject a custom LoadBalancer in the Executor that prevent sending to lite members.
+\section{Routing}
 
-Echo callable above, for instance, in its call() method, is returning the local member and the input passed in. Remember that Hazelcast.getCluster().getLocalMember() returns the local member and toString() returns the member's address (ip + port) in String form, just to see which member actually executed the code for our example. Of course, call() method can do and return anything you like. Executing a task by using executor framework is very straight forward. Simply obtain a ExecutorService instance, generally via Executors and submit the task which returns aFuture. After executing task, you don't have to wait for execution to complete, you can process other things and when ready use the future object to retrieve the result as show in code below.
+Till so far we didn't care about which node did the actual processing of the task. But in some cases you want to have control on which node is going to execute. Luckily Hazelcast provides different ways to rout messages:
+\begin{enumerate}
+\item on any member (the default)
+\item on a specific cluster member you choose.
+\item on a node hosting a specific partition
+\item on all or subset of the cluster members.
+\end{enumerate}
+In the sections below I will explain these different routing mechanisms.
 
-\begin{verbatim}
-ExecutorService executorService = Executors.newSingleThreadExecutor();
-Future<String> future = executorService.submit (new Echo("myinput"));
-//while it is executing, do some useful stuff
-//when ready, get the result of your execution
-String result = future.get();
-\end{verbatim}
+\subsection{Executing a task on a specific member}
 
-\section{Distributed Execution}
+\subsection{Executing a task on a specific partition}
 
-Distributed executor service is a distributed implementation of java.util.concurrent.ExecutorService. It allows you to execute your code in cluster. In this chapter, all the code samples are based on the Echo class above. Please note that Echo class is Serializable . You can ask Hazelcast to execute your code (Runnable, Callable):
-
-on a specific cluster member you choose.
-
-on the member owning the key you choose.
-
-on the member Hazelcast will pick.
-
-on all or subset of the cluster members.
-
-\begin{verbatim}
-import com.hazelcast.core.Member;
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.MultiTask;
-import com.hazelcast.core.DistributedTask;
-import java.util.concurrent.ExecutorService;   
-import java.util.concurrent.FutureTask;   
-import java.util.concurrent.Future;   
-import java.util.Set;
-
-public void echoOnTheMember(String i, Member m) throws Exception {
-   FutureTask<String> task = new DistributedTask<String>(new Echo(i), m);
-   ExecutorService executorService = Hazelcast.getExecutorService();
-   executorService.execute(task);
-   String echoResult = task.get();
-}
-public void echoOnTheMemberOwningTheKey(String i, Object key) throws Exception {
-   FutureTask<String> task = new DistributedTask<String>(new Echo(i), key);
-   ExecutorService executorService = Hazelcast.getExecutorService();
-   executorService.execute(task);
-   String echoResult = task.get();
-}
-public void echoOnSomewhere(String i) throws Exception { 
-   ExecutorService executorService = Hazelcast.getExecutorService();
-   Future<String> task = executorService.submit(new Echo(i));
-   String echoResult = task.get();
-}
-
-public void echoOnMembers(String i, Set<Member> m) throws Exception {
-   MultiTask<String> task = new MultiTask<String>(new Echo(i), m);
-   ExecutorService executorService = Hazelcast.getExecutorService();
-   executorService.execute(task);
-   Collection<String> results = task.get();
-} 
-\end{verbatim}
-
-Note that you can obtain the set of cluster members via Hazelcast.getCluster().getMembers() call. You can also extend the MultiTask class to override set(V result), setException(Throwable exception), done() methods for custom behaviour. Just like java.util.concurrent.FutureTask.get() , MultiTask.get() will throw java.util.concurrent.ExecutionException if any of the executions throws exception.
+\subsection{On all or subset of the cluster members}
 
 \section{Execution Cancellation}
 
-What if the code you execute in cluster takes longer than acceptable. If you cannot stop/cancel that task it will keep eating your resources. Standard Java executor framework solves this problem with by introducing cancel() api and 'encouraging' us to code and design for cancellations, which is highly ignored part of software development.
-
-\begin{verbatim}
-public class Fibonacci<Long> implements Callable<Long>, Serializable {
-    int input = 0; 
-    public Fibonacci() { 
-    } 
-    public Fibonacci(int input) { 
-        this.input = input;
-    } 
-    public Long call() {
-        return calculate (input);
-    }
-    private long calculate (int n) {
-        if (Thread.currentThread().isInterrupted()) return 0;
-        if (n <= 1) return n;
-        else return calculate(n-1) + calculate(n-2);
-    }
-}
-\end{verbatim}
-
-The callable class above calculates the fibonacci number for a given number. In the calculate method, we are checking to see if the current thread is interrupted so that code can be responsive to cancellations once the execution started. Following fib() method submits the Fibonacci calculation task for number 'n' and waits maximum 3 seconds for result. If the execution doesn't complete in 3 seconds, future.get() will throw TimeoutException and upon catching it we interruptibly cancel the execution for saving some CPU cycles.
-
-\begin{verbatim}
-long fib(int n) throws Exception {
-    ExecutorService es = Hazelcast.getExecutorService();
-    Future future = es.submit(new Fibonacci(n));  
-    try {
-        return future.get(3, TimeUnit.SECONDS);
-    } catch (TimeoutException e) {
-        future.cancel(true);            
-    }
-    return -1;
-}
-\end{verbatim}
-	
-fib(20) will probably will take less than 3 seconds but fib(50) will take way longer. (This is not the example for writing better fibonacci calculation code but for showing how to cancel a running execution that takes too long.) future.cancel(false) can only cancel execution before it is running (executing) but future.cancel(true) can interrupt running executions if your code is able to handle the interruption. So if you are willing to be able to cancel already running task then your task has to be designed to handle interruption. If calculate (int n) method didn't have if (Thread.currentThread().isInterrupted()) line, then you wouldn't be able to cancel the execution after it started.
-
 \section{Execution Callback}
 
-ExecutionCallback allows you to asynchronously get notified when the execution is done. When implementing ExecutionCallback.done(Future) method, you can check if the task is already cancelled.
+\section{Gotcha's and miscellaneous}
+When you have worked with the ExecutorService before, you know that there are some gotcha's that can cause spending a lot of time on something that is easy to solve. Hazelcast also introduces some gotcha's that are important to know up front.
 
-\begin{verbatim}
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.ExecutionCallback;
-import com.hazelcast.core.DistributedTask;
-import java.util.concurrent.ExecutorService;    
-import java.util.concurrent.Future; 
-        
-ExecutorService es = Hazelcast.getExecutorService();
-DistributedTask<String> task = new DistributedTask<String>(new Fibonacci<Long>(10));
-task.setExecutionCallback(new ExecutionCallback<Long> () {
-    public void done (Future<Long> future) { 
-        try {
-            if (! future.isCancelled()) {
-                System.out.println("Fibonacci calculation result = " + future.get());
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-});
-es.execute(task);
-\end{verbatim}
+\emph{Executors doesn't log exceptions:} when a task fails with an exception (or an error), this exception will not be logged by Hazelcast. This is in line with the ThreadPoolExecutorService from Java and it can be really annoying when you are spending a lot of time on why something doesn't work. It can easily be fixed; either add a try/catch in your runnable and log the exception. Or wrap the runnable/callable in a proxy that does the logging; the last option will keep your code a bit cleaner. 
 
-You could have achieved the same results by extending DistributedTask and overriding the DistributedTask.done() method.
+\emph{Lite Members also execute tasks:} when you create a lite member, this member will also execute tasks and this can be really unexpected. When a task is executed on a lite member, it can access all the hazelcast datastructures without a problem since they will be accessible on all members; but it could be that either it hasn't the capabilities for processing or that it is undesired behavior. If this really in is issue, you could add some queue in front of the executor where each node actively moves work from the queue into the executor.
 
-\begin{verbatim}
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.DistributedTask;
-import java.util.concurrent.ExecutorService;    
-import java.util.concurrent.Future; 
-        
-ExecutorService es = Hazelcast.getExecutorService();
-es.execute(new DistributedTask<String>(new Fibonacci<Long>(10)) {
-    public void done () { 
-        try {
-            if (! isCancelled()) {
-                System.out.println("Fibonacci calculation result = " + get());
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-}); 
-\end{verbatim}
+\emph{No processing guarantee:} although Hazelcast will make sure that the workqueue provides failover, as soon as a task is taken from the workqueue, no guarantees will be given that the task is processed. It could be that the machine that took the task crashed, it could also be that the task itself fails. 
+
+\emph{No workqueue capacity control:} with the normal ThreadPoolExecutor you can limit the amount of unprocessed work on the workqueue and you also can control what happens with surplus of work. With the Hazelcast Distributed Executor there is no control. So it could be that you swamp a system with unprocessed work. And this can lead to an java.lang.OutOfMemoryError.
+
+TODO: Config options
+
+TODO: Finding back context
 
 \section{What is next}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi libero sem,
