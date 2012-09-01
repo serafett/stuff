@@ -2,12 +2,196 @@
 
 Java 5 was perhaps the most fundamental upgrade since Java was released. On a language level we got generics, static imports, enumerations, enhanced for loop and annotations. From a correctness point of view we get the new Java Memory Model. And we also got the executor framework in the java.util.concurrent library.
 
-With the executor you can create tasks (java.util.Runnable) in one thread, and hand them over to be executed by another thread; so these tasks are executed asynchronously. Often these worker threaded are pooled threads since threads can be quite expensive to create. 
+With the executor you can create task object which need to be implementations of one of the following
+2 interfaces:
+\begin{enumerate}
+\item java.util.Runnable: if your tasks doesn't need to return a value.
+\item java.util.concurrent.Callable: if your task does need to return a value.
+\end{enumerate}
+These tasks are created by one thread, and this thread puts these tasks in the executor where they are
+stored in a queue to be picked up by other threads; the worker threads. So while these worker threads are processing the tasks, the task that orignally submitted the tasks is free to do other work. So tasks are being executed asynchronously, although if you use a future you can sync on task completion. Often these worker threaded are pooled threads since threads can be quite expensive to create. 
 
-There is virtually no limit in what you can place in such a task; you could execute complex database operations, intensive cpu or io operations. The problem in a distributed system however, is that the default implementations of the Executor are designed to be run within a single machine. So the thread responsible for creating a tasks will be running in the same JVM as the thread that executed the task.
+A very short example:
+\begin{lstlisting}[language=java]
+class EchoTest{
+   private final Executor = Executors.newSingleThreadExecutor();
+
+   public void echoAsynchronously(){
+      executor.execute(new Runnable(){
+         public void run(){
+            ....
+         }
+      });	
+   }
+}
+\end{lstlisting}
+
+There is virtually no limit in what you can place in such a task; you could execute complex database operations, intensive cpu or IO operations. The problem in a distributed system however, is that the default implementations of the Executor are designed to be run within a single machine. So the thread responsible for creating a tasks will be running in the same JVM as the thread that executed the task.
 
 Hazelcast extends the functionality provided by the Executor framework to make it fit to run in a distributed environment. This means that tasks placed by one JVM can executed on a different JVM. This makes it very easy to scale; just add more machines and the total capacity of processing tasks will increase.
 
+Let start with a very simple example of a distributed executor in Hazelcast. We begin with creating a basic task that will do some waiting and echo a message:
+
+\begin{lstlisting}[language=java]
+import java.io.Serializable;
+public class EchoTask implements Runnable, Serializable {
+    private final String msg;
+    public EchoTask(String msg) {
+        this.msg = msg;
+    }
+
+    @Override
+    public void run() {
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        System.out.println("echo:" + msg);
+    }
+}
+\end{lstlisting}
+
+This EchoTask implements the Runnable interface so that it can be submitted to the Executor. But it also implements the Serializable interface because it is potentially going to be serialized to a different JVM. 
+
+The next structure we are going to create is the EchoTaskMain:
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.Hazelcast;
+import java.util.concurrent.Executor;
+public class EchoTaskMain {
+    public static void main(String[] args) throws Exception {
+        Executor executor = Hazelcast.getExecutorService("executor");
+        for (int k = 0; k < 1000; k++) {
+            Thread.sleep(1000);
+            executor.execute(new EchoTask("" + k));
+        }
+        System.out.println("EchoTaskMain finished!");
+    }
+}
+\end{lstlisting}
+As you can see we can retrieve the executor using Hazelcast.getExecutor and then we slowly submit 1000 echo tasks. When we execute this EchoTaskMain, we are going to see something like this in the output:
+
+By default Hazelcast configures the executor to have 40 threads in the pool. For this example we only want a single thread per executor, so we configure it like this:
+
+\begin{lstlisting}[language=xml]
+<hazelcast>
+    <executor-service name="executor">
+        <corePoolSize>1</corePoolSize>
+        <maxPoolSize>1</maxPoolSize>
+    </executor-service>
+</hazelcast>
+\end{lstlisting}
+
+When we run running the EchoTaskMain you will get output like this:
+\begin{verbatim}
+Producing echo task: 1
+Producing echo task: 2
+Producing echo task: 3
+Producing echo task: 4
+Producing echo task: 5
+echo:1
+Producing echo task: 6
+Producing echo task: 7
+Producing echo task: 8
+Producing echo task: 9
+Producing echo task: 10
+echo:2
+Producing echo task: 11
+Producing echo task: 12	
+\end{verbatim}
+As you can see the production of messages is 1/second and the consumption is 0.2 per second (each echo task sleeps 5 seconds). There are few ways to speed things up (apart from making the echo task faster):
+\begin{enumerate}
+\item scale up 
+\item scale out .
+\end{enumerate}
+Both of the strategies to scale are explained below and in practice they are often combined. 
+
+\subsection{Scaling up}
+(also called vertical scaling): to increase the capacity of the system we could launch more threads by setting the corePoolSize/maxPoolSize, since each thread can do 0.2 messages/second, if you run 5 threads in parallel, you can process 0.2 messages/second * 5 = 1.0 messages/second. When you scale up you need to look carefully at the machine if it can handle the additional load. If not; you need to increase its resources (either cpu, disk, memory etc); if you fail to do so, the performance could go down instead of up. But scaling up quickly becomes very expensive and scaling out stops to be cost efficient. 
+
+Scaling up the ExecutorService in Hazelcast is very simple, just increment the max-pool-size and core-pool-size. Since we know that having 5 threads is going to give maximum performance, lets set it to five.
+\begin{lstlisting}[language=xml]
+<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config
+            hazelcast-config-2.0.xsd"
+           xmlns="http://www.hazelcast.com/schema/config"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <network>
+        <join>
+            <multicast enabled="true"/>
+        </join>
+    </network>
+
+    <executor-service name="executor">
+        <max-pool-size>5</max-pool-size>
+        <core-pool-size>5</core-pool-size>
+    </executor-service>
+</hazelcast>
+\end{lstlisting}
+
+When we run the EchoTaskMain:
+\begin{verbatim}
+Producing echo task: 2
+Producing echo task: 3
+Producing echo task: 4
+Producing echo task: 5
+echo:1
+Producing echo task: 6
+echo:2
+Producing echo task: 7
+echo:3
+Producing echo task: 8
+echo:4
+Producing echo task: 9
+echo:5
+Producing echo task: 10
+echo:6
+Producing echo task: 11	
+\end{verbatim}
+As you can see, the tasks are being processed as quickly as they are being produced. So we now have scale the system to its maximum capacity.
+
+\subsection{Scaling out}
+(also called horizontal scaling): we can increase the capacity of the system we just launch more boxes. In our case we are going to scale up be launching multiple jvm's since processing the echo tasks doesn't consume any resources because it does a simple wait. But in production system you probably want to add more machines to a cluster
+
+To scale out we just need to launch one of these:
+
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
+public class EchoTaskWorker {
+    public static void main(String[] args) {
+        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
+    }
+}
+\end{lstlisting}
+We don't need to do anything else. This EchoTaskWorker loads the hazelcast.xml, and since the executor is declared there, it will automatically start the executor and the thread in the thread pool. 
+
+
+When you spawn one of these EchoTaskWorkers, you will see that it start picking up work:
+\begin{verbatim}
+echo:31
+echo:33
+echo:35	
+\end{verbatim}
+So in only a few lines of code, we are now able to scale out! If you want you can spawn more EchoTaskWorkers, but with 1 messages/second being processed and 0.2 messages/second being consumed per node (including the EchoTaskProducer), having more than 5 nodes will not speed things up.
+
+\subsection{Callable}
+
+\subsection{Future}
+
+TODO: Explain lite members also running tasks.
+
+TODO: The executor will be configured with 40 threads core poolsize and 40 threads max pool size.
+
+TODO: Config options
+
+TODO: Finding back context.s
+
+TODO: Explain about workqueue and overflowing. Can it be configured with a blocking queue?
+And is there 
+
+TODO: Executor and exceptions. Just verified; with default settings, you don't see any logging.
+
+TODO: 
 
 \begin{lstlisting}[language=java]
 import java.util.concurrent.Callable;
