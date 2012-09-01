@@ -25,9 +25,7 @@ is no need to install Hazelcast. Setting the dependencies is enough, see next ch
 
 \section{Hazelcast and Maven}
 
-Hazelcast is very easy to include in your Maven project without needing to install Hazelcast at all.  
-Hazelcast can be found in the standard maven repositories, so no need to added additional repositories to 
-your Maven project. To include Hazelcast in your project, just add the following to your pom.xml:
+Hazelcast is very easy to include in your Maven project without needing to install Hazelcast at all. Hazelcast can be found in the standard maven repositories, so no need to added additional repositories to your Maven project. To include Hazelcast in your project, just add the following to your pom.xml:
 
 \begin{verbatim}
 <dependencies>	
@@ -43,9 +41,7 @@ your Maven project. To include Hazelcast in your project, just add the following
 
 Make sure that you check the Hazelcast website to make use of the most recent version. 
 
-After this dependency is added, Maven will automatically downloaded the dependencies needed. 
-The lack of needing to install Hazelcast is something I really like because it saves up quite a lot of time, 
-so we can spend that time doing more useful things.
+After this dependency is added, Maven will automatically downloaded the dependencies needed.  The lack of needing to install Hazelcast is something I really like because it saves up quite a lot of time, so we can spend that time doing more useful things.
 
 \section{Configuring Hazelcast}
 Hazelcast can be configured in different ways:
@@ -54,9 +50,7 @@ Hazelcast can be configured in different ways:
 \item Spring
 \item XML-configuration file
 \end{enumerate}
-In this book we'll use the xml configuration file. When you are running a maven project; just add
-a resources directory under your src/main/ and create a file 'hazelcast.xml'. The following shows
-an empty configuration:
+In this book we'll use the xml configuration file. When you are running a maven project; just add a resources directory under your src/main/ and create a file 'hazelcast.xml'. The following shows an empty configuration:
 \begin{verbatim}
 <hazelcast>
 </hazelcast>
@@ -65,7 +59,6 @@ an empty configuration:
 \section{Downloading example sources}
 
 \section{Configure logging}
-
 
 TODO: Explain the ipv4 config setting else nodes won't be able to discover each other.
 -Djava.net.preferIPv4Stack=true

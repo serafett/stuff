@@ -1,35 +1,21 @@
 \chapter*{Preface}
 
-When you write applications for the Java Virtual Machine for your profession, it is likely that you are going to write some 
-serverside application. Although Java has support for writing desktop applications, the serverside is really where Java shines.
+When you write applications for the Java Virtual Machine for your profession, it is likely that you are going to write some serverside application. Although Java has support for writing desktop applications, the serverside is really where Java shines.
 
-Today it becomes more and more important that these serverside applications provide all kinds of features like high scalability;
-just add machines if you need capacity or remove machines if there is too much unused capacity. Another desired feature is to provide
-high availability; a cluster of machines should not suffer if a single machine fails. The load should be taken over by another node and
+Today it becomes more and more important that these serverside applications provide all kinds of features like high scalability; just add machines if you need capacity or remove machines if there is too much unused capacity. Another desired feature is to provide high availability; a cluster of machines should not suffer if a single machine fails. The load should be taken over by another node and
 the system should continue as if nothing happened.
 
-Writing concurrent system has been a long passion of mine and it is a very logical step to go from concurrency control within
-a single JVM to concurrency control in over multiple JVM's. There is a big overlap in functionality; a lot of the knowledge 
-that is applicable to concurrency control in a single JVM also applies to concurrency over multiple nodes; but there also is a
-whole new dimension of problems that make distributed systems even more interesting to deal with. You want to be able to scale 
-beyond the capacity of a single machine; you want your system to be resilient to failures.
+Writing concurrent system has been a long passion of mine and it is a very logical step to go from concurrency control within a single JVM to concurrency control in over multiple JVM's. There is a big overlap in functionality; a lot of the knowledge that is applicable to concurrency control in a single JVM also applies to concurrency over multiple nodes; but there also is a whole new dimension of problems that make distributed systems even more interesting to deal with. You want to be able to scale beyond the capacity of a single machine; you want your system to be resilient to failures.
 
 \subsection*{What is Hazelcast}
-According to the Hazelcast website; Hazelcast is a "Hazelcast is a clustering and highly scalable data distribution platform for Java". 
-What that means is that it is very simple to write elegant java code using Hazelcast. In a lot of cases you can just use interfaces 
-that are part of the JRE.
+According to the Hazelcast website; Hazelcast is a "Hazelcast is a clustering and highly scalable data distribution platform for Java". What that means is that it is very simple to write elegant java code using Hazelcast. In a lot of cases you can just use interfaces that are part of the JRE.
 
-One of the things I like most about Hazelcast is that it isn't very intrusive; as a developer/architect you are in control how much 
-Hazelcast you get in your system. You are not forced to change your whole way of working; mutilate objects so they can be distributed,
-forced to use specific servers/application-servers. So this freedom combined with very well thought out API's make Hazelcast really
-a joy to work with.
+One of the things I like most about Hazelcast is that it isn't very intrusive; as a developer/architect you are in control how much Hazelcast you get in your system. You are not forced to change your whole way of working; mutilate objects so they can be distributed, forced to use specific servers/application-servers. So this freedom combined with very well thought out API's make Hazelcast really a joy to work with.
 
 \subsection*{Who should read this book}
-This books aims at developers/architects that build applications on top of the JVM and want to get a better understanding of
-how to write distributed applications using Hazelcast.
+This books aims at developers/architects that build applications on top of the JVM and want to get a better understanding of how to write distributed applications using Hazelcast.
 
-If you are a developer that has no prior experience with Hazelcast then you will learn the basics to get up and running. If you 
-already have some experience, it might be that you learn some new tricks.
+If you are a developer that has no prior experience with Hazelcast then you will learn the basics to get up and running. If you already have some experience, it might be that you learn some new tricks.
 
 \subsection*{What's is in this book}
 
@@ -57,21 +43,17 @@ Next ...
 Finally ...
 
 \subsection*{What you need}
-In Order to use Hazelcast you'll need a computer that is able to run Java 5. If you don't have Java installed on your machine,
-you probably want to install Java 7: 
+In Order to use Hazelcast you'll need a computer that is able to run Java 5. If you don't have Java installed on your machine, you probably want to install Java 7: 
 http://www.oracle.com/technetwork/java/javase/downloads/index.html
 
-To run the code examples that belong to this book, also make sure that Maven 3+ is installed. Maven can be downloaded from the
-following website: 
+To run the code examples that belong to this book, also make sure that Maven 3+ is installed. Maven can be downloaded from the following website: 
 http://maven.apache.org.
 
-Apart from Java and Maven, you can use your favorite editor or IDE (e.g. Eclipse or IntelliJ) to make view and edit the code 
-and to run the examples. 
+Apart from Java and Maven, you can use your favorite editor or IDE (e.g. Eclipse or IntelliJ) to make view and edit the code and to run the examples. 
 
 \subsection*{Online resources}
 
-There is a website for this book that contains a link to an interactive discussion forum and you can submit your errata to the book 
-here as well. Also the Java sourcecode and the configuration files can be found here. 
+There is a website for this book that contains a link to an interactive discussion forum and you can submit your errata to the book here as well. Also the Java sourcecode and the configuration files can be found here. 
 
 The Hazelcast website various important pieces of information can be found:
 \begin{enumerate}
@@ -83,5 +65,4 @@ The Hazelcast website various important pieces of information can be found:
 \item Hazelcast on Github: https://github.com/hazelcast/hazelcast/
 \end{enumerate}
 
-Building distributed systems on Hazelcast really is interesting and I hope I can make you as enthusiastic about it as I am. 
-So lets get started and lay a foundation to build distributed applications you can be proud of.
+Building distributed systems on Hazelcast really is interesting and I hope I can make you as enthusiastic about it as I am. So lets get started and lay a foundation to build distributed applications you can be proud of.
