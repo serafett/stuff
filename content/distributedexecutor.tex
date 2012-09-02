@@ -131,6 +131,7 @@ Scaling up the ExecutorService in Hazelcast is very simple, just increment the m
 
 When we run the EchoTaskMain:
 \begin{verbatim}
+Producing echo task: 1
 Producing echo task: 2
 Producing echo task: 3
 Producing echo task: 4
@@ -148,15 +149,32 @@ Producing echo task: 10
 echo:6
 Producing echo task: 11	
 \end{verbatim}
-As you can see, the tasks are being processed as quickly as they are being produced. So we now have scale the system to its maximum capacity.
+As you can see, the tasks are being processed as quickly as they are being produced. So we now have scale the system to its maximum capacity. 
 
-TODO: explain poolsize growing and time to live stuff of the threads
+\subsection{Executor Configuration}
+If you take a closer look at the previous hazelcast configuration, you saw that we made configured the max-pool-size and the core-pool-size to be 5. The core-pool-size is the minimal size of the thread pool of the executor, even if there is nothing to do. But in some cases you want to have a thread pool with a dynamic size since threads (even if they are not running) consume memory. So if you want a pool that increases size when there is a lot of work to do and decreases the size when there is not much work to do, then you can configure the max-pool-size to be bigger than the core-pool-size. Example:
+
+\begin{lstlisting}[language=xml]
+<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config
+            hazelcast-config-2.0.xsd"
+           xmlns="http://www.hazelcast.com/schema/config"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    ...
+    
+    <executor-service name="executor">
+        <core-pool-size>1</core-pool-size> 
+        <max-pool-size>5</max-pool-size>
+        <keep-alive-seconds>60</keep-alive-seconds>
+    </executor-service>
+</hazelcast>
+\end{lstlisting}
+
+With this configuration the thread pool of the executor is configured with a minimum size of 1 thread and a maximum size of 5 threads. You can also see that we configured the keep-alive-seconds; this is the number of seconds an idle thread is allowed to stay alive. The default keep-alive-seconds if 300 (5 minutes), so if you are happy with that, then you omit that configuration.
 
 \section{Scaling out}
-(also called horizontal scaling): we can increase the capacity of the system we just launch more boxes. In our case we are going to scale up be launching multiple jvm's since processing the echo tasks doesn't consume any resources because it does a simple wait. But in production system you probably want to add more machines to a cluster
+(also called horizontal scaling): we can increase the capacity of the system we just launch more boxes. In our case we are going to scale up be launching multiple JVM's since processing the echo tasks doesn't consume any resources because it does a simple wait. But in production system you probably want to add more machines to a cluster
 
 To scale out we just need to launch one of these:
-
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
@@ -168,16 +186,16 @@ public class SlaveNode {
 \end{lstlisting}
 We don't need to do anything else. This EchoTaskWorker loads the hazelcast.xml, and since the executor is declared there, it will automatically start the executor and the thread in the thread pool. 
 
-When you spawn one of these EchoTaskWorkers, you will see that it start picking up work:
+When you spawn one of these SlaveNodes, you will see that it start picking up work:
 \begin{verbatim}
 echo:31
 echo:33
 echo:35	
 \end{verbatim}
-So in only a few lines of code, we are now able to scale out! If you want you can spawn more EchoTaskWorkers, but with 1 messages/second being processed and 0.2 messages/second being consumed per node (including the EchoTaskProducer), having more than 5 nodes will not speed things up.
+So in only a few lines of code, we are now able to scale out! If you want, you can spawn more SlaveNodes, but with 1 messages/second being processed and 0.2 messages/second being consumed per node (including the MasterNode), having more than 5 nodes will not speed things up.
 
 \section{Executors and HazelcastInstanceAware}
-In a lot of cases when you create a task, the task needs to get access to the HazelcastInstance to retrieve all kinds of datastructures. This can be done very easily by letting the Runnable/Callable implement the HazelcastInstanceAware interface, e.g.
+In a lot of cases when you create a task, the task needs to get access to the HazelcastInstance to retrieve all kinds of data structures. This can be done very easily by letting the Runnable/Callable implement the HazelcastInstanceAware interface, e.g.
 
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
@@ -197,45 +215,16 @@ public class SomeTask implements
 \end{lstlisting}
 When this Task is executed (not when it is submitted), the Hazelcast executor checks if the task implements HazelcastInstanceAware. And if so, it will inject the HazelcastInstance by calling the 'setHazelcastInstance' method. The hazelcastInstance field can be transitive since it will never be send over the line. 
 
-\section{Callable}
-The ExecutorService not only allows instances of the Runnable interface to be submitted, also the callable instances can be send. Callable's are useful if you want to return a value.
-
-Lets start with a very basic Callable implementation that adds 2 int's and returns the result:
-\begin{lstlisting}[language=java]
-import java.util.concurrent.Callable;
-import java.io.Serializable;
-public class SumTask implements Callable<Integer>, Serializable {
-    final int a;
-    final int b;
-    public SumTask(int a, int b) {
-        this.a = a;
-        this.b = b;
-    }
-    @Override
-    public Integer call() {
-        try {
-            Thread.sleep(5000); 
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }	    
-        return a+b;
-    }
-}
-
-\end{lstlisting}
-
 \section{Futures}
-The normal java.util.concurrent.Executor only exposes a single 'void execute(Runnable)' method that can be called to have a task asynchronously executed. But in some cases you want to synchronize on completion or cancel the task (for example when it is running for too long). This can be done making use of the java.util.concurrent.Future and one of the submit methods of the ExecutorService.
+The normal java.util.concurrent.Executor only exposes a single 'void execute(Runnable)' method that can be called to have a task asynchronously executed. But in some cases you want to synchronize on completion or cancel the task (for example when it is running for too long). This can be done making use of the java.util.concurrent.Future and one of the submit methods of the ExecutorService. TODO: When working with a callable, you probably want to use a future.
 
 In the first example we are going to wait for the result on a future and in the second example we are going to cancel a future.
 
 \begin{lstlisting}[language=java]
 import java.io.Serializable;
 import java.util.concurrent.Callable;
-
 public class FibonacciCallable implements Callable<Long>, Serializable {
     private final int input;
-
     public FibonacciCallable(int input) {
         this.input = input;
     }
@@ -588,11 +577,11 @@ In this chapter we explored the distributed execution of tasks using the Hazelca
 
 \emph{Executors doesn't log exceptions:} when a task fails with an exception (or an error), this exception will not be logged by Hazelcast. This is in line with the ThreadPoolExecutorService from Java and it can be really annoying when you are spending a lot of time on why something doesn't work. It can easily be fixed; either add a try/catch in your runnable and log the exception. Or wrap the runnable/callable in a proxy that does the logging; the last option will keep your code a bit cleaner. 
 
-\emph{Lite Members also execute tasks:} when you create a lite member, this member will also execute tasks and this can be really unexpected. When a task is executed on a lite member, it can access all the hazelcast datastructures without a problem since they will be accessible on all members; but it could be that either it hasn't the capabilities for processing or that it is undesired behavior. If this really in is issue, you could add some queue in front of the executor where each node actively moves work from the queue into the executor.
+\emph{Lite Members also execute tasks:} when you create a lite member, this member will also execute tasks and this can be really unexpected. When a task is executed on a lite member, it can access all the hazelcast data structures without a problem since they will be accessible on all members; but it could be that either it hasn't the capabilities for processing or that it is undesired behavior. If this really in is issue, you could add some queue in front of the executor where each node actively moves work from the queue into the executor.
 
-\emph{No processing guarantee:} although Hazelcast will make sure that the workqueue provides failover, as soon as a task is taken from the workqueue, no guarantees will be given that the task is processed. It could be that the machine that took the task crashed, it could also be that the task itself fails. 
+\emph{No processing guarantee:} although Hazelcast will make sure that the work queue provides failover, as soon as a task is taken from the work queue, no guarantees will be given that the task is processed. It could be that the machine that took the task crashed, it could also be that the task itself fails. 
 
-\emph{No workqueue capacity control:} with the normal ThreadPoolExecutor you can limit the amount of unprocessed work on the workqueue and you also can control what happens with surplus of work. With the Hazelcast Distributed Executor there is no control. So it could be that you swamp a system with unprocessed work. And this can lead to an java.lang.OutOfMemoryError.
+\emph{No work queue capacity control:} with the normal ThreadPoolExecutor you can limit the amount of unprocessed work on the work queue and you also can control what happens with surplus of work. With the Hazelcast Distributed Executor there is no control. So it could be that you swamp a system with unprocessed work. And this can lead to an java.lang.OutOfMemoryError.
 
 TODO: Finding back context
 
