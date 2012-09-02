@@ -13,11 +13,13 @@ public class MasterNode {
     }
 
     private static int count(HazelcastInstance hazelcastInstance) throws Exception {
+        //fork the tasks.
         Set<Member> members = hazelcastInstance.getCluster().getMembers();
         MultiTask<Integer> task = new MultiTask<Integer>(new CountTask(), members);
         ExecutorService executorService = hazelcastInstance.getExecutorService();
         executorService.execute(task);
 
+        //join the results.
         Collection<Integer> results = task.get();
         int x = 0;
         for (Integer i : results) x += i;

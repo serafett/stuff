@@ -242,6 +242,71 @@ Till so far we didn't care about which node did the actual processing of the tas
 In the sections below I will explain the other routing mechanisms.
 
 \subsection{Executing on a specific cluster member}
+In some cases you want to execute a task on a specific member. In Hazelcast this can be done by wrapping the task you want to execute in a org.hazelcast.core.DistributedTask and provide the member node you want the task to be executed on.
+
+As an example we are going to start a bunch of nodes and we are going to echo a different message to each node. Lets begin with defining the echo task:
+
+\begin{lstlisting}[language=java]
+import java.io.Serializable;
+public class EchoTask implements Runnable, Serializable{
+    private final String msg;
+    public EchoTask(String msg) {
+        this.msg = msg;
+    }
+    @Override
+    public void run() {
+        System.out.println(msg);
+    }
+}
+\end{lstlisting}
+
+And a very basic slave node:
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.Hazelcast;
+public class SlaveNode {
+    public static void main(String[] args){
+        Hazelcast.getDefaultInstance();
+    }
+}
+\end{lstlisting}
+
+And the MasterNode that sends a echo task to every member:
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.*;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+public class MasterNode {
+    public static void main(String[] args){
+        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
+        ExecutorService executorService = hazelcastInstance.getExecutorService();
+
+        Set<Member> members = hazelcastInstance.getCluster().getMembers();
+        int k=0;
+        for(Member member:members){
+            EchoTask task = new EchoTask("echo-"+k);
+            DistributedTask distributedTask = new DistributedTask(task, member);
+            executorService.execute(distributedTask);
+            k++;
+        }
+    }
+}
+\end{lstlisting}
+
+When we start a one SlaveNodes and then start a single master node, we'll get output like:
+
+slave node:
+\begin{verbatim}
+echo-0
+\end{verbatim}
+
+master node:
+\begin{verbatim}
+echo-1
+\end{verbatim}
+
+So as you can see, it is very easy to execute a task on a specific node.
+
+TODO: What happens when the node goes down after the task has been submitted, but before it is executed. No other node is allowed to pick up that task since it was made specifically for that node. Is there some callback mechanism?
 
 \subsection{Executing on a node hosting a specific partition}
 Often you want to have locality of reference; so the data being used for a specific process should be close to the process. Locality of reference is important for a scalable system since the amount of network communication (which is also a shared resource) will be reduced.
@@ -331,6 +396,10 @@ So with Hazelcast it is quite easy to group data and functions operating on this
 
 Another nice experiment is to let the PartitionedTask.getPartitionKey method return null. This will cause the task to be executed on a random node and therefor there will not be a locality of reference.
 
+TODO: Tell about cluster change between task creation and task execution.
+
+TODO: Tell about the PartitionService.getPartition(Object o)
+
 \subsection{Executing on all or subset of members}
 In some cases you want to execute a task on multiple machines; in my experience it will mostly be on all machines. You need to use this task wisely since it will cause load on multiple machines (potentially all machines).
 
@@ -388,11 +457,13 @@ public class MasterNode {
         System.out.println("Result: " + count(hazelcastInstance));
     }
     private static int count(HazelcastInstance hazelcastInstance) throws Exception {
+        //fork the tasks
         Set<Member> members = hazelcastInstance.getCluster().getMembers();
         MultiTask<Integer> task = new MultiTask<Integer>(new CountTask(), members);
         ExecutorService executorService = hazelcastInstance.getExecutorService();
         executorService.execute(task);
 
+        //join the results.
         Collection<Integer> results = task.get();
         int x = 0;
         for (Integer i : results) x += i;
@@ -443,10 +514,10 @@ As you can see the load is 'equally' spread among all the members.
 
 TODO: Map/Reduce
 
-\section{What is next}
-In this chapter we explored the distributed execution of tasks using the Hazelcast ExecutorService. 
+TODO: Tell about cluster change between task creation and task execution.
 
-When you have worked with the ExecutorService before, you know that there are some gotcha's that can cause spending a lot of time on something that is easy to solve. Hazelcast also introduces some gotcha's that are important to know up front.
+\section{What is next}
+In this chapter we explored the distributed execution of tasks using the Hazelcast ExecutorService. When you have worked with the ExecutorService before, you know that there are some gotcha's that can cause spending a lot of time on small things that are easy to solve. Hazelcast also introduces some gotcha's that are important to know up front.
 
 \emph{Executors doesn't log exceptions:} when a task fails with an exception (or an error), this exception will not be logged by Hazelcast. This is in line with the ThreadPoolExecutorService from Java and it can be really annoying when you are spending a lot of time on why something doesn't work. It can easily be fixed; either add a try/catch in your runnable and log the exception. Or wrap the runnable/callable in a proxy that does the logging; the last option will keep your code a bit cleaner. 
 
