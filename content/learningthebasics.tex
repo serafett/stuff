@@ -1,7 +1,5 @@
 \chapter{Learning the basics}
-Hazelcast is a clustering and highly scalable data distribution platform for Java. It is written in Java, so there 
-is no native part and it can be used in an Language running on top of the JVM.
-
+Hazelcast is a clustering and highly scalable data distribution platform for Java. It is written in Java, so there is no native part and it can be used in an Language running on top of the JVM.
 
 \begin{enumerate}
   \item distributed collections like BlockingQueue, Map, Set etc.
@@ -13,18 +11,13 @@ is no native part and it can be used in an Language running on top of the JVM.
 \end{enumerate}
 
 \section{Installing Hazelcast}
-
-First you need to make sure that Java 5 or higher is installed on your machine. If not installed, it can 
-be downloaded from the Oracle site: http://java.com/en/download/index.jsp. After you ensured that Java is 
-installed, Hazelcast can be downloaded from http://www.hazelcast.com/downloads.jsp. There are 2 versions:
+First you need to make sure that Java 5 or higher is installed on your machine. If not installed, it can be downloaded from the Oracle site: http://java.com/en/download/index.jsp. After you ensured that Java is installed, Hazelcast can be downloaded from http://www.hazelcast.com/downloads.jsp. There are 2 versions:
 
 \includegraphics[scale=0.60]{hazelcast-editions.png}
 
-For our purposes of this book we'll rely on the community edition. If your project relies on Maven, there 
-is no need to install Hazelcast. Setting the dependencies is enough, see next chapter.
+For our purposes of this book we'll rely on the community edition. If your project relies on Maven, there is no need to install Hazelcast. Setting the dependencies is enough, see next chapter.
 
 \section{Hazelcast and Maven}
-
 Hazelcast is very easy to include in your Maven project without needing to install Hazelcast at all. Hazelcast can be found in the standard maven repositories, so no need to added additional repositories to your Maven project. To include Hazelcast in your project, just add the following to your pom.xml:
 
 \begin{verbatim}
@@ -52,11 +45,16 @@ Hazelcast can be configured in different ways:
 \end{enumerate}
 In this book we'll use the xml configuration file. When you are running a maven project; just add a resources directory under your src/main/ and create a file 'hazelcast.xml'. The following shows an empty configuration:
 \begin{verbatim}
-<hazelcast>
+<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config
+           hazelcast-config-2.0.xsd"
+           xmlns="http://www.hazelcast.com/schema/config"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 </hazelcast>
 \end{verbatim}
 
 \section{Downloading example sources}
+
+\section{Running the examples}
 
 \section{Configure logging}
 

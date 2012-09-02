@@ -224,9 +224,79 @@ public class SumTask implements Callable<Integer>, Serializable {
 
 \end{lstlisting}
 
-\section{Future}
+\section{Futures}
+The normal java.util.concurrent.Executor only exposes a single 'void execute(Runnable)' method that can be called to have a task asynchronously executed. But in some cases you want to synchronize on completion or cancel the task (for example when it is running for too long). This can be done making use of the java.util.concurrent.Future and one of the submit methods of the ExecutorService.
 
-\section{Execution Cancellation}
+In the first example we are going to wait for the result on a future and in the second example we are going to cancel a future.
+
+\begin{lstlisting}[language=java]
+import java.io.Serializable;
+import java.util.concurrent.Callable;
+
+public class FibonacciCallable implements Callable<Long>, Serializable {
+    private final int input;
+
+    public FibonacciCallable(int input) {
+        this.input = input;
+    }
+    @Override
+    public Long call() {
+        return calculate(input);
+    }
+    private long calculate(int n) {
+        if (Thread.currentThread().isInterrupted()) {
+            System.out.println("FibonacciCallable is interrupted");
+            throw new RuntimeException("Fibonacci is interrupted");
+        }
+        if (n <= 1) return n;
+        else return calculate(n - 1) + calculate(n - 2);
+    }
+}
+\end{lstlisting}
+
+As you can see there is a check 'Thread.currentThread().isInterrupted()'. When the thread is interrupted, the calculation will be aborted. In our case we are going to throw an exception to abort the calculation.
+
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+public class MasterNode {
+    public static void main(String[] args) throws Exception {
+        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
+        ExecutorService executorService = hazelcastInstance.getExecutorService();
+        int n = Integer.parseInt(args[0]);
+        Future<Long> future = executorService.submit(new FibonacciCallable(n));
+        try {
+            long result = future.get(10, TimeUnit.SECONDS);
+            System.out.println("result: "+result);
+        } catch (TimeoutException ex) {
+            System.out.println("A timeout happened, the future is cancelled");
+            future.cancel(true);
+        }
+        System.out.println("Finished");
+    }
+}
+\end{lstlisting}
+As you can see when we call the executorService.submit, we get back a Future as result. This future allows us to synchronize on completion or cancel the computation (in hazelcast this cancellation will get back to the node that actually is running )
+
+When we call run this application with 5 as argument, the output will be: 
+\begin{verbatim}
+result: 5
+Finished
+\end{verbatim}
+
+But when you run this application with 500 as argument, it will take more than 10 seconds to complete and therefor the future.get will timeout. The output will be:
+\begin{verbatim}
+A timeout happened, the future is cancelled
+FibonacciCallable is interrupted
+Finished
+\end{verbatim}
+This is because the future.get operation will timeout (if it doesn't instead of using 10 seconds as timeout, use a lower value; it could be that you have a very fast machine). When the timeout happens, a TimeoutException is thrown. And when the TimeoutException is thrown, we cancel the future. This cancel operation on the future is send back to the thread (that is potentially running on a different jvm) and will set the interrrupted status of that Thread. It is up to the task (runnable/callable) that is being run by executor to check the interrupted status of the thread periodically to be able to be responsive to interrupts.
 
 \section{Execution Callback}
 
@@ -334,8 +404,7 @@ public class LocalTask implements
     }
     @Override
     public void run() {
-        IMap map =hazelcastInstance.getMap("map");
-
+        IMap map = hazelcastInstance.getMap("map");
         boolean localKey = map.localKeySet().contains(partitionId);
         System.out.println("key is local:" + localKey);
     }
@@ -380,8 +449,7 @@ public class MasterNode {
     }
 }
 \end{lstlisting}
-In the master node we first create some dummy data in a map. And then we are
-executing a partition task on every key in that map. 
+In the master node we first create some dummy data in a map. And then we are executing a partition task on every key in that map. 
 
 After you run the MasterNode, you will get the following output:
 \begin{verbatim}
@@ -391,8 +459,7 @@ key is local:true
 key is local:true
 key is local:true
 \end{verbatim}
-As you can see, the tasks are now executed on the same node as where the data is living. 
-So with Hazelcast it is quite easy to group data and functions operating on this data. 
+As you can see, the tasks are now executed on the same node as where the data is living. So with Hazelcast it is quite easy to group data and functions operating on this data. 
 
 Another nice experiment is to let the PartitionedTask.getPartitionKey method return null. This will cause the task to be executed on a random node and therefor there will not be a locality of reference.
 

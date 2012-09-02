@@ -24,6 +24,7 @@
         <module>routing-to-specific-member</module>
         <module>routing-to-specific-partition</module>
         <module>routing-to-subset-of-members</module>
+        <module>futures</module>
     </modules>
 
 </project>
