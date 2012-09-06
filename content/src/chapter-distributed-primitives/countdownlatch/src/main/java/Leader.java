@@ -1,10 +1,12 @@
 import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.core.ICountDownLatch;
 
 public class Leader {
 
     public static void main(String[] args) throws Exception {
-        ICountDownLatch latch = Hazelcast.getCountDownLatch("countDownLatch");
+        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
+        ICountDownLatch latch = hazelcastInstance.getCountDownLatch("countDownLatch");
         System.out.println("Starting");
         //we init the latch with 1, since we only need to complete a single step.
         latch.setCount(1);

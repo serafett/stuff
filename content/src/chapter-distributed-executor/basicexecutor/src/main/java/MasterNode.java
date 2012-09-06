@@ -3,11 +3,9 @@ import com.hazelcast.core.HazelcastInstance;
 
 import java.util.concurrent.Executor;
 
-public class EchoTaskMain {
-
+public class MasterNode {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
-
         Executor executor = hazelcastInstance.getExecutorService("executor");
         for (int k = 1; k <= 1000; k++) {
             Thread.sleep(1000);

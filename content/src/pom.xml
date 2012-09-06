@@ -35,5 +35,6 @@
         <module>chapter-clients</module>
         <module>chapter-distributed-map</module>
         <module>chapter-distributed-map-advanced</module>
+        <module>chapter-cluster-configuration</module>
     </modules>
 </project>

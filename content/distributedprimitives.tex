@@ -7,8 +7,7 @@ This concurrency functionality is useful if you want to write a Java application
 Hazelcast provides direct support for synchronization primitives that are distributed. The advantage of using distributed data-structures is:
 \begin{enumerate}
 \item failover; so if one machine fails, the system will still be working
-\item scalability; just add more machines and you will get more capacity. Although this doesn't mean
-that your system will automatically become better scalable when you introduce Hazelcast 
+\item scalability; just add more machines and you will get more capacity. Although this doesn't mean that your system will automatically become better scalable when you introduce Hazelcast 
 \end{enumerate}
 
 In this chapter the following distributed primitives will be explained:
@@ -177,7 +176,7 @@ public class SemaphoreMain{
 TODO: Explain attach
 
 \section{ICountDownLatch}
-The CountDownLatch was introduced in Java 1.5 and is a synchronization aid that makes it possible for threads to wait until a set of operations being performed in another thread  complete. Very simplistically; a CountDownLatch could be seen as a gate containing a counter; behind this gate threads can wait till the counter reaches zero. 
+The CountDownLatch was introduced in Java 1.5 and is a synchronization aid that makes it possible for threads to wait until a set of operations being performed in another thread  complete. Very simplistically; a CountDownLatch could be seen as a gate containing a counter; behind this gate threads can wait till the counter reaches zero. In my experience CountDownLatches often are used when you have some kind of processing operation, and you one or more threads that wait till this operation is completed so they can do their logic.
 
 In Hazelcast there also is a CountDownLatch; the org.hazelcast.core.ICountDownLatch. The following example is made up by 2 parts; 1 part is the 'Leader'. It will create a latch and do a 'countdown' to release it:
 
@@ -185,7 +184,9 @@ And we start a single leader,
 \begin{lstlisting}[language=java]
 public class Leader{
     public static void main(String[] args)throws Exception{
-        ICountDownLatch latch = Hazelcast.getCountDownLatch("countDownLatch");
+        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
+        ICountDownLatch latch = hazelcastInstance.getCountDownLatch("countDownLatch");
+        
         System.out.println("Starting");
         //we init the latch with 1, since we only need to complete a single step.
         latch.setCount(1); 
@@ -257,7 +258,6 @@ Important: unlike Java's implementation, Hazelcast's ICountDownLatch count can b
 -- TODO: Text is copied.
 The Hazelcast member that successfully invokes setCount(int) becomes the owner of the countdown and is responsible for staying connected to the cluster until the count reaches zero. If the owner  becomes disconnected prior to count reaching zero all awaiting threads will be notified. This provides a safety mechanism in the distributed environment.
 
-
 \section{IdGenerator}
 
 In the previous section we introduced the AtomicNumber and one of the things it can be used for is to generated unique id's within a cluster. Although it will work, it probably isn't the most scalable solution since all member will content on incrementing the value. If you are only interested in id's and not in the order the id's are generated (or even when elements are skipped) you can have a look at the IdGenerator.
@@ -291,18 +291,6 @@ Apart from the IdGenerator, there are other options for creating cluster wide un
 Important: If the cluster restarts then id generation will start from 0.
 
 \section{What is next?}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi libero sem,
-interdum eget varius vel, faucibus placerat purus. Sed vulputate diam sit amet
-risus dapibus dignissim. Praesent lobortis eleifend augue. Cum sociis natoque
-penatibus et magnis dis parturient montes, nascetur ridiculus mus. Morbi libero
-turpis, viverra ac vulputate a, faucibus vel quam. Quisque interdum congue
-lacus, in tempus nisl tincidunt at. Curabitur sed eros eu enim vehicula
-fermentum quis nec justo. Vestibulum rutrum laoreet est, eget condimentum justo
-feugiat at. Cras ac sem ac magna ornare tempor non nec nisl. Maecenas feugiat
-fringilla nisl, vitae ullamcorper ante posuere a. Sed mollis lacinia interdum.
-Vivamus vel urna metus. Nulla eget tellus sem. Praesent volutpat suscipit nulla,
-nec dictum arcu iaculis id. Duis pharetra vestibulum sapien, quis pulvinar odio
-pharetra id. Cras at erat velit, vel tincidunt elit. Curabitur vehicula leo eu
-odio vulputate ac consequat nulla ultricies. Maecenas venenatis condimentum
-urna ut ultrices. Aliquam blandit fermentum eros, ac lacinia sem scelerisque
-at. Nullam vitae nisi at erat posuere cursus a non velit.
+In this chapter we went over the various synchronization primitives that are directly exposes by Hazelcast. You can always build higher synchronization primitives on top of these lower ones.
+
+TODO: Deadlocks, Livelocks, starvation etc. If you know how a hammer and a saw work, it doesn't mean that you immediately can build a house with it.

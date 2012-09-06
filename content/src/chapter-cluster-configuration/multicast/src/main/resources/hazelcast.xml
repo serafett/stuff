@@ -1,0 +1,12 @@
+<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config hazelcast-config-2.0.xsd"
+           xmlns="http://www.hazelcast.com/schema/config"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <network>
+        <join>
+            <multicast enabled="true">
+                <multicast-group>224.2.2.5</multicast-group>
+
+            </multicast>
+        </join>
+    </network>
+</hazelcast>
