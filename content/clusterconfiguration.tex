@@ -39,8 +39,8 @@ this is the port the Hazelcast uses for internal communication. If that port alr
 \end{lstlisting}
 It defaults to 5701; so if you are fine with that, you can leave it as it is.
 
-\section{Network Join mechanisms}
-Hazelcast currently supports 3 mechanisms for Hazelcast nodes to discover each other and to form a cluster. Without this discovery mechanism, the node's will not form a cluster together, but will remain 1 node clusters.
+\section{Node discovery}
+Hazelcast currently supports 3 mechanisms for Hazelcast nodes to discover each other and join the cluster. Without this discovery mechanism, the node's will not form a cluster together, but will remain 1 node clusters. The discovery mechanisms are:
 \begin{enumerate}
 \item Multicast:
 \item TCP/IP Cluster:
@@ -114,7 +114,7 @@ INFO: [10.37.129.2]:5702 [dev] Address[10.37.129.2]:5702 is STARTED
 
 After this point, we now have a 2 node Hazelcast cluster running on a single machine. Try creating another few nodes. And you can of course also try to connect multiple nodes over a network;
 
-TODO: Is there also some kind of multicast subnet? How can you control the 'network' where the multicast is 'happening'.
+If you don't get the see multiple members joining each other, than it is likely because multicast has been disabled. If you are on a *NIX environment, you can try to execute the command 'ifconfig' and look for 'MULTICAST'. 
 
 \subsection{Configuring multicast}
 
@@ -145,8 +145,17 @@ defaults:224.2.2.3. The address 224.0.0.0 is reserved and should not be used.
 multicast-port: The port of the multicast socket where the Hazelcast Node listens and sends discovery messages on. Unlike normal unicast sockets where only a single process can listen to a port, with multicast sockets multiple processes can listen to the same port. So you don't need to be worried about having multiple Hazelcast nodes that run on the same JVM are going to conflict.
 defaults:54327
 
+TODO: Why are we talking about time to live in seconds? TTL on multicast isn't interpreted in seconds.
 multicast-time-to-live-seconds:
 defaults:32
+/**
+   * Set the default time-to-live for multicast packets sent out
+   * on this <code>MulticastSocket</code> in order to control the 
+   * scope of the multicasts.
+   *
+   * <P> The ttl <B>must</B> be in the range <code> 0 <= ttl <=
+   * 255</code>
+
 
 multicast-timeout-seconds:
 defaults:2
@@ -159,6 +168,10 @@ defaults:
 
 Clouds often don't provide multicast.
 
+The idea is that there should be one or more well known machines.
+
+It can be configured through setting the hostname or can be configured through the interface. 
+
 If multicast is not preferred way of discovery for your environment, then you can configure Hazelcast for full TCP/IP cluster. As configuration below shows, while enable attribute of multicast is set to false, tcp-ip has to be set to true. For the none-multicast option, all or subset of cluster members' hostnames and/or ip addresses must be listed. Note that all of the cluster members don't have to be listed there but at least one of them has to be active in cluster when a new member joins. The tcp-ip tag accepts an attribute called "conn-timeout-seconds". The default value is 5. Increasing this value is recommended if you have many IP's listed and members can not properly build up the cluster.
 
 \begin{lstlisting}[language=xml]
@@ -168,10 +181,7 @@ If multicast is not preferred way of discovery for your environment, then you ca
         <port auto-increment="true">5701</port>
         <join>
             //why are the multicast-group and port still set?
-            <multicast enabled="false">
-                <multicast-group>224.2.2.3</multicast-group>
-                <multicast-port>54327</multicast-port>
-            </multicast>
+            <multicast enabled="false"/>
             <tcp-ip enabled="true">
                 <hostname>machine1</hostname>
                 <hostname>machine2</hostname>
@@ -186,6 +196,9 @@ If multicast is not preferred way of discovery for your environment, then you ca
 </hazelcast>
 \end{lstlisting}
 
+<required-member></required-member>: defaults to 127.0.0.1
+
+
 \subsection{Configuring Hazelcast for EC2 Auto Discovery}
 
 Hazelcast supports EC2 Auto Discovery as of 1.9.4. It is useful when you don't want or can't provide the list of possible IP addresses. Here is a sample configuration: Disable join over multicast and tcp/ip and enable aws. Also provide the credentials. The aws tag accepts an attribute called "conn-timeout-seconds". The default value is 5. Increasing this value is recommended if you have many IP's listed and members can not properly build up the cluster.
@@ -196,11 +209,7 @@ Hazelcast supports EC2 Auto Discovery as of 1.9.4. It is useful when you don't w
     ...
     <network>
        <join>
-           <multicast enabled="false">
-              todo: why are group and port set?
-              <multicast-group>224.2.2.3</multicast-group>
-              <multicast-port>54327</multicast-port>
-           </multicast>
+           <multicast enabled="false"/>
            <tcp-ip enabled="false">
               todo: why is interface set?
               <interface>192.168.1.2</interface>
@@ -218,9 +227,12 @@ Hazelcast supports EC2 Auto Discovery as of 1.9.4. It is useful when you don't w
     </network>
 </hazelcast>
 \end{lstlisting}
+
 \section{Creating Separate Clusters}
 
-By specifying group-name and group-password, you can separate your clusters in a simple way; dev group, production group, test group, app-a group etc...
+By specifying group-name and group-password, you can separate your clusters in a simple way; dev group, production group, test group, app-a group etc... 
+
+todo: password is optional, it defaults to 'drowssap'
 
 \begin{verbatim}
 <hazelcast>

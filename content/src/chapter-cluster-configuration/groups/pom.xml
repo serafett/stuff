@@ -3,24 +3,23 @@
     <modelVersion>4.0.0</modelVersion>
     <packaging>pom</packaging>
 
-    <artifactId>chapter-cluster-configuration</artifactId>
-    <name>Chapter Cluster Configuration</name>
-    <groupId>book.hazelcast</groupId>
+    <artifactId>groups</artifactId>
+    <name>Chapter Cluster Configuration - Groups</name>
+
     <description>
-        All the code samples for the cluster configuration
+        Chapter Cluster Configuration - Groups
     </description>
 
     <parent>
         <groupId>book.hazelcast</groupId>
-        <artifactId>book-hazelcast</artifactId>
+        <artifactId>chapter-cluster-configuration</artifactId>
         <version>0.1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <modules>
-        <module>multicast</module>
-        <module>ec2</module>
-        <module>tcpip</module>
-        <module>groups</module>
+        <module>group1</module>
+        <module>group2</module>
     </modules>
+
 </project>
