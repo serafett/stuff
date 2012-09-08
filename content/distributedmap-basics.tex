@@ -1,16 +1,33 @@
 \chapter{Distributed Map Basics}
 
-In this chapter, we'll learn how to use one of the most important data structures for distributed applications; the distributed map. A few of the differences between an ordinary map and a distributed map:
-scalable; so just add or remove machine when needed to match the required capacity. 
-high availability; so if a machine crashes, a different machine can take over. 
+In this chapter, we'll learn how to use one of the most important data structures for distributed applications; the distributed map. A few of the differences between an ordinary map and a distributed map in Hazelcast
+\begin{enumerate}
+\item scalable; so just add or remove machine when needed to match the required capacity.
+\item high availability; so if a machine crashes, a different machine can take over. 
+\end{enumerate}
 This makes the distributed map the ideal workhorse to write distributed applications.
 
-\section{Creating and retrieving}
+The HazelcastMap implements the java.collections.Map interface, so replacing an ordinary map implementation by the Hazelcast version, doesn't need to be a complex operation and also programmers will be up to speed quickly.
 
-As an example of using the Hazelcast distributed maps, we'll start with a  very basic CRUD customer service where customers can be created and where existing customers can be retrieved based on the customer id.
+\section{Reading/Writing}
+Because the HazelcastMap implements the Map interface, putting entries and retrieving them is very simple:
 
-First we create the entity Customer. 
+\begin{verbatim}
+public class Node{
+    public static void main(String[] args){
+       Map<String,String> map = Hazelcast.getMap("map");
+       map.put("1","Tokyo");
+       map.put("2","Berlin");
+       System.out.println(map.get("1"));
+       System.out.println(map.get("2"));
+    }
+}
+\end{verbatim}
+In this example you can see that after the map has been retrieved, first 2 put operations are done followed by 2 get operations. 
 
+But for this chapter I want to give a more realistic example, we'll start with a  very basic CRUD customer service where customers can be created and where existing customers can be retrieved based on the customer id.
+
+First we create the entity Customer POJO. 
 \begin{verbatim}
 public class Customer implements Serializable{
   private final String id = UUID.randomUUID().toString();
@@ -22,19 +39,22 @@ public class Customer implements Serializable{
 }
 \end{verbatim}
 
-The Customer class implements the Serializable interface because the Customer objects are going to be stored in a Map backed up by the Hazelcast datagrid. Hazelcast can use different serialization mechanisms, so you are not tied to java serialization (todo: reference to serialization explanation/topic), but for this chapter we are going to stick to java serialization. For brevity reasons the serialVersionUID is not added to all Serializable implementations. For production code however it is a good practice since serialized objects can be stored for a long time and the class structures can change over time. 
+The Customer class implements the Serializable interface because the Customer objects are going to be stored in a Hazelcast distibuted map. Hazelcast can use different serialization mechanisms, so you are not tied to java serialization (todo: reference to serialization explanation/topic), but for this chapter we are going to stick to java serialization. For brevity reasons the serialVersionUID is not added to all Serializable implementations. For production code however it is a good practice since serialized objects can be stored for a long time and the class structures can change over time. 
 
 Hazelcast doesn't impose any design limitations, so there are no interfaces to implement or certain naming conventions to follows (e.g. Java Beans). You are completely in charge of your object design.
 
-Now we have implemented the Customer, we can get started with the implementation of the Customer Service. We'll start simple with 2 operations:
-creation of a customer
-retrieval of existing customers based on the customer id
+Now we have implemented the Customer, we can get started with the implementation of a Customer Service. We'll start simple with 2 operations:
+\begin{enumerate}
+\item creation of a customer
+\item retrieval of existing customers based on the customer id
+\end{enumerate}
 
 The Java code for this Customer Service looks like this:
 
 \begin{verbatim}
 public class CustomerService{
   private final Map<String,Customer> customerMap = Hazelcast.getMap("customers");
+  
   public String create(String name){
     Customer c = new Customer(name);
     customerMap.put(c.getId(), customer);
@@ -43,6 +63,7 @@ public class CustomerService{
         name,c.getId(),name);
     return customer.getId();
   }
+  
   public Customer get(String id){
     return customerMap.get(id);
   } 
@@ -56,20 +77,21 @@ public class Main{
 }
 \end{verbatim}
 
-If the Main is called,  the following output is shown:
-\begin{verbatim}
-Customer Homer with id 483df6a1-3b3f-4fce-9ace-a664c0e1f9eb and name Homer created
-\end{verbatim}	
-
 The customerMap is retrieved from Hazelcast by calling Hazelcast.getMap("customers"). This is the simplest way to get a hold of this Map, but there are other ways, e.g. the map could be set through dependency injection.
 
 The CustomerService.create method, creates a new Customer object and stores it in the customerMap by calling the put method. After the Customer object is stored, it will eventually be disposed by the garbage collector because Hazelcast stores the binary representation of the object (in this case the Serialized version) and not the actual object.
 
 The CustomerService.get method gets the customer with the given id from the map and returns it. If no customer with the given id is found, null is returned. 
 
-Because the binary representation of the object was stored, and not the object itself, the get method will return a new object, and not the object that initially was stored. So multiple calls to the customerMap.get will return new object instances every time. So unless object are shared explicitly, thread safety is not needed within the object itself; which keeps the object clean.
+If the Main is called,  the following output is shown:
+\begin{verbatim}
+Customer Homer with id 483df6a1-3b3f-4fce-9ace-a664c0e1f9eb and name Homer created
+\end{verbatim}	
+
+\emph{Concurrency} Because the binary representation of the object is stored, and not the object itself, when an object is read from Hazelcast a new object is returned and not the object that initially was stored. So multiple calls to the customerMap.get will return new object instances every time. So unless object are shared explicitly, thread safety is not needed within the object itself; which keeps the object clean. It also is important to realize that because the actual object isn't stored, changes made to that object after it is stored, so not reflect on its persistent state.
  
-So make sure you deal with getting a new instance every time a map.get is called, since in Hazelcast there is no session functionality like e.g. Hibernate. Where the session guarantees that within a session you always get the same instance. 
+So make sure that you deal with getting a new instance every time a map.get is called, since in Hazelcast there is no session functionality like e.g. Hibernate. Where the session guarantees that within a session you always get the same instance. 
+
 Important: Design considerations
 
 In some cases it is an worth considering to create different types of versions for domain objects.
@@ -494,19 +516,9 @@ TODO: Is it case sensitive?
 \item age NOT IN (60, 70)
 \end{enumerate}
 
+\section{Gotcha's}
+
+When Map.entrySet(), Map.keySet() or Map.values() is called, a snapshot of the current state of the map is returned. Changes that are made in the map, so not reflect into changes these maps. Also when changes are made on these collections, an UnsupportedOperationException is thrown.
+
 \section{What is next}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi libero sem,
-interdum eget varius vel, faucibus placerat purus. Sed vulputate diam sit amet
-risus dapibus dignissim. Praesent lobortis eleifend augue. Cum sociis natoque
-penatibus et magnis dis parturient montes, nascetur ridiculus mus. Morbi libero
-turpis, viverra ac vulputate a, faucibus vel quam. Quisque interdum congue
-lacus, in tempus nisl tincidunt at. Curabitur sed eros eu enim vehicula
-fermentum quis nec justo. Vestibulum rutrum laoreet est, eget condimentum justo
-feugiat at. Cras ac sem ac magna ornare tempor non nec nisl. Maecenas feugiat
-fringilla nisl, vitae ullamcorper ante posuere a. Sed mollis lacinia interdum.
-Vivamus vel urna metus. Nulla eget tellus sem. Praesent volutpat suscipit nulla,
-nec dictum arcu iaculis id. Duis pharetra vestibulum sapien, quis pulvinar odio
-pharetra id. Cras at erat velit, vel tincidunt elit. Curabitur vehicula leo eu
-odio vulputate ac consequat nulla ultricies. Maecenas venenatis condimentum
-urna ut ultrices. Aliquam blandit fermentum eros, ac lacinia sem scelerisque
-at. Nullam vitae nisi at erat posuere cursus a non velit.
+In this chapter a lot of the basic operations on the Distributed Map were explained. In the next chapter we'll cover more advanced features.

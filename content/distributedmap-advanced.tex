@@ -1,8 +1,19 @@
 \chapter{Distributed Map Advanced}
 
+Listing of subjects in this chapter
+\begin{enumerate}
+\item High Availability
+\item Indices
+\item Data Locality
+\item Near Cache
+\item Multi Map
+\item Many Map
+\item EntryListeners
+\end{enumerate}
+
 \section{High availability}
 
-By default all data that is written will automatically be written synchronously to another jvm. This prevents data from getting lost if a jvm crashes, because it will be available on another jvm. By customizing the Hazelcast configuration file:
+By default all data that is written will automatically be written synchronously to another JVM. This prevents data from getting lost if a JVM crashes, because it will be available on another JVM. By customizing the Hazelcast configuration file:
 \begin{verbatim}
 <hazelcast> 
 <map name="customers"> 
@@ -72,17 +83,19 @@ And it can be configured like this:
 
 The write-delay-seconds defaults to 0 and this means that if a change is made in the map, a write through to the CustomerStore is going to happen. Although this example doesn't use a database, but if one would be used, the database would immediately be updated if the map is updated. If the write-delay-seconds is higher than zero, the entry will be marked as dirty and at some point in time it will be written to the database, this is called a write behind.
 
-\section{Indexes}
+\section{Indices}
 
 To speed up queries, just like in databases, Hazelcast indexes to be created on fields. In this case we could create a index on the name field. Using an index prevents from iterating over all possible values (in database terms this is called a full table scan), but directly jump to the interesting ones. There are 2 types of indexes:
-Ordered: e.g. a numeric field
-Unordered: e.g. a name field.
+\begin{enumerate}
+\item Ordered: e.g. a numeric field
+\item Unordered: e.g. a name field.
+\end{enumerate}
 A single table can have multiple indexes. To retrieve the index field of an Object, first a getter will be tried and if that doesn't exist, direct field access will be used.
 
-We can create an index in 2 ways:
-programmatically
-configuration
-Programmatic configuration of the index.
+We can create an index in 3 ways; programmatic, configuration and using Spring.
+
+
+\subsection{Programmatic configuration of the index}
 
 An index can be added programmatically by calling the IMap.addIndex method like this:
 
@@ -96,6 +109,8 @@ class CustomerService{
 \end{verbatim}
 
 Adding the index should be done before an item is placed in the map. Sometimes by design adding an index to map may be impossible before any value is added. For example if a map has MapLoader that loads entries during map creation, then adding indexes to map becomes meaningless. To solve this problem, Hazelcast introduces defining IMap indexes in configuration.
+
+\subsection{Configuration}
 Configuration of the index through the configuration file:
 
 The indexes on the map can also be configured through the hazelcast configuration file. 
@@ -152,15 +167,11 @@ public class OrderService{
 }
 \end{verbatim}
 
-The problem is that the Orders are very likely to be stored on a different partition than the customers since the customer will 
-be partitioned with the customer id, and the order with the order id. 
+The problem is that the Orders are very likely to be stored on a different partition than the customers since the customer will be partitioned with the customer id, and the order with the order id. 
 
-This can be solved by making use of the PartitionAware interface. If a key for the IMap implements this interface, instead 
-of using the hashcode of the object to determine the correct partition, the PartitionAware.getPartitionKey() method will be 
-called and the result of this method will be used to determine the right partition.
+This can be solved by making use of the PartitionAware interface. If a key for the IMap implements this interface, instead of using the hashcode of the object to determine the correct partition, the PartitionAware.getPartitionKey() method will be called and the result of this method will be used to determine the right partition.
 
-In our case we introduce an intermediate object: the OrderKey that implements this PartitionAware interface and returns the 
-customerId as the partitionKey.
+In our case we introduce an intermediate object: the OrderKey that implements this PartitionAware interface and returns the customerId as the partitionKey.
 
 \begin{verbatim}
 import com.hazelcast.core.PartitionAware;
@@ -236,14 +247,11 @@ OrderPartition: 206
 
 As you can see, the partition where the Customer is stored, is the same as the partition where the Order of that same customer is stored. 
 
-Being able to control what data is placed in the same partition, is a very powerful feature and needs to be taking into consideration from 
-the beginning. Once this is done correctly, it will be a lot easier to write a high performance and scalable system. 
+Being able to control what data is placed in the same partition, is a very powerful feature and needs to be taking into consideration from the beginning. Once this is done correctly, it will be a lot easier to write a high performance and scalable system. 
 
 \section{Near Cache}
 
-Till so far all our data is bound to a specific partition, e.g. the orders, the customer etc. But in some cases 
-data needs to be available on all machines, an example of such data is reference data. Hazelcast luckily supports 
-a feature called the near cache that makes data available on all partitions instead of a single one.
+Till so far all our data is bound to a specific partition, e.g. the orders, the customer etc. But in some cases  data needs to be available on all machines, an example of such data is reference data. Hazelcast luckily supports  a feature called the near cache that makes data available on all partitions instead of a single one.
 
 To explain the near cache, we are going to introduce the article domain object. We could define it like this:
 
@@ -347,19 +355,8 @@ Removing items
 
 todo: explanation of the Many Map
 
+\section{EntryListeners}
+
+todo: explain entry listeners.
+
 \section{What is next}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi libero sem,
-interdum eget varius vel, faucibus placerat purus. Sed vulputate diam sit amet
-risus dapibus dignissim. Praesent lobortis eleifend augue. Cum sociis natoque
-penatibus et magnis dis parturient montes, nascetur ridiculus mus. Morbi libero
-turpis, viverra ac vulputate a, faucibus vel quam. Quisque interdum congue
-lacus, in tempus nisl tincidunt at. Curabitur sed eros eu enim vehicula
-fermentum quis nec justo. Vestibulum rutrum laoreet est, eget condimentum justo
-feugiat at. Cras ac sem ac magna ornare tempor non nec nisl. Maecenas feugiat
-fringilla nisl, vitae ullamcorper ante posuere a. Sed mollis lacinia interdum.
-Vivamus vel urna metus. Nulla eget tellus sem. Praesent volutpat suscipit nulla,
-nec dictum arcu iaculis id. Duis pharetra vestibulum sapien, quis pulvinar odio
-pharetra id. Cras at erat velit, vel tincidunt elit. Curabitur vehicula leo eu
-odio vulputate ac consequat nulla ultricies. Maecenas venenatis condimentum
-urna ut ultrices. Aliquam blandit fermentum eros, ac lacinia sem scelerisque
-at. Nullam vitae nisi at erat posuere cursus a non velit.

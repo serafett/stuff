@@ -12,6 +12,8 @@ According to the Hazelcast website; Hazelcast is a "Hazelcast is a clustering an
 
 One of the things I like most about Hazelcast is that it isn't very intrusive; as a developer/architect you are in control how much Hazelcast you get in your system. You are not forced to change your whole way of working; mutilate objects so they can be distributed, forced to use specific servers/application-servers. So this freedom combined with very well thought out API's make Hazelcast really a joy to work with.
 
+TODO: Tell something about sizes of datasets, number of nodes, performance (operations a second) etc. Numbers to impress.
+
 \subsection*{Who should read this book}
 This books aims at developers/architects that build applications on top of the JVM and want to get a better understanding of how to write distributed applications using Hazelcast.
 
@@ -29,17 +31,19 @@ In 'Chapter 3: Distributed Collections' you will learn how to make use of distri
 
 In 'Chapter 4: Distributed Map' you will learn about how to make use of the Distributed Map functionality.
 
-In 'Chapter 5: Distributed Map Advanced' you will learn about the more advanced concept of the Distributed Map like indexing, nearcaches multimaps etc.
+In 'Chapter 5: Distributed Map Advanced' you will learn about the more advanced concept of the Distributed Map like indexing, nearcache, multimaps etc.
 
 In 'Chapter 6: Distributed Executor' you will learn about executing tasks using the distributed Executor.
 
-In 'Chapter 6: Customer Distributed Data Structures' you will learn about creating custom distributed data-structures build on top of the new functionality in Hazelcast 3.
+In 'Chapter 7: Distributed Topic' you will learn about creating a publish/subscribe solution using the Distributed Topic functionality.
 
-After that in  'Chapter 8: Distributed Services' you will lean about ..
+In 'Chapter 8: Customer Distributed Data Structures' you will learn about creating custom distributed data-structures build on top of the new functionality in Hazelcast 3.
 
-Next in 'Chapter 9: Cluster Configuration' you will learn about cluster configuration.
+After that in  'Chapter 9: Distributed Services' you will lean about ..
 
-Finally in 'Chapter 10: Cluster Configuration' you will learn about cluster configuration.
+Next in 'Chapter 10: Cluster Configuration' you will learn about cluster configuration.
+
+Finally in 'Chapter 11: Cluster Configuration' you will learn about cluster configuration.
 
 \subsection*{What you need}
 In Order to use Hazelcast you'll need a computer that is able to run Java 5. If you don't have Java installed on your machine, you probably want to install Java 7: 
@@ -57,8 +61,7 @@ There is a website for this book that contains a link to an interactive discussi
 The Hazelcast website various important pieces of information can be found:
 \begin{enumerate}
 \item website: http://hazelcast.com/
-\item javadoc: http://www.hazelcast.com/javadoc
-\item reference manual: http://hazelcast.com/docs.jsp
+\item documentation: http://hazelcast.com/docs.jsp
 \item usergroup: http://groups.google.com/group/hazelcast
 \item email address usergroup: hazelcast@googlegroups.com
 \item Hazelcast on Github: https://github.com/hazelcast/hazelcast/

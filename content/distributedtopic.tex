@@ -1,0 +1,53 @@
+\chapter{Distributed Topic}
+
+TODO: Text needs to be written, currently copy/paste manual.
+
+Hazelcast provides distribution mechanism for publishing messages that are delivered to multiple subscribers which is also known as publish/subscribe (pub/sub) messaging model. Publish and subscriptions are cluster-wide. When a member subscribes for a topic, it is actually registering for messages published by any member in the cluster, including the new members joined after you added the listener. Messages are ordered, meaning, listeners(subscribers) will process the messages in the order they are actually published. If cluster member M publishes messages m1, m2, m3...mn to a topic T, then Hazelcast makes sure that all of the subscribers of topic T will receive and process m1, m2, m3...mn in order. Therefore there is only single thread invoking onMessage. The user shouldn't keep the thread busy and preferably dispatch it via an Executor. This will increase the performance of the topic
+
+\begin{verbatim}
+import com.hazelcast.core.Topic;
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.MessageListener;
+
+public class Sample implements MessageListener<MyEvent> {
+
+    public static void main(String[] args) {
+        Sample sample = new Sample();
+        ITopic topic = Hazelcast.getTopic ("default");
+        topic.addMessageListener(sample);
+        topic.publish (new MyEvent());
+    }
+
+    public void onMessage(MyEvent myEvent) {
+        System.out.println("Message received = " + myEvent.toString());
+        if (myEvent.isHeavyweight()) {
+            messageExecutor.execute(new Runnable() {
+                public void run() {
+                    doHeavyweightStuff(myEvent);
+                }
+            });
+        }
+    }
+
+    // ...
+
+    private static final Executor messageExecutor = Executors.newSingleThreadExecutor();
+}
+\end{verbatim}
+
+\section{What is next}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi libero sem,
+interdum eget varius vel, faucibus placerat purus. Sed vulputate diam sit amet
+risus dapibus dignissim. Praesent lobortis eleifend augue. Cum sociis natoque
+penatibus et magnis dis parturient montes, nascetur ridiculus mus. Morbi libero
+turpis, viverra ac vulputate a, faucibus vel quam. Quisque interdum congue
+lacus, in tempus nisl tincidunt at. Curabitur sed eros eu enim vehicula
+fermentum quis nec justo. Vestibulum rutrum laoreet est, eget condimentum justo
+feugiat at. Cras ac sem ac magna ornare tempor non nec nisl. Maecenas feugiat
+fringilla nisl, vitae ullamcorper ante posuere a. Sed mollis lacinia interdum.
+Vivamus vel urna metus. Nulla eget tellus sem. Praesent volutpat suscipit nulla,
+nec dictum arcu iaculis id. Duis pharetra vestibulum sapien, quis pulvinar odio
+pharetra id. Cras at erat velit, vel tincidunt elit. Curabitur vehicula leo eu
+odio vulputate ac consequat nulla ultricies. Maecenas venenatis condimentum
+urna ut ultrices. Aliquam blandit fermentum eros, ac lacinia sem scelerisque
+at. Nullam vitae nisi at erat posuere cursus a non velit.

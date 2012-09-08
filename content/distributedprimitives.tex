@@ -140,6 +140,8 @@ When this code is executed; you will not see "Difference detected!" anymore. Thi
 
 With the java.util.concurrent.locks.Lock it also is possible to create a java.util.concurrent.locks.Condition object to wait for a certain condition to happen; e.g. a custom made queue just received an element. Unfortunately the Condition functionality is not supported by Hazelcast at the moment.
 
+TODO: Hazelcast lock is reentrant, so you can acquire it multiple times in a single thread without causing a deadlock, and of course you need to release it as many times as you have acquired it, to make it available to other threads.
+
 Important: when a node has acquired a lock and this node goes down, then that lock will automatically be released. This prevents threads that are waiting for a lock to wait indefinitely and this is important for failover to work in a distributed system. The downside however is that if a node that acquired the lock and started making changes, goes down, that other nodes could start to see partial changes. In these cases either the system could do some self repair or else a transaction potentially can solve the problem.
 
 \section{ISemaphore}

@@ -56,6 +56,24 @@ In this book we'll use the xml configuration file. When you are running a maven 
 
 \section{Running the examples}
 
+\section{Configuring instances}
+
+TODO: Explain about following:
+
+Elements in configuration are not definitions of instances (map, queue etc.), Hazelcast does not create real instances by reading those definitions. They are definitions of configurations; when HazelcastInstance.getX(configName) is called, Hazelcast creates instance X by using configuration named 'configName'. Even if that 'configName' can not be found, Hazelcast creates instance using 'default' configuration. 
+
+\begin{lstlisting}[language=xml]
+<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config
+           hazelcast-config-2.0.xsd"
+           xmlns="http://www.hazelcast.com/schema/config"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+    <queue name="q"/>
+</hazelcast>
+\end{lstlisting}
+
+This is very important to understand because multiple hazelcastInstance.getX will return different instances. 
+
 \section{Configure logging}
 
 TODO: Explain the ipv4 config setting else nodes won't be able to discover each other.
