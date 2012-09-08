@@ -19,7 +19,6 @@
 
     <modules>
         <module>lock</module>
-        <module>condition</module>
         <module>atomicnumber</module>
         <module>countdownlatch</module>
         <module>idgenerator</module>
