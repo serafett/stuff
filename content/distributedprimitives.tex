@@ -49,7 +49,6 @@ If you start the AtomicNumberMain, you will eventually see:
 \begin{verbatim}
 Count is 1000000
 \end{verbatim}
-
 If you run this application in parallel, then the total count should be equal to one million times the number of applications you have started.
 
 The AtomicNumbers is very useful in lock free algorithms, although you need to take care that uncontrolled repeating can lead to live-locking; the system is appears to do something since no progress is made, but in reality it is only burning cpu cycles and in case of the AtomicNumber, it will also be consuming network resources. In most cases it is best to limit the number of retries and throw an exception when the number of retries is exceeded.
@@ -311,20 +310,24 @@ The Hazelcast member that successfully invokes setCount(int) becomes the owner o
 
 \section{IdGenerator}
 
-In the previous section we introduced the AtomicNumber and one of the things it can be used for is to generated unique id's within a cluster. Although it will work, it probably isn't the most scalable solution since all member will content on incrementing the value. If you are only interested in id's and not in the order the id's are generated (or even when elements are skipped) you can have a look at the IdGenerator.
+In the previous section we introduced the AtomicNumber and one of the things it can be used for is to generated unique id's within a cluster. Although it will work, it probably isn't the most scalable solution since all member will content on incrementing the value. If you are only interested in id's and not in the order the id's are generated and don't care when there is a risk of skipping id's, you can have a look at the IdGenerator.
 
+Underneath is a small example of the id generator:
 \begin{lstlisting}[language=java]
-public class IdGeneratorMain{
-    public static void main(String[] args){
-        IdGenerator idGenerator = Hazelcast.getIdGenerator("idGenerator");
-        int count = 1000 * 1000;
-        for(int k=0;k<100;k++){
+import com.hazelcast.core.*;
+public class IdGeneratorNode {
+    public static void main(String[] args) {
+        HazelcastInstance hazelcast = Hazelcast.getDefaultInstance();
+        IdGenerator idGenerator = hazelcast.getIdGenerator("idGenerator");
+        for (int k = 0; k < 1000000; k++) {
             long id = idGenerator.newId();
-            System.out.printn("Id : %s\n",id);
+            System.out.printf("Id : %s\n", id);
         }
     }
 }
 \end{lstlisting}
+
+If you start this multiple times, you will see in the console that there will not be any duplicate id's
 
 The way the org.hazelcast.core.IdGenerator works is that each node claims a segment of id's to generate, e.g. 0..999999. This is done behind the scenes by incrementing a shared AtomicNumber. After it has claimed its segment, it can increment a local counter (so there is no network traffic). Only when the id's in its segments are used, then a new segment needs to be claimed and this is done by increasing the shared AtomicNumber.
 
@@ -335,11 +338,9 @@ Of course there are some downsides you need to be aware of:
 \item the generated id's probably will be out of order
 \item if a node goes down without using its range, there might be gaps.
 \end{enumerate}
-But for id generation, these limitations in most cases are not an issue.
+But for id generation, these limitations in most cases are not an issue. Apart from the IdGenerator, there are other options for creating cluster wide unique id's. One of them is the java.util.UUID, although it will take up more space than a long. 
 
-Apart from the IdGenerator, there are other options for creating cluster wide unique id's. One of them is the java.util.UUID, although it will take up more space than a long. 
-
-Important: If the cluster restarts then id generation will start from 0.
+\emph{If the cluster restarts} then id generation will start from 0.
 
 \section{What is next?}
 In this chapter we went over the various synchronization primitives that are directly exposes by Hazelcast. You can always build higher synchronization primitives on top of these lower ones.

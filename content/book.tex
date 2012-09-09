@@ -7,6 +7,13 @@
 \usepackage{graphicx}
 \usepackage{listings}
 \usepackage{sectsty}
+\usepackage{etoolbox}
+\usepackage{enumitem}
+
+%removing spaces between enumerations
+\setlist{nolistsep}
+
+
 
 %\usepackage{helvet}
 %\renewcommand{\familydefault}{\sfdefault}
@@ -15,6 +22,7 @@
 
 \addtolength{\parskip}{\baselineskip}
 \begin{document}
+\preto{\@verbatim}{\topsep=0pt \partopsep=0pt }
 \setlength{\parindent}{0in}
 
 
