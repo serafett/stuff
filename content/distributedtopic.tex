@@ -1,9 +1,4 @@
 \chapter{Distributed Topic}
-
-TODO: Text needs to be written, currently copy/paste manual.
-TODO: JMS ref
-TODO: Durable subscriptions
-
 In the previous chapter we talked about the BlockingQueue, which can be used to create point to point message solutions; where each message will be processed by a single consumer. An alternative approach is the publish/subscribe solution, where a single message can be processed by multiple subscribers.
 
 Hazelcast provides a publish/subscribe solution in the form of the com.hazelcast.core.ITopic. It is a distributed mechanism for publishing messages to multiple subscribers. So any number of nodes can publish messages to the topic and any number of nodes can receive messages. The message can be an ordinary POJO, although it must be serializable. 
@@ -24,7 +19,7 @@ public class PublisherNode {
 }
 \end{verbatim}
 
-And the receiver acquires the same topic and registers an TopicListener.
+And the receiver acquires the same topic and registers a TopicListener:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
@@ -47,16 +42,14 @@ public class SubscribeNode {
     }
 }
 \end{lstlisting}
-When we start up the publisher first, we'll see: "Subscribed". After that we start the publisher and after the publisher has published the message, the subscriber will see something like:
+We first start up the subscriber, and we'll see: "Subscribed" in the console. After that we start the publisher and after the publisher has published the message, the subscriber output will show something like:
 \begin{verbatim}
 Received: Sat Sep 08 13:05:24 EEST 2012
 \end{verbatim}
 
-To make it a bit more interesting, you can start multiple receivers. After you have done that, and start the publisher again, all receives are now receiving that same message.
+To make it a bit more interesting, you can start multiple subscribers. After you have done that, and start the publisher again, all subscribers will receiving the published message.
 
-\emph{Durable subscriptions}, known from JMS, are not supported. So it isn't possible to receives messages after some subscriber unsubscribes itself then subscribes again, so that no messages are lost.
-
-\empth{Storage} TODO: Is storage possible? 
+\emph{Durable subscriptions} known from JMS to prevent messages getting lost is not supported. With durable subscriptions a subscriber can register itself under a certain id, and the topic makes sure that a subscriber with that id will receive all messages; even if that means that the topic needs to store them.
 
 \subsection{globalOrderingEnabled}
 

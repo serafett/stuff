@@ -1,21 +1,41 @@
 \chapter*{Preface}
 
-When you write applications for the Java Virtual Machine for your profession, it is likely that you are going to write some server-side application. Although Java has support for writing desktop applications, the server-side is really where Java shines.
-
-Today it becomes more and more important that these server-side applications provide all kinds of features like high scalability; just add machines if you need capacity or remove machines if there is too much unused capacity. Another desired feature is to provide high availability; a cluster of machines should not suffer if a single machine fails. The load should be taken over by another node and
-the system should continue as if nothing happened.
-
-Writing concurrent system has been a long passion of mine and it is a very logical step to go from concurrency control within a single JVM to concurrency control in over multiple JVM's. There is a big overlap in functionality; a lot of the knowledge that is applicable to concurrency control in a single JVM also applies to concurrency over multiple nodes; but there also is a whole new dimension of problems that make distributed systems even more interesting to deal with. You want to be able to scale beyond the capacity of a single machine; you want your system to be resilient to failures.
+Writing concurrent system has been a long passion of mine and it is a very logical step to go from concurrency control within a single JVM to concurrency control over multiple JVM's. There is a big overlap in functionality; a lot of the knowledge that is applicable to concurrency control in a single JVM also applies to concurrency over multiple JVM's; but there also is a whole new dimension of problems that make distributed systems even more interesting to deal with. 
 
 \subsection*{What is Hazelcast}
-According to the Hazelcast website; Hazelcast is a "Hazelcast is a clustering and highly scalable data distribution platform for Java". What that means is that it is very simple to write elegant java code using Hazelcast. In a lot of cases you can just use interfaces that are part of the JRE.
+When you write applications for the JVM for your profession, it is likely that you are going to write server-side applications. Although Java has support for writing desktop applications, the server-side is really where Java shines.
 
-One of the things I like most about Hazelcast is that it isn't very intrusive; as a developer/architect you are in control how much Hazelcast you get in your system. You are not forced to change your whole way of working; mutilate objects so they can be distributed, forced to use specific servers/application-servers. So this freedom combined with very well thought out API's make Hazelcast really a joy to work with.
+Today it becomes more and more important that server-side systems are:
+\begin{enumerate}
+\item Scalable: just add and remove machines to match required capacity 
+\item Highly available: if one or more machines in a system fail, the system should continue as if nothing happened.
+\item Performant: the performance per node should be good enough to make it cost efficient.
+\end{enumerate}
 
-TODO: Tell something about sizes of datasets, number of nodes, performance (operations a second) etc. Numbers to impress.
+Hazelcast is an Open Source clustering and highly scalable data distribution platform for the JVM that is:
+\begin{enumerate}
+\item Dynamically scalable: scales up as new servers are added and scales down when servers are removed.
+\item Highly available; not losing data after JVM's crash.
+\item Lightning-fast; thousands of operations/sec.
+\end{enumerate}
+	
+One of the things I like most about Hazelcast is that it isn't very intrusive; as a developer/architect you are in control how much Hazelcast you get in your system. You are not forced to mutilate objects so they can be distributed, forced to use specific (application) servers, completely need to refactor the architecture or the need to install software; just add the Hazelcast jar to your classpath and you are done.
+
+This freedom combined with very well thought out API's, in a lot of cases you can just use interfaces like java.util.concurrent.Executor, java.util.concurrent.BlockingQueue or java.util.Map, makes Hazelcast really a joy to work with. And it leads to highly available, scalable and performant Java systems, written in little time and based on very simple and elegant code.
+
+\subsection*{How to convince my boss}
+No matter how cool a product is, often you need to have buy in from either your team, your boss or the customer. So I hope to give you some information that makes this easier.
+
+TODO: Tell something about sizes of datasets, number of nodes, performance (operations a second) etc. Numbers to impress. Clouds
+
+\emph{Customers} big banks (concrete names), telco's (concrete names), ... number of customers.. etc
+
+\emph{Support} is mandatory for a lot of companies to reduce risk. Although Hazelcast is Open Source and you don't need to pay anything in production, Hazelcast has an extensive commercial support, including training and consulting,  offering: http://hazelcast.com/support.jsp. 
+
+\emph{Gartner} has elected Hazelcast as Cool vendor in 2012: http://tinyurl.com/9fj4lvm
 
 \subsection*{Who should read this book}
-This books aims at developers/architects that build applications on top of the JVM and want to get a better understanding of how to write distributed applications using Hazelcast.
+This books aims at developers/architects that build applications on top of the JVM and want to get a better understanding of how to write distributed applications using Hazelcast. 
 
 If you are a developer that has no prior experience with Hazelcast then you will learn the basics to get up and running. If you already have some experience, it might be that you learn some new tricks.
 
