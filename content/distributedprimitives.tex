@@ -2,12 +2,12 @@
 
 If you have programmed in Java you have probably worked with concurrency primitives like the synchronized statement (the intrinsic lock) or perhaps even the new concurrency library that was introduced in Java 5 under java.util.concurrent like the Executor, Lock and AtomicReference. And with every new release of Java all kinds of new functionality is added like the Fork/Join framework in Java 7.
 
-This concurrency functionality is useful if you want to write a Java application that use multiple threads. The focus of this functionality however is to provide concurrency abstractions to be used in a single jvm, although you can always connect multiple JVM's together either using raw sockets or some kind of more higher level remoting library (RMI, Servlets etc)
+This concurrency functionality is useful if you want to write a Java application that use multiple threads. The focus of this functionality however is to provide concurrency abstractions to be used in a single JVM, although you can always connect multiple JVM's together either using raw sockets or a more higher level remoting library (RMI, Servlets etc)
 
-Hazelcast provides direct support for synchronization primitives that are distributed. The advantage of using distributed data-structures is:
+Hazelcast provides direct support for synchronization primitives that are distributed. The basic distributed features that are provided are:
 \begin{enumerate}
 \item failover; so if one machine fails, the system will still be working
-\item scalability; just add more machines and you will get more capacity. Although this doesn't mean that your system will automatically become better scalable when you introduce Hazelcast 
+\item scalability; just add more machines and you will get more capacity. Although this doesn't mean that your system will automatically become better scalable when you introduce Hazelcast, 
 \end{enumerate}
 
 In this chapter the following distributed primitives will be explained:
@@ -21,9 +21,18 @@ In this chapter the following distributed primitives will be explained:
 
 \section{AtomicNumber}
 
-The AtomicNumber is the distributed version of the java.util.concurrent.atomic.AtomicLong. The main reason I'm using the AtomicNumber for is for are counters. 
+The AtomicNumber is the distributed version of the java.util.concurrent.atomic.AtomicLong, so if you have used it before, working with the AtomicNumber should feel very similar. The main differences are the way it is created and that the interface is a bit different.
 
-Below is a small example:
+The AtomicNumber exposes most of the operations the AtomicLong provides like:
+\begin{enumerate}
+\item get
+\item set
+\item getAndSet
+\item compareAndSet
+\item incrementAndGet
+\end{enumerate}
+
+We'll demonstrate the AtomicNumber by creating an instance and incrementing it one million times:
 \begin{lstlisting}[language=java]
 public class AtomicNumberMain{
     public static void main(String[] args){
@@ -36,53 +45,45 @@ public class AtomicNumberMain{
     }
 }
 \end{lstlisting}
-In this case the counter is incremented 1000*1000 times and if you run this application in parallel, then the total count should be equal to 1000*1000 times the number of applications you have started.
+If you start the AtomicNumberMain, you will eventually see:
+\begin{verbatim}
+Count is 1000000
+\end{verbatim}
 
-The AtomicNumber exposes most of the operations the AtomicLong provides like:
-\begin{enumerate}
-\item get
-\item set
-\item getAndSet
-\item compareAndSet
-\item incrementAndGet
-\end{enumerate}
-so if you have used the AtomicLong before, working with the AtomicNumber should feel similar.
+If you run this application in parallel, then the total count should be equal to one million times the number of applications you have started.
 
-With the AtomicNumbers can be used in lock free algorithms, although you need to take care that uncontrolled repeating can lead to live-locking; the system is appears to do something, but in reality it is only burning cpu cycles. In case of a distributed version the system will also be consuming network resources. 
+The AtomicNumbers is very useful in lock free algorithms, although you need to take care that uncontrolled repeating can lead to live-locking; the system is appears to do something since no progress is made, but in reality it is only burning cpu cycles and in case of the AtomicNumber, it will also be consuming network resources. In most cases it is best to limit the number of retries and throw an exception when the number of retries is exceeded.
 
-If the counter is going to be a contention point in your system, you can either create a stripe (an array) of counters and pick one to increment. With n counters in place, you should have n times more scalability. Another option is to store increments locally and only once and a while increment the shared counter. The downside of this approach is that you could loose counts if a node goes down for example. Another downside is that the newest count is not always immediately visible. 
+If the AtomicNumber is contention point in your system, there are a few ways of dealing with it depending on your requirements. One of the options it to create a stripe (essentially an array) of AtomicNumbers to reduce pressure; but this approach can't always be applied. Another options is to keep changes locally and only publish them to the AtomicNumber once and a while. There are a few downsides here; you could loose information if a node goes down and is that the newest value is not always immediately visible to the outside world. 
 
-There currently is only support for the long. But you can always use this to simulate
+Hazelcast only provides support for the long, but you can always simulate for other types:
 \begin{enumerate}
 \item boolean: 0 for true and 1 for false.
 \item double: a 64 bit double can be encoded into 64 bits, which can be stored in a long 
       which is also 64 bits.
 \end{enumerate}
 
-
 \section{Distributed Lock}
+A lock (also called a mutex) is a synchronization primitive that makes it possible that only a single thread is able to access to a critical section of code; if multiple threads at the same moment would access that critical section concurrently, you would get race problems. 
 
-The Hazelcast ILock (which extends the java.util.concurrent.locks.Lock) is perhaps to most basic concurrency primitive. As you know a Lock makes it possible that only a single thread is able to get access to a critical section of code; if multiple threads at the same moment would access that critical section concurrently, you would get race problems. 
+Hazelcast provides a distributed lock implementation and makes it possible to create a critical section within a cluster of JVM's; so only a single thread from one of the JVM's in the cluster is allowed to acquire that lock. Other threads that want to acquire the lock, no matter if they are on the same JVM's or not, will not be able to acquire it and depending on the locking method they called, they either block or fail. The com.hazelcast.core.ILock; extends the java.util.concurrent.locks.Lock interface, so using the lock is quite simple.
 
-With the Hazelcast ILock you can not only create a critical section within a single JVM, you can do it within a cluster of JVM's; so if one node in that cluster acquired that lock, other nodes in the cluster will not; they will need to wait till the lock is released.
-
-In the following example we have 2 atomic numbers and they will be incremented without using a lock.
+To show you how a race problem can be solved with a Hazelcast lock, I have created a small example containing a race problem.
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.AtomicNumber;
-import com.hazelcast.core.Hazelcast;
-
-public class NoLockMain {
-    public static void main(String[] args) throws InterruptedException {
-        AtomicNumber number1 = Hazelcast.getAtomicNumber("number1");
-        AtomicNumber number2 = Hazelcast.getAtomicNumber("number2");
+import com.hazelcast.core.*;
+public class RacyNode {
+    public static void main(String[] args) throws Exception {
+        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
+        AtomicNumber number1 = hazelcastInstance.getAtomicNumber("number1");
+        AtomicNumber number2 = hazelcastInstance.getAtomicNumber("number2");
         System.out.println("Started");
         for (int k = 0; k < 1000000; k++) {
-            if (k % 10000 == 0) System.out.println("At: " + k);
+            if (k % 10000 == 0) System.out.println("at: " + k);
             if (k % 2 == 0) {
                 long n1 = number1.get();
                 Thread.sleep(100);
                 long n2 = number2.get();
-                if (n1 - n2 != 0) System.out.println("Difference detected!");
+                if (n1 - n2 != 0) System.out.println("Datarace detected!");
             } else {
                 number1.incrementAndGet();
                 number2.incrementAndGet();
@@ -92,27 +93,25 @@ public class NoLockMain {
     }
 }
 \end{lstlisting}
+The idea is that a thread is going to increment 2 numbers half of the time and in the other half it will compare the 2 numbers and expects them to be equal. If they are not equal, we have a race problem and "Difference detected!" will be printed.
 
-After we the application multiple times we are going to see the following in the console:
+If we run only a single instance of the RacyNode, we won't get any race problem since either the 2 numbers will be incremented, or the 2 numbers will be printed. There will no be an interleaving of these operations.
+
+But if we start multiple instances of the RaceNode, we'll start to see the following:
 \begin{verbatim}
-At 0
-Difference detected!
-Difference detected!
+Datarace detected!
+Datarace detected!
 ...
 \end{verbatim}	
-
-The reason is that the writing and the reading of the 2 numbers is not an atomic operation. To make reading or writing to both the numbers atomic, we can make use of the Hazelcast distributed lock:
-
+The reason this race problem is occurring is that the writing and the reading of the 2 numbers is not placed in a critical section. With the Hazelcast distributed lock we can easily solve this problem:
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.AtomicNumber;
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.ILock;
-
-public class LockMain {
-    public static void main(String[] args) throws InterruptedException {
-        AtomicNumber number1 = Hazelcast.getAtomicNumber("number1");
-        AtomicNumber number2 = Hazelcast.getAtomicNumber("number2");
-        ILock lock = Hazelcast.getLock("lock");
+import com.hazelcast.core.*;
+public class RaceFreeNode {
+    public static void main(String[] args) throws Exception {
+        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
+        AtomicNumber number1 = hazelcastInstance.getAtomicNumber("number1");
+        AtomicNumber number2 = hazelcastInstance.getAtomicNumber("number2");
+        ILock lock = hazelcastInstance.getLock("lock");
         System.out.println("Started");
         for (int k = 0; k < 10000; k++) {
             if (k % 100 == 0) System.out.println("at: " + k);
@@ -122,7 +121,7 @@ public class LockMain {
                     long n1 = number1.get();
                     Thread.sleep(10);
                     long n2 = number2.get();
-                    if (n1 - n2 != 0) System.out.println("Difference detected!");
+                    if (n1 - n2 != 0) System.out.println("Datarace detected!");
                 } else {
                     number1.incrementAndGet();
                     number2.incrementAndGet();
@@ -135,47 +134,97 @@ public class LockMain {
     }
 }
 \end{lstlisting}
+When this code is executed; you will not see "Datarace detected!". This is because the lock provides a critical section around writing and reading of the numbers. 
 
-When this code is executed; you will not see "Difference detected!" anymore. This is because the lock provides a critical section around writing and reading of the numbers. 
-
-With the java.util.concurrent.locks.Lock it also is possible to create a java.util.concurrent.locks.Condition object to wait for a certain condition to happen; e.g. a custom made queue just received an element. Unfortunately the Condition functionality is not supported by Hazelcast at the moment.
-
-TODO: Hazelcast lock is reentrant, so you can acquire it multiple times in a single thread without causing a deadlock, and of course you need to release it as many times as you have acquired it, to make it available to other threads.
-
-Important: when a node has acquired a lock and this node goes down, then that lock will automatically be released. This prevents threads that are waiting for a lock to wait indefinitely and this is important for failover to work in a distributed system. The downside however is that if a node that acquired the lock and started making changes, goes down, that other nodes could start to see partial changes. In these cases either the system could do some self repair or else a transaction potentially can solve the problem.
+A few things worth knowing about the Hazelcast lock:
+\begin{enumerate}
+\item No Condition support: With the java.util.concurrent.locks.Lock it also is possible to create a java.util.concurrent.locks.Condition object to wait for a certain condition to happen; e.g. a custom made queue just received an element. Unfortunately the Condition functionality is not supported by Hazelcast at the moment.
+\item Hazelcast lock is reentrant, so you can acquire it multiple times in a single thread without causing a deadlock, of course you need to release it as many times as you have acquired it, to make it available to other threads.
+\item The lock should always be acquired outside of a try/finally block. Else it can happen that the lock acquire failed, but an unlock is still executed.
+\item Fairness: TODO
+\item Keep locks as short as possible. If locks are kept too long, it can lead to performance problems or worse: deadlock.
+\item With locks it is easy to run into deadlocks if you don't know what you are doing; so make sure that you do. Having code you don't control running inside your locks is asking for problems. Make sure you understand exactly the scope of the lock.
+\item Locks are automatically released when a node has acquired a lock and this node goes down. This prevents threads that are waiting for a lock to wait indefinitely and this is important for failover to work in a distributed system. The downside however is that if a node goes down that acquired the lock and started making changes, that other nodes could start to see partial changes. In these cases either the system could do some self repair or else a transaction potentially can solve the problem.
+\item a lock must always be released by the same lock that acquired it, otherwise look at the ISemaphore.
+\item there are no configuration options available for the lock
+\end{enumerate}
 
 \section{ISemaphore}
 
-The ISemaphore in Hazelcast is distributed version of the java.util.concurrent.Semaphore implementation. a counting semaphore; it can be seen as a structure with a limit number of permits. When a permit needs to be obtained, a few things can happen:
+A semaphore is a synchronization aid that can be used if you want to control how many threads concurrently execute some activity, e.g. using a resource. Each semaphore has a number of permits which should be equal to the maximum number of concurrent threads. 
+
+Hazelcast provides a distributed version of the java.util.concurrent.Semaphore named the com.hazelcast.core.ISemaphore. When a permit needs to be acquired the following can happen:
 \begin{enumerate}
-\item a permit is available; the number of permits in the semaphore is decreased by one and the calling thread returns.
-\item no permit is available; the calling thread will block until a permit comes available, a timeout happens, the thread is interrupted or when the semaphore is destroyed a InstanceDestroyedException will be thrown.
+\item a permit is available; the number of permits in the semaphore is decreased by one and the calling thread can continue. After that thread is finished with the resource, it should release the permit.
+\item no permit is available; the calling thread will block until a permit comes available, a timeout happens, the thread is interrupted or when the semaphore is destroyed an InstanceDestroyedException will be thrown.
 \end{enumerate}
 
-A semaphore that is initialized with the value 1, will have similar behavior as a lock, but with the big difference that with a semaphore a different thread is allowed to release the permit than the thread that acquired the permit.
+The big difference between a semaphore and a lock is that the former has no concept of ownership. So with a lock the thread that acquired the lock must release it, and with a semaphore any thread can release it. 
 
+I explain the semaphore with an example. To simulate a resource we have an AtomicNumber initialized with the value 0. We are going to use this resources 1000 times. Every time the thread starts to use that resource it increments it and once completed it decrements the resource.
 \begin{lstlisting}[language=java]
-public class SemaphoreMain{
+import com.hazelcast.core.*;
+public class SemaphoreNode {
     public static void main(String[] args)throws Exception{
-        SemaphoreConfig config = new SemaphoreConfig()
-            .setName("semaphore")
-            .setInitialPermits(2);
-        //todo: how to create a semaphore based on some config
-        ISemaphore semaphore = Hazelcast.getSemaphore("semaphore");
-        AtomicNumber counter = Hazelcast.getAtomicNumber("counter");
-        for(int k=0;k<1000000;k++){
+        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
+        ISemaphore semaphore = hazelcastInstance.getSemaphore("semaphore");
+        AtomicNumber resource = hazelcastInstance.getAtomicNumber("resource");
+        for(int k=0;k<1000;k++){
+            System.out.println("At iteration: "+k);
+            System.out.println("Active Threads: " + resource.get());
             semaphore.acquire();
             try{
+                resource.incrementAndGet();
                 Thread.sleep(1000);
+                resource.decrementAndGet();
             }finally{
                 semaphore.release();
             }
         }
+        System.out.println("Finished");
     }
 }
 \end{lstlisting}
 
-TODO: Explain attach
+We want to limit the concurrent access to the resource by allowing for at most 3 thread. We do this by adding the following configuration:
+
+\begin{lstlisting}[language=xml]
+<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config hazelcast-config-2.3.xsd"
+           xmlns="http://www.hazelcast.com/schema/config"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <network>
+        <join>
+            <multicast enabled="true"/>
+        </join>
+    </network>
+    <semaphore name="semaphore">
+        <initial-permits>3</initial-permits>
+    </semaphore>
+</hazelcast>
+\end{lstlisting}
+
+Now start the SemaphoreNode 5 times and you will see output like this:
+\begin{verbatim}
+At iteration: 0
+Active Threads: 1
+At iteration: 1
+Active Threads: 2
+At iteration: 2
+Active Threads: 3
+At iteration: 3
+Active Threads: 3
+At iteration: 4
+Active Threads: 3
+\end{verbatim}
+As you can see the maximum number of concurrent users of that resource, always are equal or smaller than 3. As an experiment you can remove the semaphore acquire/release statements and see for yourself that there is no longer control on the number of concurrent usages of the resources.
+
+TODO: text is copy paste
+\emph{fairness:} The Hazelcast distributed semaphore implementation guarantees that threads invoking any of the acquire methods are selected to obtain permits in the order in which their invocation of those methods was processed(first-in-first-out; FIFO). Note that FIFO ordering necessarily applies to specific internal points of execution within the cluster. So, it is possible for one member to invoke acquire before another, but reach the ordering point after the other, and similarly upon return from the method.
+
+TODO: text is copy paste
+\emph{Attach:} The Hazelcast semaphore also allows you to attach()/detach() permits to the caller address. This provides a safety mechanism in case that address becomes disconnected from the cluster. Attached permits will automatically be released to the semaphore if a disconnection occurs. An address can also have an excess number of detached permits and is represented by a negative attached permit count. This is the number of permits that the semaphore will automatically be reduced by if a disconnection occurs.
+
+TODO: Semaphore factory.
 
 \section{ICountDownLatch}
 The CountDownLatch was introduced in Java 1.5 and is a synchronization aid that makes it possible for threads to wait until a set of operations being performed in another thread  complete. Very simplistically; a CountDownLatch could be seen as a gate containing a counter; behind this gate threads can wait till the counter reaches zero. In my experience CountDownLatches often are used when you have some kind of processing operation, and you one or more threads that wait till this operation is completed so they can do their logic.

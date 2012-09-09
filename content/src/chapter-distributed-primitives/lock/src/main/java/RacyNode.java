@@ -1,10 +1,12 @@
 import com.hazelcast.core.AtomicNumber;
 import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
 
-public class NoLockMain {
+public class RacyNode {
     public static void main(String[] args) throws InterruptedException {
-        AtomicNumber number1 = Hazelcast.getAtomicNumber("number1");
-        AtomicNumber number2 = Hazelcast.getAtomicNumber("number2");
+        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
+        AtomicNumber number1 = hazelcastInstance.getAtomicNumber("number1");
+        AtomicNumber number2 = hazelcastInstance.getAtomicNumber("number2");
         System.out.println("Started");
         for (int k = 0; k < 1000000; k++) {
             if (k % 10000 == 0) System.out.println("at: " + k);
