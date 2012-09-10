@@ -1,19 +1,20 @@
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 
-import java.util.Map;
 import java.util.concurrent.BlockingQueue;
-public class ProducerNode {
+public class ConsumerMember {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
         BlockingQueue<Integer> queue = hazelcastInstance.getQueue("queue");
-        for (int k = 1; k < 1000; k++) {
-            queue.put(200+k);
-            System.out.println("Producing: " + k);
-            Thread.sleep(1000);
-
+        while (true){
+            int item = queue.take();
+            System.out.println("Consumed: " + item);
+            if(item == -1){
+                queue.put(-1);
+                break;
+            }
+            Thread.sleep(5000);
         }
-        queue.put(-1);
-        System.out.println("Producer Finished");
+        System.out.println("Consumer Finished!");
     }
 }

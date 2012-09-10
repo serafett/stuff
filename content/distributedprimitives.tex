@@ -20,40 +20,39 @@ In this chapter the following distributed primitives will be explained:
 \end{enumerate}
 
 \section{AtomicNumber}
+The AtomicNumber is the distributed version of the java.util.concurrent.atomic.AtomicLong, so if you have used it before, working with the AtomicNumber should feel very similar. The main difference is the way it is created.
 
-The AtomicNumber is the distributed version of the java.util.concurrent.atomic.AtomicLong, so if you have used it before, working with the AtomicNumber should feel very similar. The main differences are the way it is created and that the interface is a bit different.
-
-The AtomicNumber exposes most of the operations the AtomicLong provides like:
-\begin{enumerate}
-\item get
-\item set
-\item getAndSet
-\item compareAndSet
-\item incrementAndGet
-\end{enumerate}
+The AtomicNumber exposes most of the operations the AtomicLong provides like get, set, getAndSet, compareAndSe and incrementAndGet.
 
 We'll demonstrate the AtomicNumber by creating an instance and incrementing it one million times:
 \begin{lstlisting}[language=java]
-public class AtomicNumberMain{
-    public static void main(String[] args){
-        AtomicNumber counter = Hazelcast.getAtomicNumber("counter");
-        int count = 1000 * 1000;
-        for(int k=0;k<count;k++){
+import com.hazelcast.core.*;
+public class AtomicNumberMember {
+    public static void main(String[] args) {
+        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
+        AtomicNumber counter = hazelcastInstance.getAtomicNumber("counter");
+        for (int k = 0; k < 1000 * 1000; k++) {
+            if (k % 200000 == 0) System.out.println("At: "+k);
             counter.incrementAndGet();
         }
-        System.out.printf("Count is %s\n",counter.get());
+        System.out.printf("Count is %s\n", counter.get());
     }
 }
 \end{lstlisting}
-If you start the AtomicNumberMain, you will eventually see:
+If you start the AtomicNumberMember, you will see this:
 \begin{verbatim}
+At: 0
+At: 200000
+At: 400000
+At: 600000
+At: 800000
 Count is 1000000
 \end{verbatim}
-If you run this application in parallel, then the total count should be equal to one million times the number of applications you have started.
+If you run multiple instances of this member, then the total count should be equal to one million times the number of members you have started.
 
 The AtomicNumbers is very useful in lock free algorithms, although you need to take care that uncontrolled repeating can lead to live-locking; the system is appears to do something since no progress is made, but in reality it is only burning cpu cycles and in case of the AtomicNumber, it will also be consuming network resources. In most cases it is best to limit the number of retries and throw an exception when the number of retries is exceeded.
 
-If the AtomicNumber is contention point in your system, there are a few ways of dealing with it depending on your requirements. One of the options it to create a stripe (essentially an array) of AtomicNumbers to reduce pressure; but this approach can't always be applied. Another options is to keep changes locally and only publish them to the AtomicNumber once and a while. There are a few downsides here; you could loose information if a node goes down and is that the newest value is not always immediately visible to the outside world. 
+If the AtomicNumber is a contention point in your system, there are a few ways of dealing with it depending on your requirements. One of the options it to create a stripe (essentially an array) of AtomicNumbers to reduce pressure; but this approach can't always be applied. Another options is to keep changes locally and only publish them to the AtomicNumber once and a while. There are a few downsides here; you could loose information if a member goes down and is that the newest value is not always immediately visible to the outside world. 
 
 Hazelcast only provides support for the long, but you can always simulate for other types:
 \begin{enumerate}
@@ -70,7 +69,7 @@ Hazelcast provides a distributed lock implementation and makes it possible to cr
 To show you how a race problem can be solved with a Hazelcast lock, I have created a small example containing a race problem.
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
-public class RacyNode {
+public class RacyMember {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
         AtomicNumber number1 = hazelcastInstance.getAtomicNumber("number1");
@@ -94,9 +93,9 @@ public class RacyNode {
 \end{lstlisting}
 The idea is that a thread is going to increment 2 numbers half of the time and in the other half it will compare the 2 numbers and expects them to be equal. If they are not equal, we have a race problem and "Difference detected!" will be printed.
 
-If we run only a single instance of the RacyNode, we won't get any race problem since either the 2 numbers will be incremented, or the 2 numbers will be printed. There will no be an interleaving of these operations.
+If we run only a single instance of the RacyMember, we won't get any race problem since either the 2 numbers will be incremented, or the 2 numbers will be printed. There will no be an interleaving of these operations.
 
-But if we start multiple instances of the RaceNode, we'll start to see the following:
+But if we start multiple instances of the RacyMember, we'll start to see the following:
 \begin{verbatim}
 Datarace detected!
 Datarace detected!
@@ -105,7 +104,7 @@ Datarace detected!
 The reason this race problem is occurring is that the writing and the reading of the 2 numbers is not placed in a critical section. With the Hazelcast distributed lock we can easily solve this problem:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
-public class RaceFreeNode {
+public class RaceFreeMember {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
         AtomicNumber number1 = hazelcastInstance.getAtomicNumber("number1");
@@ -143,13 +142,12 @@ A few things worth knowing about the Hazelcast lock:
 \item Fairness: TODO
 \item Keep locks as short as possible. If locks are kept too long, it can lead to performance problems or worse: deadlock.
 \item With locks it is easy to run into deadlocks if you don't know what you are doing; so make sure that you do. Having code you don't control running inside your locks is asking for problems. Make sure you understand exactly the scope of the lock.
-\item Locks are automatically released when a node has acquired a lock and this node goes down. This prevents threads that are waiting for a lock to wait indefinitely and this is important for failover to work in a distributed system. The downside however is that if a node goes down that acquired the lock and started making changes, that other nodes could start to see partial changes. In these cases either the system could do some self repair or else a transaction potentially can solve the problem.
+\item Locks are automatically released when a member has acquired a lock and this member goes down. This prevents threads that are waiting for a lock to wait indefinitely and this is important for failover to work in a distributed system. The downside however is that if a member goes down that acquired the lock and started making changes, that other members could start to see partial changes. In these cases either the system could do some self repair or else a transaction potentially can solve the problem.
 \item a lock must always be released by the same lock that acquired it, otherwise look at the ISemaphore.
 \item there are no configuration options available for the lock
 \end{enumerate}
 
 \section{ISemaphore}
-
 A semaphore is a synchronization aid that can be used if you want to control how many threads concurrently execute some activity, e.g. using a resource. Each semaphore has a number of permits which should be equal to the maximum number of concurrent threads. 
 
 Hazelcast provides a distributed version of the java.util.concurrent.Semaphore named the com.hazelcast.core.ISemaphore. When a permit needs to be acquired the following can happen:
@@ -163,7 +161,7 @@ The big difference between a semaphore and a lock is that the former has no conc
 I explain the semaphore with an example. To simulate a resource we have an AtomicNumber initialized with the value 0. We are going to use this resources 1000 times. Every time the thread starts to use that resource it increments it and once completed it decrements the resource.
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
-public class SemaphoreNode {
+public class SemaphoreMember {
     public static void main(String[] args)throws Exception{
         HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
         ISemaphore semaphore = hazelcastInstance.getSemaphore("semaphore");
@@ -186,7 +184,6 @@ public class SemaphoreNode {
 \end{lstlisting}
 
 We want to limit the concurrent access to the resource by allowing for at most 3 thread. We do this by adding the following configuration:
-
 \begin{lstlisting}[language=xml]
 <hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config hazelcast-config-2.3.xsd"
            xmlns="http://www.hazelcast.com/schema/config"
@@ -201,8 +198,7 @@ We want to limit the concurrent access to the resource by allowing for at most 3
     </semaphore>
 </hazelcast>
 \end{lstlisting}
-
-Now start the SemaphoreNode 5 times and you will see output like this:
+Now start the SemaphoreMember 5 times and you will see output like this:
 \begin{verbatim}
 At iteration: 0
 Active Threads: 1
@@ -254,8 +250,7 @@ public class Leader{
 
 TODO: What happens when the latch is destroyed before all the followers are notitifed?
 
-And we also need followers; so Java applications that are going to wait for the latch to notify them.
-
+And we also need followers; so Java applications that are going to wait for the latch to notify them:
 \begin{lstlisting}[language=java]
 public class Follower{
     public static void main(String[] args)throws Exception{
@@ -266,20 +261,16 @@ public class Follower{
     }
 }
 \end{lstlisting}
-We can spawn as many of these waiters as you want, and all will be displaying.
-
+We can spawn as many of these waiters as you want, and all will be displaying:
 \begin{verbatim}
 Waiting
 \end{verbatim}
-
 Once the leader counts down to zero, all followers will be notified and show the following output:
-
 \begin{verbatim}
 Waiting
 Complete!
 \end{verbatim}
-
-This example show a CountdownSemaphore with only a single 'step'. But if the process has n steps, the countdownlatch can be initialized with n. In the following example a process that is made up of 2 steps is shown.
+This example show a CountdownLatch with only a single 'step'. But if the process has n steps, initialize the CountdownLatch with n. In the following example a process that is made up of 2 steps is shown.
 
 \begin{lstlisting}[language=java]
 public class MultiStepLeader{
@@ -298,7 +289,6 @@ public class MultiStepLeader{
     }
 }
 \end{lstlisting}
-
 Although the ICountdownLatch is a very useful synchronization aid, it probably isn't one you will use on a daily basis.
 
 In practice you will probably not have all the countdown latches needed created up front. A way to deal with this is to let the 'Leader' create a ICountDownLatch when it starts with its steps, and send the id of this ICountdownLatch to all the followers. The followers can then retrieve the CountdownLatch by calling Hazelcast.getCountdownLatch(..).
@@ -309,13 +299,12 @@ Important: unlike Java's implementation, Hazelcast's ICountDownLatch count can b
 The Hazelcast member that successfully invokes setCount(int) becomes the owner of the countdown and is responsible for staying connected to the cluster until the count reaches zero. If the owner  becomes disconnected prior to count reaching zero all awaiting threads will be notified. This provides a safety mechanism in the distributed environment.
 
 \section{IdGenerator}
-
-In the previous section we introduced the AtomicNumber and one of the things it can be used for is to generated unique id's within a cluster. Although it will work, it probably isn't the most scalable solution since all member will content on incrementing the value. If you are only interested in id's and not in the order the id's are generated and don't care when there is a risk of skipping id's, you can have a look at the IdGenerator.
+In the previous section we introduced the AtomicNumber and one of the things it can be used for is to generated unique id's within a cluster. Although it will work, it probably isn't the most scalable solution since all member will content on incrementing the value. If you are only interested in id's and not in the order the id's are generated and don't care when there is a risk of skipping id's, you can have a look at the com.hazelcast.core.IdGenerator.
 
 Underneath is a small example of the id generator:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
-public class IdGeneratorNode {
+public class IdGeneratorMember {
     public static void main(String[] args) {
         HazelcastInstance hazelcast = Hazelcast.getDefaultInstance();
         IdGenerator idGenerator = hazelcast.getIdGenerator("idGenerator");
@@ -326,17 +315,14 @@ public class IdGeneratorNode {
     }
 }
 \end{lstlisting}
-
 If you start this multiple times, you will see in the console that there will not be any duplicate id's
 
-The way the org.hazelcast.core.IdGenerator works is that each node claims a segment of id's to generate, e.g. 0..999999. This is done behind the scenes by incrementing a shared AtomicNumber. After it has claimed its segment, it can increment a local counter (so there is no network traffic). Only when the id's in its segments are used, then a new segment needs to be claimed and this is done by increasing the shared AtomicNumber.
-
-This means that node's can generate id's much quicker (local increment vs a distributed one). And it will also scale a lot better because of reduced contention; instead of incrementing that AtomicNumber on every new id, only when all the id's in the segment are used, the AtomicNumber will be incremented.
+The way the IdGenerator works is that each member claims a segment of id's to generate, e.g. 0..999999. This is done behind the scenes by incrementing a shared AtomicNumber. After it has claimed its segment, it can increment a local counter (so there is no network traffic). Only when the id's in its segments are used, then a new segment needs to be claimed and this is done by increasing the shared AtomicNumber. This means that members can generate id's much quicker (local increment vs a distributed one). And it will also scale a lot better because of reduced contention; instead of incrementing that AtomicNumber on every new id, only when all the id's in the segment are used, the AtomicNumber will be incremented.
 
 Of course there are some downsides you need to be aware of:
 \begin{enumerate}
 \item the generated id's probably will be out of order
-\item if a node goes down without using its range, there might be gaps.
+\item if a member goes down without fully using its range, there might be gaps.
 \end{enumerate}
 But for id generation, these limitations in most cases are not an issue. Apart from the IdGenerator, there are other options for creating cluster wide unique id's. One of them is the java.util.UUID, although it will take up more space than a long. 
 

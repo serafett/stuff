@@ -1,6 +1,5 @@
 import com.hazelcast.core.*;
 import java.io.Serializable;
-
 public class LocalTask implements
         Runnable, PartitionAware, Serializable, HazelcastInstanceAware {
     private final String key;
@@ -15,9 +14,8 @@ public class LocalTask implements
     @Override
     public void run() {
         IMap map = hazelcastInstance.getMap("map");
-
         boolean localKey = map.localKeySet().contains(key);
-        System.out.println("key is local:" + localKey);
+        System.out.println("Key is local:" + localKey);
     }
     @Override
     public Object getPartitionKey() {

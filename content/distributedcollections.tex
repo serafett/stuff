@@ -1,5 +1,4 @@
 \chapter{Distributed Collections}
-
 Hazelcast provides a set of collections that implement interfaces from the java collection framework and make it easy to integration distributed collections without too many code changes. This chapter will example distributed collections like:
 \begin{enumerate}
 \item BlockingQueue
@@ -8,21 +7,18 @@ Hazelcast provides a set of collections that implement interfaces from the java 
 \end{enumerate}
 The distributed map functionality provided by Hazelcast is so extensive that 2 separate chapters have been dedicated to it. 
 
-One of the cool thing about distributed collections in Hazelcast is that when a node fails that a manages (a part of) a distributed collection, another node will immediately take over without any elements in the collection getting lost.
+One of the cool thing about distributed collections in Hazelcast is that when a member fails that a manages (a part of) a distributed collection, another member will immediately take over without any elements in the collection getting lost.
 
 \section{Distributed Queue}
-
-A blocking queue is one of the working horses for concurrent system because it allows producers and consumers of messages (pojo's) to work in different speeds. The Hazelcast java.util.concurrent.BlockingQueue implementation not only allows threads from the same machine to interact with that queue, but since the queue is distributed, it also allows different JVM's to interact with it.
+A blocking queue is one of the working horses for concurrent system because it allows producers and consumers of messages (pojo's) to work in different speeds. The Hazelcast java.util.concurrent.BlockingQueue implementation not only allows threads from the same machine to interact with that queue, but since the queue is distributed, it also allows different members to interact with it.
 
 As an example we'll create a producer/consumer example that is connected by a distributed BlockingQueue. The producer is going to put a message on the queue (an integer) and will produce a message every second:
 
 The Producer:
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.HazelcastInstance;
-
+import com.hazelcast.
 import java.util.concurrent.BlockingQueue;
-public class ProducerNode {
+public class ProducerMember {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
         BlockingQueue<Integer> queue = hazelcastInstance.getQueue("queue");
@@ -36,15 +32,13 @@ public class ProducerNode {
     }
 }
 \end{lstlisting}
-
 To make sure that the consumers are going to terminate when the producer is finished, the producer will put a -1 on the queue to indicate that it is ready and when a consumer reads this message, it will terminate. Such a special control message also is called a poison pill.
 
 The consumer will take the message from the queue, print it and waits 5 seconds before retrying and stops when it receives the poison pill:
-s\begin{lstlisting}[language=java]
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.HazelcastInstance;
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.*;
 import java.util.concurrent.BlockingQueue;
-public class ConsumerNode {
+public class ConsumerMember {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
         BlockingQueue<Integer> queue = hazelcastInstance.getQueue("queue");
@@ -70,7 +64,6 @@ Produced 2
 Produced 3
 ....
 \end{verbatim}
-
 When you start a single consumer, you will see the following output:
 \begin{verbatim}
 Consumed 1
@@ -78,9 +71,9 @@ Consumed 2
 Consumed 3
 ....
 \end{verbatim}
-As you can see, the items produced on the queue by the Producer node are being consumed from that same queue by the Consumer node.
+As you can see, the items produced on the queue by the Producer member are being consumed from that same queue by the Consumer member.
 
-Because messages are produced 5 times faster than they are consumed, with a single node the queue will keep growing. To improve scalability, you can start more consumers. If we start another consumer, we'll see that one consumer takes care of on half of the elements and the other consumer takes care of the other half.
+Because messages are produced 5 times faster than they are consumed, with a single member the queue will keep growing. To improve scalability, you can start more consumers. If we start another consumer, we'll see that one consumer takes care of on half of the elements and the other consumer takes care of the other half.
 
 Consumer 1:
 \begin{verbatim}
@@ -89,7 +82,6 @@ Consumed 22
 Consumed 24
 ....
 \end{verbatim}
-
 Consumer 2:
 \begin{verbatim}
 Consumed 21
@@ -97,7 +89,6 @@ Consumed 23
 Consumed 25
 ....
 \end{verbatim}
-
 And when you kill one of the consumers, the remaining consumer will process all elements again:
 
 Consumer 1:
@@ -121,9 +112,9 @@ In the previous example we created a basic producer/consumer implementation with
 
 With the traditional BlockingQueue implementations like the LinkedBlockingQueue, a capacity can be set. When this is set and the maximum capacity is reached, placement of new items either fail or block, depending on type of the put operation. This prevents the queue from growing beyond a healthy capacity and the JVM from failing.
 
-Hazelcast also provided control in the capacity, but instead of having a fixed capacity for the whole cluster, Hazelcast provides a scalable capacity by setting the queue capacity per JVM. So if the capacity per JVM is 1000 and there are 5 JVM's, the total capacity is 5000. So capacity depends on the size of the cluster.
+Hazelcast also provided control in the capacity, but instead of having a fixed capacity for the whole cluster, Hazelcast provides a scalable capacity by setting the queue capacity per member. So if the capacity per member is 1000 and there are 5 members's, the total capacity is 5000. So capacity depends on the size of the cluster.
 
-To give our queue a capacity of 10, we add the following to our hazelcast.xml file:
+To give our queue a capacity of 10 per member, we add the following to our hazelcast.xml file:
 \begin{verbatim}
 <hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config hazelcast-config-2.3.xsd"
            xmlns="http://www.hazelcast.com/schema/config"
@@ -133,7 +124,6 @@ To give our queue a capacity of 10, we add the following to our hazelcast.xml fi
             <multicast enabled="true"/>
         </join>
    </network>
-
     <queue name="queue">
         <max-size-per-jvm>10</max-size-per-jvm>
     </queue>
@@ -142,14 +132,13 @@ To give our queue a capacity of 10, we add the following to our hazelcast.xml fi
 
 When we start a single producer, we'll see that 10 items are produced and then the producer blocks. When we start a single consumer, we'll immediately see that the producer will continue since the total capacity for the queue has doubled to 20 (2 JVM's times 10 items per queue). 
 
-But since the producer produces 5 times as fast as the consume, the queue will reach its maximum capacity again quickly and it will block. We can can increase the capacity of the cluster by starting new consumers (the processing and the storage capacity increase) or just empty nodes (the storage capacity increases).
+But since the producer produces 5 times as fast as the consume, the queue will reach its maximum capacity again quickly and it will block. We can can increase the capacity of the cluster by starting new consumers (the processing and the storage capacity increase) or just empty members (the storage capacity increases).
 
 Since Hazelcast 1.9.3, distributed queues are backed by distributed maps. So all the configuration options available to a map, for example storage, are indirectly available for the queue. The value in the map will be the value placed on the queue, and the key of the map (of type Long) will be a global unique id. By default the name to backing map will be the name of the queue prefixed with 'q:', example:
 \begin{verbatim}
     <queue name="queue">
         ...
     </queue>
-
     <map name="q:queue">
        ...
     </map>
@@ -161,7 +150,6 @@ This naming convention can be overridden by setting the backingMapRef on the que
        <backingMapRef>somemap</backingMapRef>
        ... 
     </queue>
-
     <map name="somemap">
         ...
     </map>
@@ -169,20 +157,18 @@ This naming convention can be overridden by setting the backingMapRef on the que
 See the Distributed Map chapters for the options available.
 TODO: The map can't be retrieved by that name; so either a bug or I'm doing something wrong.
 
-\emph{max-size-per-jvm can be violated}. Imagine that there is a queue that is distributed over 2 nodes and each node contains the maximum number of 1 million queue items. If one if the nodes would fail, the other node will gain all the queue items stored on the failing node which leads to a total of 2 million. This is needed to guarantee high availability; we don't want to loose any items. 
+\emph{max-size-per-jvm can be violated}. Imagine that there is a queue that is distributed over 2 members and each member contains the maximum number of 1 million queue items. If one if the members would fail, the other member will gain all the queue items stored on the failing member which leads to a total of 2 million. This is needed to guarantee high availability; we don't want to loose any items. 
 
 \section{Distributed List}
 
 After the distributed queue, we have the list. As you most likely know, a list is a data-structure where the ordering and occurrence of the elements matters. The distributed List in Hazelcast probably is not a structure you will on a day to day basis, but when you need it, is fine to have. The Hazelcast com.hazelcast.core.IList implements the java.util.List.
 
-We'll demonstrate the list by writing a collection of items in a list on one nod, and on another node we are going to print all the elements from that list:
+We'll demonstrate the list by writing a collection of items in a list on one nod, and on another member we are going to print all the elements from that list:
 
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.HazelcastInstance;
-import java.util.List;
-import java.util.Set;
-public class WriteNode {
+import com.hazelcast.core.*;
+import java.util.*;
+public class WriteMember {
     public static void main(String[] args) {
         HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
         List<String> list = hazelcastInstance.getList("list");
@@ -194,10 +180,9 @@ public class WriteNode {
     }
 }
 
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.core.*;
 import java.util.List;
-public class ReadNode {
+public class ReadMember {
     public static void main(String[] args) {
         HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
         List<String> list = hazelcastInstance.getList("list");
@@ -209,7 +194,7 @@ public class ReadNode {
 }
 \end{lstlisting}
 
-If you first start the WriteNode and after that has completed, you start the ReadNode; the ReadNode will output the following:
+If you first start the WriteMember and after that has completed, you start the ReadMember; the ReadMember will output the following:
 \begin{verbatim}
 Tokyo
 Paris
@@ -217,23 +202,21 @@ London
 New York
 Reading finished
 \end{verbatim}
-As you can see, the data written to the list by the WriteNode is visible in the ReadNode and you also can see that the order is maintained.
+As you can see, the data written to the list by the WriteMember is visible in the ReadMember and you also can see that the order is maintained.
 
 The list has no other configuration options.
 
 The distributed list also is backed up by the distributed queue and the queue is backed up by a map. The key will be of type Long and the value will by them item placed in the list. To find the map behind the list, prefix the list name with 'c:q:l:'. But no guarantees are given that the map can be accessed this way way in the future, so please beware. 
 
 \section{Distributed Set}
-
 A Set is a collection where every element only occurs ones and where the order of the element doesn't matter. The Hazelcast com.hazelcast.core.ISet implements the java.util.Set.
 
-We'll demonstrate the set by writing a collection of items in a set on one node, and on another node we are going to print all the elements from that set:
+We'll demonstrate the set by writing a collection of items in a set on one member, and on another member we are going to print all the elements from that set:
 
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.core.*;
 import java.util.Set;
-public class WriteNode {
+public class WriteMember {
     public static void main(String[] args) {
         HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
         Set<String> set = hazelcastInstance.getSet("set");
@@ -245,10 +228,9 @@ public class WriteNode {
     }
 }
 
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.
 import java.util.Set;
-public class ReadNode {
+public class ReadMember {
     public static void main(String[] args) {
          HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
          Set<String> set = hazelcastInstance.getSet("set");
@@ -261,7 +243,7 @@ public class ReadNode {
 
 \end{lstlisting}
 
-If you first start the WriteNode and after that has completed, you start the ReadNode; the ReadNode will output the following:
+If you first start the WriteMember and after that has completed, you start the ReadMember; the ReadMember will output the following:
 \begin{verbatim}
 Paris
 Tokyo
@@ -269,55 +251,44 @@ London
 New York
 Reading finished	
 \end{verbatim}
-As you can see, the data written to the set by the WriteNode is visible in the ReadNode. As you also can see the order is not maintained since order is not defined by the set.
+As you can see, the data written to the set by the WriteMember is visible in the ReadMember. As you also can see the order is not maintained since order is not defined by the set.
 
 TODO: Reference to equal/hash of Map.
 
 In Hazelcast the distributed set is implemented based on the distributed map functionality. Unfortunately it isn't very easy to retrieve the backing map. So if you want a set that has the features of the Map it probably is best create a set yourself that is backed by the Hazelcast map. You also can't use the keySet/values
 
 \section{Collection Item Listeners}
-
 The Hazelcast distributed List, Set or Queue implement the com.hazelcast.core.ICollection interface. The nice thing is that Hazelcast enriches the existing collections api with the possibility to listen to changes in the collections using the com.hazelcast.core.ItemListener. The ItemListener receives the com.hazelcast.core.ItemListener which not only (potentially) contains the item, but also the member where the changed happened and the type of event (add or remove).
 
 The following example shows an itemlistener that listens to all changes made in a queue, but to listen to changes in a Set or List are similar since all the collections implement the ICollection interface.
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.core.ICollection;
-import com.hazelcast.core.ItemEvent;
-import com.hazelcast.core.ItemListener;
-
-public class ItemListenerNode {
+import com.hazelcast.core.*;
+public class ItemListenerMember {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
         ICollection<String> queue = hazelcastInstance.getQueue("queue");
         queue.addItemListener(new ItemListenerImpl<String>(), true);
         System.out.println("ItemListener started");
     }
-
     private static class ItemListenerImpl<E> implements ItemListener<E> {
         @Override
         public void itemAdded(ItemEvent<E> itemEvent) {
-            System.out.println("item added:"+itemEvent.getItem());
+            System.out.println("Item added:" + itemEvent.getItem());
         }
-
         @Override
         public void itemRemoved(ItemEvent<E> itemEvent) {
-            System.out.println("item removed:"+itemEvent.getItem());
+            System.out.println("Item removed:" + itemEvent.getItem());
         }
     }
-
 }
 \end{lstlisting}
 We registered the ItemListenerImpl with the addItemListener method using the value 'true'. This is done to make sure that our ItemListener will get the value that has been added/removed. The reason why this configuration option is available, is that in some cases you only want to be notified that a change happened, but you're not interested in the actual change.
 
-To see that the ItemListener really is working, we'll create a node that makes a change in the queue:
+To see that the ItemListener really is working, we'll create a member that makes a change in the queue:
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.core.*;
 import java.util.concurrent.BlockingQueue;
-
-public class CollectionChangeNode {
+public class CollectionChangeMember{
     public static void main(String[] args) throws Exception {
         HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
         BlockingQueue<String> queue = hazelcastInstance.getQueue("queue");
@@ -329,17 +300,16 @@ public class CollectionChangeNode {
 }
 \end{lstlisting}
 
-First start up the ItemListener and wait till it displays "ItemListener started". After that start the CollectionChangeNode and you will see the following output in the ItemListenerNode:
+First start up the ItemListener and wait till it displays "ItemListener started". After that start the CollectionChangeMember and you will see the following output in the ItemListenerMember:
 \begin{verbatim}
 item added:foo
 item added:bar
 item removed:foo
 item removed:bar
 \end{verbatim}
-
 ItemListeners are useful if you need to react upon changes in collections. But realize that listeners are executed asynchronously, so it could be that at the time your listener runs, that the collection has changed again. 
 
-\emph{Ordering} All events are ordered, meaning, listeners will receive and process the events in the order they are actually occurred. TODO: Is the ordering only guaranteed within the node, or is there a cluster wide ordering?
+\emph{Ordering} All events are ordered, meaning, listeners will receive and process the events in the order they are actually occurred. TODO: Is the ordering only guaranteed within the member, or is there a cluster wide ordering?
 
 \section{Gotcha's}
 \emph{Iterator stability}: currently it is unclear what kind of stability is provided by iterators. They are not stable in the sense that they work on a snapshot of the structure. It also doesn't directly reflect the current state and it doesn't throw exceptions.

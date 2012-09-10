@@ -1,60 +1,53 @@
 \chapter{Distributed Topic}
-In the previous chapter we talked about the BlockingQueue, which can be used to create point to point message solutions; where each message will be processed by a single consumer. An alternative approach is the publish/subscribe solution, where a single message can be processed by multiple subscribers.
+In the previous chapter we talked about the BlockingQueue, which can be used to create point to point message solutions. In such a solution each message will be processed by a single consumer. An alternative approach is the publish/subscribe mechanism, where a single message can be processed by multiple subscribers.
 
-Hazelcast provides a publish/subscribe solution in the form of the com.hazelcast.core.ITopic. It is a distributed mechanism for publishing messages to multiple subscribers. So any number of nodes can publish messages to the topic and any number of nodes can receive messages. The message can be an ordinary POJO, although it must be serializable. 
+Hazelcast provides a publish/subscribe mechanism in the form of the com.hazelcast.core.ITopic. It is a distributed mechanism for publishing messages to multiple subscribers. Any number of members can publish messages to a topic and any number of members can receive messages on the topics they are subscribed to. And luckily the message can be an ordinary POJO, although it must be serializable. 
 
-I'll show how the Distributed Topic works based on a very simple example; there is a single topic that is shared between a publisher and a subscriber. The publisher publishes a message (of type String) on Topic:
+I'll show how the distributed topic works based on a very simple example; there is a single topic that is shared between a publisher and a subscriber. The publisher publishes the current date on the topic:
 \begin{verbatim}
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.core.ITopic;
+import com.hazelcast.core.*;
 import java.util.Date;
-public class PublisherNode {
+public class PublisherMember {
     public static void main(String[] args){
         HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
-        ITopic<String> topic = hazelcastInstance.getTopic("topic");
-        topic.publish(new Date().toString());
-        System.out.println("Finished Publishing");
+        ITopic<Date> topic = hazelcastInstance.getTopic("topic");
+        topic.publish(new Date());
+        System.out.println("Published");
     }
 }
 \end{verbatim}
-
-And the receiver acquires the same topic and registers a TopicListener:
+And the subscriber acquires the same topic and adds a Topic MessageListener so that is is subscribed to the topic:
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.core.ITopic;
-import com.hazelcast.core.Message;
-import com.hazelcast.core.MessageListener;
-public class SubscribeNode {
+import com.hazelcast.core.*;
+import java.util.*;
+public class SubscribedMember {
     public static void main(String[] args){
         HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
-        ITopic<String> topic = hazelcastInstance.getTopic("topic");
+        ITopic<Date> topic = hazelcastInstance.getTopic("topic");
         topic.addMessageListener(new MessageListenerImpl());
         System.out.println("Subscribed");
     }
-
-    private static class MessageListenerImpl implements MessageListener<String> {
+    private static class MessageListenerImpl implements MessageListener<Date> {
         @Override
-        public void onMessage(Message<String> m) {
-            System.out.println("received:"+m.getMessageObject());
+        public void onMessage(Message<Date> m) {
+            System.out.println("Received: "+m.getMessageObject());
         }
     }
 }
 \end{lstlisting}
-We first start up the subscriber, and we'll see: "Subscribed" in the console. After that we start the publisher and after the publisher has published the message, the subscriber output will show something like:
+We first start up the subscriber, and we'll see: "Subscribed" in the console. After that we start the publisher and after it has published the message "Published", the subscriber output will show something like:
 \begin{verbatim}
 Received: Sat Sep 08 13:05:24 EEST 2012
 \end{verbatim}
+To make it a bit more interesting, you can start multiple subscribers. After you have done that, and start the publisher again, all subscribers will receiving the same published message.
 
-To make it a bit more interesting, you can start multiple subscribers. After you have done that, and start the publisher again, all subscribers will receiving the published message.
-
-\emph{Durable subscriptions} known from JMS to prevent messages getting lost is not supported. With durable subscriptions a subscriber can register itself under a certain id, and the topic makes sure that a subscriber with that id will receive all messages; even if that means that the topic needs to store them.
+\emph{Durable subscriptions}, known from JMS, give a guarantee to the subscriber will not loose any messages. A subscriber registers itself under a certain id and the message broker ensures that the subscriber will receive all messages, even if the subscriber goes offline. Hazelcast doesn't support durable subscriptions.
 
 \subsection{globalOrderingEnabled}
+TODO:
 
-\subsection{multi threading}
-Messages are ordered, meaning, listeners(subscribers) will process the messages in the order they are actually published. If cluster member M publishes messages m1, m2, m3...mn to a topic T, then Hazelcast makes sure that all of the subscribers of topic T will receive and process m1, m2, m3...mn in order. Therefore there is only single thread invoking onMessage. The user shouldn't keep the thread busy and preferably dispatch it via an Executor. This will increase the performance of the topic
+\subsection{Multi-threading}
+Messages are ordered, meaning that listeners(subscribers) will process the messages in the order they are actually published. If cluster member M publishes messages m1, m2, m3...mn to a topic T, then Hazelcast makes sure that all of the subscribers of topic T will receive and process m1, m2, m3...mn in order. Therefore there is only single thread invoking onMessage. The user shouldn't keep the thread busy and preferably dispatch it via an Executor. This will increase the performance of the topic
 
 \section{What is next}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi libero sem,
