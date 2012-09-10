@@ -19,5 +19,8 @@
 
     <modules>
        <module>configuring-definitions</module>
+       <module>multiple-hazelcast-instances</module>
+       <module>configure-programmatic</module>
+       <module>configure-xml</module>
     </modules>
 </project>

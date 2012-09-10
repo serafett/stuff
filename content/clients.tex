@@ -1,0 +1,82 @@
+\chapter{Hazelcast Clients}
+
+Till so far our examples showed members that fully participate in the cluster; so they will take their share in the load. But in some cases you want to have a lite weight member, e.g. when you need to talk to a cluster.
+
+Hazelcast provides 2 solutions:
+- native client
+- lite member
+
+\begin{lstlisting}[language=java]
+import com.hazelcast.client.ClientConfig;
+import com.hazelcast.client.*;
+import com.hazelcast.core.HazelcastInstance;
+import java.io.Serializable;
+import java.util.concurrent.Executor;
+
+public class NativeClient {
+    public static void main(String[] args){
+        ClientConfig clientConfig = new ClientConfig();
+        clientConfig.addAddress("10.37.129.2");
+        HazelcastInstance client = HazelcastClient.newHazelcastClient(clientConfig);
+        Executor executor = client.getExecutorService();
+        Runnable echoTask = new MyRunnable();
+        executor.execute(echoTask);
+        System.out.println("NativeClient finished!");
+    }
+    private static class MyRunnable implements Runnable, Serializable {
+        @Override
+        public void run() {
+            System.out.println("echo");
+        }
+    }
+}
+\end{lstlisting}
+
+todo: explain options on the client config
+
+
+
+Native Client enables you to do all Hazelcast operations without being a member of the cluster. It connects to one of the cluster members and delegates all cluster wide operations to it. When the relied cluster member dies, client will transparently switch to another live member.
+
+There can be hundreds, even thousands of clients connected to the cluster. But by default there is 40 threads on server side that will handle all the requests. You may want to increase hazelcast.executor.client.thread.count property for better performance.
+
+Imagine a trading application where all the trading data stored and managed in a 10 node Hazelcast cluster. Swing/Web applications at traders' desktops can use Native Java Client to access and modify the data in the Hazelcast cluster.
+
+Currently Hazelcast has Native Java and CSharp Client available.
+
+LiteMember vs. Native Client
+
+LiteMember is a member of the cluster, it has socket connection to every member in the cluster and it knows where the data is so it will get to the data much faster. But LiteMember has the clustering overhead and it must be on the same data center even on the same RAC. However Native client is not member and relies on one of the cluster members. Native Clients can be anywhere in the LAN or WAN. It scales much better and overhead is quite less. So if your clients are less than Hazelcast nodes then LiteMember can be an option; otherwise definitely try Native Client. As a rule of thumb: Try Native client first, if it doesn't perform well enough for you, then consider LiteMember.
+
+The following picture describes the clients connecting to Hazelcast Cluster. Note the difference between LiteMember and Java Client
+
+TODO: COPY
+You can do almost all hazelcast operations with Java Client. It already implements the same interface. You must include hazelcast-client.jar into your classpath.
+
+\begin{verbatim}
+import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.client.HazelcastClient;
+import java.util.Map;
+import java.util.Collection;
+
+
+ClientConfig clientConfig = new ClientConfig();
+clientConfig.getGroupConfig().setName("dev").setPassword("dev-pass");
+clientConfig.addAddress("10.90.0.1", "10.90.0.2:5702");
+
+HazelcastInstance client = HazelcastClient.newHazelcastClient(clientConfig);
+//All cluster operations that you can do with ordinary HazelcastInstance
+Map<String, Customer> mapCustomers = client.getMap("customers");
+mapCustomers.put("1", new Customer("Joe", "Smith"));
+mapCustomers.put("2", new Customer("Ali", "Selam"));
+mapCustomers.put("3", new Customer("Avi", "Noyan"));
+
+Collection<Customer> colCustomers = mapCustomers.values();
+for (Customer customer : colCustomers) {
+     // process customer
+}
+\end{verbatim}
+
+
+\section{What is next}
+ CSharp Client (Enterprise Edition Only), Memcache Client, Rest Client

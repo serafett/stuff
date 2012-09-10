@@ -12,7 +12,7 @@
 
     <parent>
         <groupId>book.hazelcast</groupId>
-        <artifactId>chapter-cluster-configuration</artifactId>
+        <artifactId>groups</artifactId>
         <version>0.1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>

@@ -17,4 +17,9 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
+    <modules>
+        <module>native-client</module>
+        <module>lite-member</module>
+    </modules>
+
 </project>

@@ -11,28 +11,28 @@ Hazelcast is a clustering and highly scalable data distribution platform for Jav
 \end{enumerate}
 
 \section{Installing Hazelcast}
-First you need to make sure that Java 5 or higher is installed on your machine. If not installed, it can be downloaded from the Oracle site: http://java.com/en/download/index.jsp. After you ensured that Java is installed, Hazelcast can be downloaded from http://www.hazelcast.com/downloads.jsp. There are 2 versions:
+First you need to make sure that Java 5 or higher is installed on your machine. If not installed, it can be downloaded from the Oracle site: http://java.com/en/download/index.jsp. After you ensured that Java is installed.
 
+Hazelcast can be downloaded from http://www.hazelcast.com/downloads.jsp. There are 2 versions:
 \includegraphics[scale=0.60]{hazelcast-editions.png}
+For the purpose of this book we'll use the community edition. If your project relies on Maven, there is no need to install Hazelcast. Setting the dependencies is enough, see next chapter.
 
-For our purposes of this book we'll rely on the community edition. If your project relies on Maven, there is no need to install Hazelcast. Setting the dependencies is enough, see next chapter.
+If your project is not relying on Maven, then make sure that the Hazelcast jar is added to the classpath, there is no need to install Hazelcast.
 
 \section{Hazelcast and Maven}
-Hazelcast is very easy to include in your Maven project without needing to install Hazelcast at all. Hazelcast can be found in the standard maven repositories, so no need to added additional repositories to your Maven project. To include Hazelcast in your project, just add the following to your pom.xml:
-
+Hazelcast is very easy to include in your Maven project without needing to install Hazelcast at all. Hazelcast can be found in the standard Maven repositories, so no need to added additional repositories to your Maven project. To include Hazelcast in your project, just add the following to your pom.xml:
 \begin{verbatim}
 <dependencies>	
    ...
    <dependency>
       <groupId>com.hazelcast</groupId>
       <artifactId>hazelcast</artifactId>
-      <version>2.1.2</version>
+      <version>2.3.1</version>
    </dependency>
 
 </dependencies>
 \end{verbatim}	
-
-Make sure that you check the Hazelcast website to make use of the most recent version. 
+That is it. Make sure that you check the Hazelcast website to make use of the most recent version. 
 
 After this dependency is added, Maven will automatically downloaded the dependencies needed.  The lack of needing to install Hazelcast is something I really like because it saves up quite a lot of time, so we can spend that time doing more useful things.
 
@@ -52,30 +52,69 @@ In this book we'll use the xml configuration file. When you are running a maven 
 </hazelcast>
 \end{verbatim}
 
-\section{Downloading example sources}
-
-\section{Running the examples}
-
-\section{Configuring instances}
+This is how the XML file can be used.
+\begin{lstlisting}[language=java]
+import com.hazelcast.config.XmlConfigBuilder;
+import com.hazelcast.core.*;
+public class Main {
+    public static void main(String[] args){
+        XmlConfigBuilder builder = new XmlConfigBuilder();
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(builder.build());
+    }
+}
+\end{lstlisting}
 
 TODO: Explain about following:
 
-Elements in configuration are not definitions of instances (map, queue etc.), Hazelcast does not create real instances by reading those definitions. They are definitions of configurations; when HazelcastInstance.getX(configName) is called, Hazelcast creates instance X by using configuration named 'configName'. Even if that 'configName' can not be found, Hazelcast creates instance using 'default' configuration. 
+Elements in configuration are not definitions of instances (map, queue etc.), Hazelcast does not create real instances by reading those definitions. They are definitions of configurations; when HazelcastInstance.getX(configName) is called, Hazelcast creates instance X by using configuration named 'configName'. Even if that 'configName' can not be found, Hazelcast creates instance using 'default' configuration.
 
-\begin{lstlisting}[language=xml]
-<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config
-           hazelcast-config-2.0.xsd"
-           xmlns="http://www.hazelcast.com/schema/config"
-           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+The programmatic configuration can be done like this:
 
-    <queue name="q"/>
-</hazelcast>
+\begin{lstlisting}[language=java]
+import com.hazelcast.config.Config;
+import com.hazelcast.core.*;
+public class Main {
+    public static void main(String[] args){
+        Config config = new Config();
+        HazelcastInstance hazelcastInstance = Hazelcast.newHazelcastInstance(config);
+    }
+}
 \end{lstlisting}
 
-This is very important to understand because multiple hazelcastInstance.getX will return different instances. 
+\section{Downloading example sources}
+If you want to play around with the example sources of this book, check the following link:
+TODO: Link to the source
+
+\section{Multiple instances}
+Multiple Hazelcast Instances can run in a single JVM. This is useful for testing..Are there other usages?
+
+\begin{lstlisting}[language=java]
+import com.hazelcast.config.Config;
+import com.hazelcast.core.*;
+public class MultipleMembers {
+    public static void main(String[] args){
+        Config config = new Config();
+        HazelcastInstance hazelcastInstance1 = Hazelcast.newHazelcastInstance(config);
+        HazelcastInstance hazelcastInstance2 = Hazelcast.newHazelcastInstance(config);
+    }
+}
+\end{lstlisting}
+When you start this multiple members, you see something like this in the output:
+\begin{verbatim}
+Members [2] {
+    Member [10.37.129.2]:5701 this
+    Member [10.37.129.2]:5702
+}
+...
+Members [2] {
+    Member [10.37.129.2]:5701
+    Member [10.37.129.2]:5702 this
+}
+\end{verbatim}
+As you can see there is a 2 member cluster created.
 
 \section{Configure logging}
 
+\section{JVM Settings}
 TODO: Explain the ipv4 config setting else nodes won't be able to discover each other.
 -Djava.net.preferIPv4Stack=true
-

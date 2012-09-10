@@ -22,7 +22,7 @@
         <module>lost-update-optimistic</module>
         <module>data-locality</module>
         <module>index-declarative</module>
-        <module>index-programmatically</module>
+        <module>index-programmatic</module>
         <module>near-cache</module>
     </modules>
 
