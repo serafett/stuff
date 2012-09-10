@@ -11,7 +11,7 @@ public class MasterMember {
     private static int count(HazelcastInstance hazelcastInstance) throws Exception {
         //fork the tasks.
         Set<Member> members = hazelcastInstance.getCluster().getMembers();
-        MultiTask<Integer> task = new MultiTask<Integer>(new CountTask(), members);
+        MultiTask<Integer> task = new MultiTask<Integer>(new SumTask(), members);
         ExecutorService executorService = hazelcastInstance.getExecutorService();
         executorService.execute(task);
         //join the results.
@@ -23,7 +23,7 @@ public class MasterMember {
     private static void insertDummyData(HazelcastInstance hazelcastInstance) {
         Map map = hazelcastInstance.getMap("map");
         for (int k = 0; k < 15; k++) {
-            map.put(UUID.randomUUID().toString(), 1);
+            map.put(UUID.randomUUID().toString(), null);
         }
     }
 }

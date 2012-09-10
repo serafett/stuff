@@ -10,6 +10,6 @@ public class ReadMember {
         for (String s : list) {
             System.out.println(s);
         }
-        System.out.println("Reading finished");
+        System.out.println("Reading finished!");
     }
 }

@@ -1,19 +1,13 @@
-import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.core.HazelcastInstanceAware;
-import com.hazelcast.core.IMap;
-
+import com.hazelcast.core.*;
 import java.io.Serializable;
 import java.util.concurrent.Callable;
-
-public class CountTask implements Callable<Integer>, Serializable, HazelcastInstanceAware {
-
+public class SumTask implements
+        Callable<Integer>, Serializable, HazelcastInstanceAware {
     private transient HazelcastInstance hazelcastInstance;
-
     @Override
     public void setHazelcastInstance(HazelcastInstance hazelcastInstance) {
         this.hazelcastInstance = hazelcastInstance;
     }
-
     @Override
     public Integer call() throws Exception {
         IMap<String, Integer> map = hazelcastInstance.getMap("map");

@@ -10,7 +10,7 @@ public class MasterMember {
         }
         ExecutorService executor = defaultInstance.getExecutorService();
         for (String key : map.keySet()) {
-            executor.execute(new LocalTask(key));
+            executor.execute(new VerifyTask(key));
         }
     }
 }

@@ -1,10 +1,10 @@
 import com.hazelcast.core.*;
 import java.io.Serializable;
-public class LocalTask implements
+public class VerifyTask implements
         Runnable, PartitionAware, Serializable, HazelcastInstanceAware {
     private final String key;
     private transient HazelcastInstance hazelcastInstance;
-    public LocalTask(String key) {
+    public VerifyTask(String key) {
         this.key = key;
     }
     @Override

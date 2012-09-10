@@ -11,6 +11,6 @@ public class ReadMember {
         for (String s : set) {
             System.out.println(s);
         }
-        System.out.println("Reading finished");
+        System.out.println("Reading finished!");
     }
 }

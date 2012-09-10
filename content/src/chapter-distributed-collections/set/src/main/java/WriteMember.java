@@ -8,6 +8,6 @@ public class WriteMember {
         set.add("Paris");
         set.add("London");
         set.add("New York");
-        System.out.println("Putting finished");
+        System.out.println("Putting finished!");
     }
 }
