@@ -1,22 +1,29 @@
 \chapter{Hazelcast Clients}
 
-Till so far our examples showed members that fully participate in the cluster; so they will take their share in the load. But in some cases you want to have a lite weight member, e.g. when you need to talk to a cluster.
+Till so far our examples showed members that were full participants in the cluster; so they will known about others and they will take their share in the load. But in some cases you only want to connect to the cluster to read/write data or execute operations, but you don't want to have a member of the cluster; in other words you want to have a client.
 
-Hazelcast provides 2 solutions:
-- native client
-- lite member
+Hazelcast provides 2 client solutions:
+\begin{enumerate}
+\item native client
+\item lite member
+\end{enumerate}
+These solutions will be explained in this chapter.
 
+\section{Native client}
+With the native client one can connect to the cluster purely as a client and one will not become a member of the cluster. So since the native client is not a member of the cluster, it will not host any data or execute tasks from the distributed executor. When an operation is executed on the native client, this operation is forwarded to the cluster where this operation is processed.
+
+To show you how the native client works, you first need to include the hazelcast-client.jar. It isn't needed to include the normal hazelcast jar.
+
+As an example we are going to going to create a very basic native client that submits and echo task to the cluster:
 \begin{lstlisting}[language=java]
-import com.hazelcast.client.ClientConfig;
 import com.hazelcast.client.*;
 import com.hazelcast.core.HazelcastInstance;
 import java.io.Serializable;
 import java.util.concurrent.Executor;
-
 public class NativeClient {
     public static void main(String[] args){
         ClientConfig clientConfig = new ClientConfig();
-        clientConfig.addAddress("10.37.129.2");
+        clientConfig.addAddress("127.0.0.1");
         HazelcastInstance client = HazelcastClient.newHazelcastClient(clientConfig);
         Executor executor = client.getExecutorService();
         Runnable echoTask = new MyRunnable();
@@ -31,52 +38,95 @@ public class NativeClient {
     }
 }
 \end{lstlisting}
+The client HazelcastInstance is created based on the com.hazelcast.client.ClientConfig. This config is configured with the the 127.0.0.1 address since that is where one of the cluster members will be running.
 
-todo: explain options on the client config
-
-
-
-Native Client enables you to do all Hazelcast operations without being a member of the cluster. It connects to one of the cluster members and delegates all cluster wide operations to it. When the relied cluster member dies, client will transparently switch to another live member.
-
-There can be hundreds, even thousands of clients connected to the cluster. But by default there is 40 threads on server side that will handle all the requests. You may want to increase hazelcast.executor.client.thread.count property for better performance.
-
-Imagine a trading application where all the trading data stored and managed in a 10 node Hazelcast cluster. Swing/Web applications at traders' desktops can use Native Java Client to access and modify the data in the Hazelcast cluster.
-
-Currently Hazelcast has Native Java and CSharp Client available.
-
-LiteMember vs. Native Client
-
-LiteMember is a member of the cluster, it has socket connection to every member in the cluster and it knows where the data is so it will get to the data much faster. But LiteMember has the clustering overhead and it must be on the same data center even on the same RAC. However Native client is not member and relies on one of the cluster members. Native Clients can be anywhere in the LAN or WAN. It scales much better and overhead is quite less. So if your clients are less than Hazelcast nodes then LiteMember can be an option; otherwise definitely try Native Client. As a rule of thumb: Try Native client first, if it doesn't perform well enough for you, then consider LiteMember.
-
-The following picture describes the clients connecting to Hazelcast Cluster. Note the difference between LiteMember and Java Client
-
-TODO: COPY
-You can do almost all hazelcast operations with Java Client. It already implements the same interface. You must include hazelcast-client.jar into your classpath.
-
-\begin{verbatim}
-import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.client.HazelcastClient;
-import java.util.Map;
-import java.util.Collection;
-
-
-ClientConfig clientConfig = new ClientConfig();
-clientConfig.getGroupConfig().setName("dev").setPassword("dev-pass");
-clientConfig.addAddress("10.90.0.1", "10.90.0.2:5702");
-
-HazelcastInstance client = HazelcastClient.newHazelcastClient(clientConfig);
-//All cluster operations that you can do with ordinary HazelcastInstance
-Map<String, Customer> mapCustomers = client.getMap("customers");
-mapCustomers.put("1", new Customer("Joe", "Smith"));
-mapCustomers.put("2", new Customer("Ali", "Selam"));
-mapCustomers.put("3", new Customer("Avi", "Noyan"));
-
-Collection<Customer> colCustomers = mapCustomers.values();
-for (Customer customer : colCustomers) {
-     // process customer
+And we also have a full member:
+\begin{lstlisting}[language=java]
+import com.hazelcast.config.Config;
+import com.hazelcast.core.Hazelcast;
+public class FullMember {
+    public static void main(String[] args) {
+        Config config = new Config();
+        Hazelcast.newHazelcastInstance(config);
+        System.out.println("Full member started!");
+    }
 }
-\end{verbatim}
+\end{lstlisting}
+If we first start the full member and then start the native client we can see that the echo task is executed on the full member. We'll also see that the native client never appears as member in the member listing of the full member.
+ 
+Hazelcast provides different client implementations; CSharp (Enterprise Edition), memcache and Rest. For more information check the client chapter in the Hazelcast manual.
 
+\emph{Failover} is automatically provided by the native client by configuring multiple member addresses, if one member fails, the native client will automatically switch to another member.
+
+There can be hundreds, even thousands of clients connected to the cluster. But by default there is 40 threads on each member that will handle all the requests. If this is an issue, you can configure hazelcast.executor.client.thread.count.
+
+In the native client example we did a minimal configuration of the ClientConfig and relied on defaults, luckily there is a lot that can be configured:
+\begin{enumerate}
+\item addresses: the known addresses of the cluster. They don't need to include all addresses, only enough to make sure that some will always be online.
+\item connection timeout: the amount of time in milliseconds the native client waits for one of the members, configured with the addresses property, of the cluster to come online before giving up.
+\item credentials: can be used to configure username/password to connect to the cluster. See UsernamePasswordCredentials.
+\item group config: configures the group the native client connects to. The name of the group and the password to access the group can be configured.
+\item initial connection attempt limit:TODO
+\item reconnect attempt limit:TODO
+\item reconnect timeout:TODO
+\item shuffle:TODO
+\item update automatic:TODO
+\end{enumerate}
+
+\section{Lite Member}
+Although the native client is a very mechanism to access the cluster, it has some drawbacks. One of them is performance, since the native client knows nothing about the cluster and always needs to go over one of the configured members. That is why a section solution was introduced: the lite member. 
+
+In the example below you can see how to configure a lite member.
+\begin{lstlisting}[language=java]
+import com.hazelcast.config.Config;
+import com.hazelcast.core.*;
+import java.util.concurrent.BlockingQueue;
+public class LiteMember {
+    public static void main(String[] args) throws Exception {
+        Config config = new Config();
+        config.setLiteMember(true);
+        HazelcastInstance hazelcastInstance = Hazelcast.newHazelcastInstance(config);
+        BlockingQueue<String> queue = hazelcastInstance.getQueue("queue");
+        queue.put("echo");
+        System.out.println("Message send from lite member!");
+    }
+}
+\end{lstlisting}
+As you can see there is not a big difference compared to creating a normal node. There only difference is the call 'setLiteMember(true)'. After the hazelcastInstance is created, we are going to send a message on some queue.
+
+And we'll also create a full member that prints all messages from that queue:
+\begin{lstlisting}[language=java]
+import com.hazelcast.config.Config;
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
+import java.util.concurrent.BlockingQueue;
+public class FullMember {
+    public static void main(String[] args)throws Exception{
+        Config config = new Config();
+        HazelcastInstance hazelcastInstance = Hazelcast.newHazelcastInstance(config);
+        BlockingQueue<String> queue = hazelcastInstance.getQueue("queue");
+        for(;;){
+            String msg = queue.take();
+            System.out.println("Message received:"+msg);
+        }
+    }
+}
+\end{lstlisting}
+First we start the full member and then we start the lite member. In the logging of both of these member we can see that the members have found each other. In case of the lite member, we'll see something like this:
+\begin{verbatim}
+Members [2] {
+    Member [10.37.129.2]:5701
+    Member [10.37.129.2]:5702 this lite
+}	
+\end{verbatim}	
+As you can see the cluster contains 2 members and the 'this' member shows that it is the lite member. If you look in logging of the full member, you will see that the message send by the lite member has been received by the full member.
+
+\emph{same configuration:} A lite member, just like all other member, needs to have the same configuration, with the only difference is that the lite member field is set.
+
+\emph{executors:} the lite member will execute tasks from the Hazelcast distributed executor. This is explained in TODO: reference to last chapter of the executors.
+
+\section{Lite member vs Native client}
+The lite member is a member of the cluster, it has a socket connection to all other members and knows where data is so it will be able to access it faster. On the downside there will be a lot more clustering overhead and "be on the same data center even on the same RAC". Native Clients can be anywhere in the LAN or WAN. It scales much better and overhead is quite less. So if your clients are less than Hazelcast nodes then LiteMember can be an option; otherwise definitely try Native Client. As a rule of thumb: Try Native client first, if it doesn't perform well enough for you, then consider LiteMember.
 
 \section{What is next}
- CSharp Client (Enterprise Edition Only), Memcache Client, Rest Client
+In this short chapter we explained the different ways to connect to a Hazelcast cluster using a client.

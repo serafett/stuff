@@ -1,15 +1,13 @@
 import com.hazelcast.config.Config;
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.HazelcastInstance;
-
-import java.util.concurrent.Executor;
-
+import com.hazelcast.core.*;
+import java.util.concurrent.BlockingQueue;
 public class LiteMember {
-    public static void main(String[] args){
+    public static void main(String[] args) throws Exception {
         Config config = new Config();
         config.setLiteMember(true);
-
         HazelcastInstance hazelcastInstance = Hazelcast.newHazelcastInstance(config);
-
+        BlockingQueue<String> queue = hazelcastInstance.getQueue("queue");
+        queue.put("echo");
+        System.out.println("Message send by lite member!");
     }
 }
