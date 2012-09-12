@@ -7,7 +7,7 @@ public class LiteMember {
         config.setLiteMember(true);
         HazelcastInstance hazelcastInstance = Hazelcast.newHazelcastInstance(config);
         BlockingQueue<String> queue = hazelcastInstance.getQueue("queue");
-        queue.put("hello");
+        queue.put("Hello!");
         System.out.println("Message send by lite member!");
     }
 }

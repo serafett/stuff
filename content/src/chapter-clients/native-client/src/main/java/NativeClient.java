@@ -7,7 +7,7 @@ public class NativeClient {
         clientConfig.addAddress("127.0.0.1");
         HazelcastInstance client = HazelcastClient.newHazelcastClient(clientConfig);
         BlockingQueue<String> queue = client.getQueue("queue");
-        queue.put("hello");
+        queue.put("Hello!");
         System.out.println("Message send by lite member!");
     }
 }
