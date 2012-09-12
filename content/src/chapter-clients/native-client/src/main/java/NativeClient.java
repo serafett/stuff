@@ -1,21 +1,13 @@
 import com.hazelcast.client.*;
 import com.hazelcast.core.HazelcastInstance;
-import java.io.Serializable;
-import java.util.concurrent.Executor;
+import java.util.concurrent.BlockingQueue;
 public class NativeClient {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         ClientConfig clientConfig = new ClientConfig();
-        clientConfig.addAddress("10.37.129.2");
+        clientConfig.addAddress("127.0.0.1");
         HazelcastInstance client = HazelcastClient.newHazelcastClient(clientConfig);
-        Executor executor = client.getExecutorService();
-        Runnable echoTask = new MyRunnable();
-        executor.execute(echoTask);
-        System.out.println("NativeClient finished!");
-    }
-    private static class MyRunnable implements Runnable, Serializable {
-        @Override
-        public void run() {
-            System.out.println("echo");
-        }
+        BlockingQueue<String> queue = client.getQueue("queue");
+        queue.put("hello");
+        System.out.println("Message send by lite member!");
     }
 }

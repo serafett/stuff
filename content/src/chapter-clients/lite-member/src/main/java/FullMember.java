@@ -7,9 +7,6 @@ public class FullMember {
         Config config = new Config();
         HazelcastInstance hazelcastInstance = Hazelcast.newHazelcastInstance(config);
         BlockingQueue<String> queue = hazelcastInstance.getQueue("queue");
-        for(;;){
-            String msg = queue.take();
-            System.out.println("Received:"+msg);
-        }
+        System.out.println("Received: "+queue.take());
     }
 }
