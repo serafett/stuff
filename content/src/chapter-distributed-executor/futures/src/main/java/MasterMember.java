@@ -7,8 +7,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 public class MasterMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
-        ExecutorService executorService = hazelcastInstance.getExecutorService();
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        ExecutorService executorService = hzInstance.getExecutorService();
         int n = Integer.parseInt(args[0]);
         Future<Long> future = executorService.submit(new FibonacciCallable(n));
         try {

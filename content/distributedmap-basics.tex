@@ -11,417 +11,76 @@ The HazelcastMap implements the java.collections.Map interface, so replacing an 
 
 TODO: ConcurrentMap operations never throw java.util.ConcurrentModificationException. Add somewhere.
 
+TODO: Give some idea about capacity in production.. number of entries... total size.
+
+\begin{enumerate}
+\item Reading/Writing
+\item Custom Keys
+\item Query API
+\item Concurrency Control
+\item MultiMap
+\item ManyMap
+\end{enumerate}
+
 \section{Reading/Writing}
-Because the HazelcastMap implements the Map interface, putting entries and retrieving them is very simple:
+Because the HazelcastMap implements the Map interface, putting entries and retrieving them is very simple since you can use operators use normally use when you deal with the map like get/put etc. Here is a small example where you can see 2 members; in the put member an item is placed in the map, and in the get member it is retrieved.
 
-\begin{verbatim}
-public class Node{
-    public static void main(String[] args){
-       Map<String,String> map = Hazelcast.getMap("map");
-       map.put("1","Tokyo");
-       map.put("2","Berlin");
-       System.out.println(map.get("1"));
-       System.out.println(map.get("2"));
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.*;
+import java.util.Map;
+public class PutMember {
+    public static void main(String[] args) {
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        Map<String, String> map = hzInstance.getMap("map");
+        map.put("1", "Tokyo");
     }
 }
-\end{verbatim}
-In this example you can see that after the map has been retrieved, first 2 put operations are done followed by 2 get operations. 
 
-But for this chapter I want to give a more realistic example, we'll start with a  very basic CRUD customer service where customers can be created and where existing customers can be retrieved based on the customer id.
-
-First we create the entity Customer POJO. 
-\begin{verbatim}
-public class Customer implements Serializable{
-  private final String id = UUID.randomUUID().toString();
-  private String name;
-  public Customer(String name){this.name = name;}
-  public String getId(){return id;}
-  public String getName(){return name;}
-  public void setName(String newName){this.name = newName;}
-}
-\end{verbatim}
-
-The Customer class implements the Serializable interface because the Customer objects are going to be stored in a Hazelcast distibuted map. Hazelcast can use different serialization mechanisms, so you are not tied to java serialization (todo: reference to serialization explanation/topic), but for this chapter we are going to stick to java serialization. For brevity reasons the serialVersionUID is not added to all Serializable implementations. For production code however it is a good practice since serialized objects can be stored for a long time and the class structures can change over time. 
-
-Hazelcast doesn't impose any design limitations, so there are no interfaces to implement or certain naming conventions to follows (e.g. Java Beans). You are completely in charge of your object design.
-
-Now we have implemented the Customer, we can get started with the implementation of a Customer Service. We'll start simple with 2 operations:
-\begin{enumerate}
-\item creation of a customer
-\item retrieval of existing customers based on the customer id
-\end{enumerate}
-
-The Java code for this Customer Service looks like this:
-
-\begin{verbatim}
-public class CustomerService{
-  private final Map<String,Customer> customerMap = Hazelcast.getMap("customers");
-  
-  public String create(String name){
-    Customer c = new Customer(name);
-    customerMap.put(c.getId(), customer);
-    System.out.printf(
-      "Customer %s with id %s and name %s created\n",
-        name,c.getId(),name);
-    return customer.getId();
-  }
-  
-  public Customer get(String id){
-    return customerMap.get(id);
-  } 
-}
-
-public class Main{
-  public static void main(String[] args){
-    CustomerService customerService = new CustomerService();
-    customerService.create("john");
-  }
-}
-\end{verbatim}
-
-The customerMap is retrieved from Hazelcast by calling Hazelcast.getMap("customers"). This is the simplest way to get a hold of this Map, but there are other ways, e.g. the map could be set through dependency injection.
-
-The CustomerService.create method, creates a new Customer object and stores it in the customerMap by calling the put method. After the Customer object is stored, it will eventually be disposed by the garbage collector because Hazelcast stores the binary representation of the object (in this case the Serialized version) and not the actual object.
-
-The CustomerService.get method gets the customer with the given id from the map and returns it. If no customer with the given id is found, null is returned. 
-
-If the Main is called,  the following output is shown:
-\begin{verbatim}
-Customer Homer with id 483df6a1-3b3f-4fce-9ace-a664c0e1f9eb and name Homer created
-\end{verbatim}	
-
-\emph{Concurrency} Because the binary representation of the object is stored, and not the object itself, when an object is read from Hazelcast a new object is returned and not the object that initially was stored. So multiple calls to the customerMap.get will return new object instances every time. So unless object are shared explicitly, thread safety is not needed within the object itself; which keeps the object clean. It also is important to realize that because the actual object isn't stored, changes made to that object after it is stored, so not reflect on its persistent state.
- 
-So make sure that you deal with getting a new instance every time a map.get is called, since in Hazelcast there is no session functionality like e.g. Hibernate. Where the session guarantees that within a session you always get the same instance. 
-
-Important: Design considerations
-
-In some cases it is an worth considering to create different types of versions for domain objects.
-\begin{enumerate}
-\item objects that go over the line; Data Transfer Object (DTO).
-\item objects that are used the domain; the entities.
-\item objects that are stored into the Hazelcast.
-\end{enumerate}
-
-I had the displeasure to work with a complex system where this distinction was not made, and although in the beginning features could be implemented relatively quickly, after a while it started to become a tangled mess because:
-tight coupling between the users of the api and the implementation of the domain objects. This would have been solved by introducing a DTO, where the DTO contains only the fields that need to be exposed, shielding the users of the DTO from internal implementation details.
-
-tight coupling between the domain objects and their persisted state. This makes domain objects very hard to refactor since their structure can't be changed.
-So keep in mind when designing objects. Hazelcast gives you complete freedom in how to design your objects, but it means that you need to take that responsibility yourself.
-Important: equals() and hashCode()
-
-When you store a key, value in a distributed Map
-
-, Hazelcast serializes the key and value and stores the byte array version of them in local ConcurrentHashMaps. And this ConcurrentHashMap uses the equals and hashCode methods of byte array version of your key. So it does not take into account the actual equals and hashCode implementations of your objects. So it is important that you choose your keys in a proper way. Implementing the equals and hashCode is not enough, it is also important that the object is always serialized into the same byte array. All primitive types, like; String, Long, Integer and etc. are good candidates for keys to use in Hazelcast. An unsorted Set is an example of a very bad candidate because Java Serialization may serialize the same unsorted set in two different byte arrays.
-
-\section{Updating}
-
-In the previous section the added functionality for getting and creating Customers, in the following section we are going focus on updating customers. 
-
-We are going to extend the CustomerService with updating the name of the customer and we'll start with a very basic implementation of this functionality:
-
-\begin{verbatim}
-  public void updateName(String customerId, String newName){
-    Customer customer = customerMap.get(customerId);
-    if(customer == null)throw new IllegalArgumentException();
-    customer.setName(newName);
-    customerMap.put(customerId, customer);
-  }
-\end{verbatim}
-
-And the call would look like this:
-
-\begin{verbatim}
-public class Main {
-  public static void main(String[] args){
-    CustomerService customerService = new CustomerService();
-    String id = customerService.create("Homer");
-    customerService.updateName(id, "Bart");
-  }
-}
-\end{verbatim}
-
-If we would run this code, we would get the something like this:
-
-\begin{verbatim}
-Customer Homer with id e94b4668-7687-4c7d-a84e-379a15b8d62c and name Homer created
-Updated customer e94b4668-7687-4c7d-a84e-379a15b8d62c to new name Bart
-\end{verbatim}
-
-If you take look at the update method, you can see we get the customer from the customerMap, we change the name and then store it in the customerMap using the put method. It is important to realize that this put method is needed. If you have a Hibernate/JPA background, an explicit call to the storing the entity back into the session/dao isn't needed because all changes are tracked in the session. And once the transaction commits, the session is checked for dirty objects and those are written automatically. With Hazelcast there is no session that tracks used objects, so you need to do it manually. 
-
-\subsection{Lost Update}
-
-In the previous example we updated the name of a customer. The first thing we did was to read the customer from Hazelcast, to update the name field and to write to back to Hazelcast. For this particular example we don't need to worry about concurrency control, but in some cases we need to make sure that the reading/update is done atomically. If we don't take care of it, we'll are going to run into the lost update problem.
-
-To explain the lost update problem we are going to work with a very basic counter example that is
-going to be incremented concurrently. First let us implement the counter:
-
-\begin{verbatim}
-import java.io.Serializable;
-import java.util.UUID;
-
-public class Counter implements Serializable {
-  private final String id = UUID.randomUUID().toString();
-  private long value;
-  public Counter(long value) {this.value = value;}
-  public String getId() {return id;}
-  public void setValue(long newValue) {this.value = newValue;}
-  public void inc() {value++;}
-  public long getValue() {return value;}
-}
-\end{verbatim}
-
-And let us add a service where a counter can be created and incremented:
-
-\begin{verbatim}
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.IMap;
-
-public class CounterService {
-  private final IMap<String, Counter> counterMap = Hazelcast.getMap("counters");
-  public String create(int value) {
-    Counter counter = new Counter(value);
-    counterMap.put(counter.getId(), counter);
-    return counter.getId();
-  }
-  public long count(String id){
-    return counterMap.get(id).getValue();
-  }
-  public void increment(String counterId) {
-    Counter counter = counterMap.get(counterId);
-    if (counter == null) throw new IllegalArgumentException();
-    counter.inc();
-  }
-}
-\end{verbatim}
-
-And a test harness to do the actual testing:
-
-\begin{verbatim}
-public class Main {
-
-  public static final int INCREMENT_COUNT_PER_THREAD = 1000 * 1000;
-
-  public static void main(String[] args) throws InterruptedException {
-    CounterService counterService = new CounterService();
-    String id = counterService.create(0);
-
-    Thread[] threads = new Thread[2];
-    for (int k = 0; k < threads.length; k++)
-      threads[k] = new IncrementThread(counterService, id);
-
-    for (Thread thread : threads) thread.start();
-
-    for (Thread thread : threads) thread.join();
-
-    long actualCount = counterService.count(id);
-    long expectedCount = INCREMENT_COUNT_PER_THREAD * threads.length;
-    System.out.printf("Lost update detected: %s\n" + (actualCount != expectedCount));
-    System.out.printf("Expected count: %s\n", expectedCount);
-    System.out.printf("Actual count: %s\n", actualCount);
-  }
-
-  static class IncrementThread extends Thread {
-    private final CounterService counterService;
-    private final String counterId;
-
-    IncrementThread(CounterService counterService, String counterId) {
-      this.counterService = counterService;
-      this.counterId = counterId;
-    }
-
-    public void run() {
-      for (int k = 0; k < INCREMENT_COUNT_PER_THREAD; k++)
-        counterService.increment(counterId);
-    }
-  }
-}
-\end{verbatim}
-
-If we run this code, we are going to see something like:
-
-\begin{verbatim}
-Lost update detected: true
-Expected count: 2000000
-Actual count: 1998562
-\end{verbatim}
-
-As you can see, the number of updates should have been 2000000, but it was less. The cause of this problem is that sometimes an update gets lost.
-
-We are going to solve the lost update problem in 2 ways :
-pessimistic locking
-optimistic locking
-
-IMPORTANT: Hazelcast supports transactions (todo: reference to transaction docs). But transactions can't be used to solve the lost update problem at this moment. This is because the transaction doesn't support any optimistic or pessimistic locking policies, so can't automatically lock the object when loaded or automatically check for a version conflict when committing.
-Updating with pessimistic lock
-
-The first thing we need to do is to upgrade the type of the type of the counterMap because we need to access additional functionality. Hazelcast.getMap returns a IMap instance (see www.hazelcast.com/javadoc/com/hazelcast/core/IMap.html for more detail). The IMap extends the java.util.concurrent.ConcurrentMap interface and exposes additional functionality. In our case we need the locking functionality. With pessimistic locking the new increment method will look like this:
-
-\begin{verbatim}
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.IMap;
-
-public class CounterService {
-    private final IMap<String, Counter> counterMap = Hazelcast.getMap("counters");
-    ....
-    public void increment(String counterId) {
-        counterMap.lock(counterId);
-        try {
-            Counter counter = counterMap.get(counterId);
-            if (counter == null) throw new IllegalArgumentException();
-            counter.inc();
-            counterMap.put(counterId, counter);
-        } finally {
-            counterMap.unlock(counterId);
-        }
+import com.hazelcast.core.*;
+import java.util.Map;
+public class GetMember {
+    public static void main(String[] args) {
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        Map<String, String> map = hzInstance.getMap("map");
+        System.out.println(map.get("1"));
     }
 }
-\end{verbatim}
+\end{lstlisting}
 
-And the output would look like:
+\section{Custom Keys}
+My experience is that in most cases when you work with a Hazelcast map you will make use of a Long, Integer or String as key. But in some cases you will need to create custom keys, but to do it correctly in Hazelcast, you need to understand how this works. 
 
-\begin{verbatim}
-Lost update detected: false
-Expected count: 2000000
-Actual count: 2000000
-\end{verbatim}
+When you store a key/value in a Hazelcast map, the actual objects are not stored in the map because an object can't move from one JVM to another. Instead the key/value are serialized to byte-arrays and these will be stored in a local ConcurrentHashMap. So the Hazelcast map will not make use of the hashcode/equals of your object, but of the byte array versions of your object. That is why you need to make sure that equal keys result in equal byte arrays. 
 
-As you can see, the lost update problem is not happening anymore.
-
-In the increment method, the first thing we do is to lock the map entry for the given id, so that no other thread can update that map entry at the same moment. After the lock is acquired, we have exclusive access to the counter, and don't need to worry about other threads interleaving. 
-
-If there are other operations that change the state of the Customer, these operations need to acquire the lock on the same map entry, else exclusive access on the customer is not guaranteed. Another way to lock the counter is instead of locking the map.entry, is to create a distributed lock (see: distributed lock chapter). 
-
-For the counterMap.lock(counterId) it doesn't matter if we call it with a non existing id. Behind the scene's an map entry is made with a null value and that entry is immediately locked.
-
-If you want to control on how long you block on acquiring the lock, the IMap exposes 2 alternative versions available that give you more control on blocking:
-boolean tryLock(): which acquires the lock if available or fails immediately.
-boolean tryLock(long timeout, TimeUnit): which acquires the lock if available, or waits till the lock becomes available, or till it a timeout happens.  
-Updating with optimistic locking
-
-The opposite approach of a pessimistic lock is to use an optimistic lock. Since the IMap extends the ConcurrentMap, we can make of the replace(Object key, Object oldValue, Object newValue) to use an optimistic lock. 
-
-Unlike the ConcurrentHashMap, we can't rely on the Customer instance to be the same, since Hazelcast doesn't track instances. (TODO: Therefore the equals method needs to be implemented on the Customer). There are 2 ways for doing this
-include all fields of an object to be part of the equals. Personally this isn't my favorite because you need to guarantee there are no cycles in your data structures and it can be expensive performance wise.
-introduce a version field and implement equals based on id and version.
-
-We are going to use the second approach since
-
-First we are going to introduce a version field in the counter:
-
-\begin{verbatim}
-import java.io.Serializable;
-import java.util.UUID;
-
-public class Counter implements Serializable {
-    private final String id;
-    private long version;
-    private long value;
-    public Counter(long value) {
-        this(UUID.randomUUID().toString(), value, 0);
+Below is an example of a key implementation that is valid if you use it as key in a normal HashMap, but stops working when it is used as a key in a Hazelcast map:
+\begin{lstlisting}[language=java]
+public final class BrokenKey implements Serializable {
+    private final String significant;
+    private final String insignificant;
+    public BrokenKey(String significant, String insignificant) {
+        this.significant = significant;
+        this.insignificant = insignificant;
     }
-    public Counter(String id, long value, long version) {
-        this.id = id;
-        this.value = value;
-        this.version = version;
-    }
-    public String getId() {return id;}
-    public void inc() {value++;}
-    public long getValue() {return value;}
-    public void incVersion() {version++;}
-    public long getVersion() { return version;}
-    public boolean equals(Object thatObject) {
-        if (thatObject == this) return true;
-        if (!(thatObject instanceof Counter)) return false;
-        Counter that = (Counter) thatObject;
-        if(!(that.id.equals(this.id)))return false;
-        if(that.version!=this.version)return false;
-        return true;
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof BrokenKey)) return false;
+        BrokenKey that = (BrokenKey) o;
+        return that.significant.equals(this.significant);
     }
     public int hashCode() {
-        int hash = id.hashCode();
-        hash = 31*hash + hashCode(version);
-        return hash;
-    }
-    static int hashCode(long l){return ((int)(l ^ (l >>> 32)));}
+       return significant.hashCode();
+   }
 }
-\end{verbatim}
-
-The increment that relies on optimistic locking can be implemented like this:
-
+\end{lstlisting}
+Although equals and hashCode are implemented correctly; equal object should result in the same hashCode. In this case equals and hashCode are both based solely on the significant field. So if you have 2 keys:
 \begin{verbatim}
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.IMap;
+BrokenKey key1 = new BrokenKey("a","b");
+BrokenKey key2 = new BrokenKey("a","c");
+\end{verbatim} 
+Then 'key1.equals(key2)' and 'key1.hashCode()==key2.hashCode()' is true. But since the byte-array content of both objects is different, this key implementation should not be used with a Hazelcast map.
 
-import java.util.concurrent.atomic.AtomicLong;
-
-public class CounterService {
-    private final IMap<String, Counter> counterMap = Hazelcast.getMap("counters");
-    ...
-    public void increment(String counterId) {
-        for (; ; ) {
-            Counter oldCounter = counterMap.get(counterId);
-            if (oldCounter == null) throw new IllegalArgumentException();
-            Counter newCounter = new Counter(
-                counterId, oldCounter.getValue(), oldCounter.getVersion());
-            newCounter.inc();
-            newCounter.incVersion();
-            if (counterMap.replace(counterId, oldCounter, newCounter)) {
-                return;
-            } 
-        }
-    }
-}
-\end{verbatim}
-
-If we execute it the output would look like this:
-
-\begin{verbatim}
-Lost update detected: false
-Expected count: 2000000
-Actual count: 2000000
-\end{verbatim}
-
-As you can see, the lost update problem didn't occur.
-
-What happens in the replace method, that the value is only replaced of the old object equals the object that currently is stored. If another thread made an update, the method will return false and need to be retried. That is the reason to place the functionality inside a loop.
-
-One thing that potentially could cause a problem with optimistic locking is that is that the loop could be executed very often and the system starts to suffer from liveness problems (so some threads are starving, but they are using resources like memory and cpu cycles. So be careful when applying optimistic locking.
-Update anti pattern
-
-One of the things I have seen in the past many times is the following:
-
-\begin{verbatim}
-class CustomerService{
-    ...
-
-    public Customer get(String customerId){
-        return customerMap.get(customerId);
-    }
-    public void update(Customer customer){
-        customerMap.put(customer.getId(),customer);
-    }
-}
-\end{verbatim}
-
-Where the code is used like this:
-
-\begin{verbatim}
-Customer customer = customerService.get("1234");
-customer.setName("foobar street 1234");
-customerService.update(customer);
-\end{verbatim}
-
-In my book this is an anti pattern for the following reasons:
-you are exposing the implementation detail of your domain objects to the outside world. For the Customer class is not that interesting, although the field version has not much to do with the domain concept of customer; it is an implementation detail.  If you expose your internal domain object directly to the outside world, it will be hard to change.
-because the object object is exposed, everybody can poke inside the internals and then store it. So it is very easy to get the object in an inconsistent state or to prevent all kinds of business logic (e.g. send an email if the name of a customer is changed) to be added.
-concurrency reasons; it is very easy to run into a lost update. Of course a version field can be added to solve this problem.
-
-That is why I prefer using 2 different types of objects:
-domain objects: these objects are the objects that are used behind the services and will not be exposed to the outside world (unless it is only for read only purposes, e.g. to render a web page)
-data transfer objects: these objects only contain the data
-Hazelcast doesn't enforce any design direction on you. So if you want to expose a general purpose update method, you are completely free to do so.
+TODO:
+Note that the distributed Set and List stores its entries as the keys in a distributed Map. So the notes above apply to the objects you store in Set and List.
 
 \section{Hazelcast Query API}
 
@@ -441,7 +100,7 @@ public Set<Customer> getWithName(String name){
 Although the code is simple it contains a few problems:
 \begin{enumerate}
 \item Not parallelizable: One node will iterate over all customers; imagine that there are millions of customers. So this approach doesn't make use of the computing capacity of the machines.
-\item Inefficient: all customers need to be pulled into memory, so need to be rematerialized. After the rematerialization only a single field is read and then the object is discarded. 
+\item Inefficient: all customers need to be pulled into memory, so need to be deserialized before a single field is read and then the object is discarded. 
 \end{enumerate}
 
 Luckily Hazelcast solves these problems by supporting distributed queries using 2 different mechanisms:
@@ -518,9 +177,175 @@ TODO: Is it case sensitive?
 \item age NOT IN (60, 70)
 \end{enumerate}
 
+\section{Concurrency Control}
+Hazelcast supports concurrency control, it can either be pessimistic using locks or optimistic using compare and swap operations. Todo: what about transactions?
+
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.*;
+import java.io.Serializable;
+public class RacyUpdateMember {
+    public static void main(String[] args) throws Exception {
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        IMap<String, Value> map = hzInstance.getMap("map");
+        String key = "1";
+        map.put(key, new Value());
+        System.out.println("Starting");
+        for (int k = 0; k < 1000; k++) {
+            if(k%100 == 0)System.out.println("At: "+k);
+            Value value = map.get(key);
+            Thread.sleep(10);
+            value.field++;
+            map.put(key, value);
+        }
+
+        System.out.println("Finished! Result = " + map.get(key).field);
+    }
+    static class Value implements Serializable {
+        public int field;
+    }
+}
+\end{lstlisting}[language=java]
+
+\subsection{Pessimistic Locking}
+The classic way to solve the race problem is to use a lock. In Hazelcast there are various ways to lock, but for this example we'll use the locking functionality provided by the map using the map.lock/map.unlock methods.
+
+Todo: are these reentrant?
+todo: are these fair?
+also the regular locking rules apply, don't lock too long, don't lock too much.
+
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.*;
+import java.io.Serializable;
+public class PessimisticUpdateMember {
+    public static void main(String[] args) throws Exception {
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        IMap<String, Value> map = hzInstance.getMap("map");
+        String key = "1";
+        map.put(key, new Value());
+        System.out.println("Starting");
+        for (int k = 0; k < 1000; k++) {
+            map.lock(key);
+            try {
+                Value value = map.get(key);
+                Thread.sleep(10);
+                value.field++;
+                map.put(key, value);
+            } finally {
+                map.unlock(key);
+            }
+        }
+        System.out.println("Finished! Result = " + map.get(key).field);
+    }
+    static class Value implements Serializable {
+        public int field;
+    }
+}
+\end{lstlisting}
+
+Another way to lock is to acquire some predictable Lock object from Hazelcast. You could give every value its own lock, but you could also create a stripe of locks. Although it potentially can increase contention, it will reduce space.
+
+\subsection{Optimistic Locking}
+Does optimistic rely on a lock or is truly using cas?
+It is important to implement equals in the value, because this is used to determine of 2 objects are equal. With the ConcurrentHashMap it is based on object reference. On the keys the byte-array equals is used, but on the replace(key,oldValue,newValue) the equals is used. If you fail to forget it, your code will not work!
+
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.*;
+import java.io.Serializable;
+//This code is broken on purpose.
+public class OptimisticMember {
+    public static void main(String[] args) throws Exception {
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        IMap<String, Value> map = hzInstance.getMap("map");
+        String key = "1";
+        map.put(key, new Value());
+        System.out.println("Starting");
+        for (int k = 0; k < 1000; k++) {
+            if(k%10==0) System.out.println("At: "+k);
+            for (; ; ) {
+                Value oldValue = map.get(key);
+                Value newValue = new Value(oldValue);
+                //   Thread.sleep(10);
+                newValue.field++;
+                if(map.replace(key, oldValue, newValue))
+                    break;
+            }
+        }
+        System.out.println("Finished! Result = " + map.get(key).field);
+    }
+    static class Value implements Serializable {
+        public int field;
+        public Value(){}
+        public Value(Value that) {
+            this.field = that.field;
+        }
+        public boolean equals(Object o){
+            if(o == this)return true;
+            if(!(o instanceof Value))return false;
+            Value that  = (Value)o;
+            return that.field == this.field;
+        }
+    }
+}
+\end{lstlisting}
+
+Aba problem; it can be that the following thing happens. And explain how it can be solved by adding a version; although all the other fields will be equal, the version field will prevent objects from being seen as equal.
+
+\subsection{Pessimistic vs Optimistic}
+
+\section{Multi Map}
+
+In some cases you need to attach multiple values for a single key. Luckily Hazelcast provides out of the box functionality for that in the form of a MultiMap. The Hazelcast MultiMap documentation can be found here: http://www.hazelcast.com/javadoc/com/hazelcast/core/MultiMap.html
+The MultiMap doesn't implement the java.util.Map interface since the signatures of the method are different. The MultiMap does have support for most of the functionality provided by the IMap (so locking, listeners etc). But it doesn't support indexing.
+
+todo: good example with multi map; perhaps use orderline and drop order?
+todo: what is the reason not to use a collection as value?
+
+Creating a MultiMap
+
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.*;
+public class PutMember {
+    public static void main(String[] args){
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        MultiMap<String,String> map = hzInstance.getMultiMap("map");
+        
+        map.put("Peter","England");
+        map.put("Peter","Holland");
+        map.put("Talip","Turkey");
+    }
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.*;
+import java.util.Collection;
+public class PrintMember {
+    public static void main(String[] args) {
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        MultiMap<String,String> map = hzInstance.getMultiMap("map");
+        for(String key: map.keySet()){
+            Collection<String> values = map.get(key);
+            System.out.printf("%s -> %s\n",key,values);
+        }
+    }
+}
+\end{lstlisting}
+
+It is important to realize that this a copy of the values at some moment in time. Changes to this collection will not reflect as changes in the stored values. todo: is this collection readonly?
+
+Removing items;
+with the multimap you can remove an item from the value collection. Todo what happens when the collection is null, is it removed or they empty collection stays?
+
 \section{Gotcha's}
 
 When Map.entrySet(), Map.keySet() or Map.values() is called, a snapshot of the current state of the map is returned. Changes that are made in the map, so not reflect into changes these maps. Also when changes are made on these collections, an UnsupportedOperationException is thrown.
 
 \section{What is next}
 In this chapter a lot of the basic operations on the Distributed Map were explained. In the next chapter we'll cover more advanced features.
+
+
+
+
+
+
+

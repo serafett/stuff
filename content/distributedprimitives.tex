@@ -22,15 +22,15 @@ In this chapter the following distributed primitives will be explained:
 \section{AtomicNumber}
 The AtomicNumber is the distributed version of the java.util.concurrent.atomic.AtomicLong, so if you have used it before, working with the AtomicNumber should feel very similar. The main difference is the way it is created.
 
-The AtomicNumber exposes most of the operations the AtomicLong provides like get, set, getAndSet, compareAndSe and incrementAndGet.
+The AtomicNumber exposes most of the operations the AtomicLong provides like get, set, getAndSet, compareAndSet and incrementAndGet.
 
 We'll demonstrate the AtomicNumber by creating an instance and incrementing it one million times:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
 public class AtomicNumberMember {
     public static void main(String[] args) {
-        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
-        AtomicNumber counter = hazelcastInstance.getAtomicNumber("counter");
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        AtomicNumber counter = hzInstance.getAtomicNumber("counter");
         for (int k = 0; k < 1000 * 1000; k++) {
             if (k % 200000 == 0) System.out.println("At: "+k);
             counter.incrementAndGet();
@@ -50,7 +50,7 @@ Count is 1000000
 \end{verbatim}
 If you run multiple instances of this member, then the total count should be equal to one million times the number of members you have started.
 
-The AtomicNumbers is very useful in lock free algorithms, although you need to take care that uncontrolled repeating can lead to live-locking; the system is appears to do something since no progress is made, but in reality it is only burning cpu cycles and in case of the AtomicNumber, it will also be consuming network resources. In most cases it is best to limit the number of retries and throw an exception when the number of retries is exceeded.
+The AtomicNumbers is very useful in lock free algorithms, although you need to take care that uncontrolled repeating can lead to live-locking; the system is appears to do something since no progress is made, but in reality it is only burning cpu cycles and network resources. In most cases it is best to limit the number of retries and throw an exception when it is exceeded.
 
 If the AtomicNumber is a contention point in your system, there are a few ways of dealing with it depending on your requirements. One of the options it to create a stripe (essentially an array) of AtomicNumbers to reduce pressure; but this approach can't always be applied. Another options is to keep changes locally and only publish them to the AtomicNumber once and a while. There are a few downsides here; you could loose information if a member goes down and is that the newest value is not always immediately visible to the outside world. 
 
@@ -71,9 +71,9 @@ To show you how a race problem can be solved with a Hazelcast lock, I have creat
 import com.hazelcast.core.*;
 public class RacyMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
-        AtomicNumber number1 = hazelcastInstance.getAtomicNumber("number1");
-        AtomicNumber number2 = hazelcastInstance.getAtomicNumber("number2");
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        AtomicNumber number1 = hzInstance.getAtomicNumber("number1");
+        AtomicNumber number2 = hzInstance.getAtomicNumber("number2");
         System.out.println("Started");
         for (int k = 0; k < 1000000; k++) {
             if (k % 10000 == 0) System.out.println("at: " + k);
@@ -106,9 +106,9 @@ The reason this race problem is occurring is that the writing and the reading of
 import com.hazelcast.core.*;
 public class RaceFreeMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
-        AtomicNumber number1 = hazelcastInstance.getAtomicNumber("number1");
-        AtomicNumber number2 = hazelcastInstance.getAtomicNumber("number2");
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        AtomicNumber number1 = hzInstance.getAtomicNumber("number1");
+        AtomicNumber number2 = hzInstance.getAtomicNumber("number2");
         ILock lock = hazelcastInstance.getLock("lock");
         System.out.println("Started");
         for (int k = 0; k < 10000; k++) {
@@ -163,9 +163,9 @@ I explain the semaphore with an example. To simulate a resource we have an Atomi
 import com.hazelcast.core.*;
 public class SemaphoreMember {
     public static void main(String[] args)throws Exception{
-        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
-        ISemaphore semaphore = hazelcastInstance.getSemaphore("semaphore");
-        AtomicNumber resource = hazelcastInstance.getAtomicNumber("resource");
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        ISemaphore semaphore = hzInstance.getSemaphore("semaphore");
+        AtomicNumber resource = hzInstance.getAtomicNumber("resource");
         for(int k=0;k<1000;k++){
             System.out.println("At iteration: "+k);
             System.out.println("Active Threads: " + resource.get());
@@ -230,16 +230,14 @@ And we start a single leader,
 \begin{lstlisting}[language=java]
 public class Leader{
     public static void main(String[] args)throws Exception{
-        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
-        ICountDownLatch latch = hazelcastInstance.getCountDownLatch("countDownLatch");
-        
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        ICountDownLatch latch = hzInstance.getCountDownLatch("countDownLatch");      
         System.out.println("Starting");
         //we init the latch with 1, since we only need to complete a single step.
         latch.setCount(1); 
         //do some sleeping to simulate doing something    
         Thread.sleep(5000);
-        //now we do a countdown which opens the latch and all waiting
-        //followers are notified.
+        //now we do a countdown which notifies all followers
         latch.countDown();
         System.out.println("Leader finished");
         //we need to clean up the latch
@@ -254,7 +252,8 @@ And we also need followers; so Java applications that are going to wait for the 
 \begin{lstlisting}[language=java]
 public class Follower{
     public static void main(String[] args)throws Exception{
-        ICountDownLatch latch = Hazelcast.getCountDownLatch("countDownLatch");
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null); 
+        ICountDownLatch latch = hzInstance.getCountDownLatch("countDownLatch");
         System.out.println("Waiting");
         latch.await();
         System.out.println("Complete!");
@@ -270,18 +269,16 @@ Once the leader counts down to zero, all followers will be notified and show the
 Waiting
 Complete!
 \end{verbatim}
-This example show a CountdownLatch with only a single 'step'. But if the process has n steps, initialize the CountdownLatch with n. In the following example a process that is made up of 2 steps is shown.
-
+This example show a CountdownLatch with only a single 'step'. But if the process has n steps, initialize the CountdownLatch with n. In the following example a process that is made up of 2 steps is shown:
 \begin{lstlisting}[language=java]
 public class MultiStepLeader{
     public static void main(String[] args)throws Exception{
-        ICountDownLatch latch = Hazelcast.getCountDownLatch("countDownLatch");
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        ICountDownLatch latch = hzInstance.getCountDownLatch("countDownLatch");
         latch.setCount(2);
-
         Thread.sleep(60000); 
         latch.countDown();
-        System.out.println("Leader completed first step");
-        
+        System.out.println("Leader completed first step");      
         Thread.sleep(60000); 
         latch.countDown();
         System.out.println("Leader completed both steps");
@@ -306,12 +303,10 @@ Underneath is a small example of the id generator:
 import com.hazelcast.core.*;
 public class IdGeneratorMember {
     public static void main(String[] args) {
-        HazelcastInstance hazelcast = Hazelcast.getDefaultInstance();
+        HazelcastInstance hazelcast = Hazelcast.newHazelcastInstance(null);
         IdGenerator idGenerator = hazelcast.getIdGenerator("idGenerator");
-        for (int k = 0; k < 1000000; k++) {
-            long id = idGenerator.newId();
-            System.out.printf("Id : %s\n", id);
-        }
+        for (int k = 0; k < 1000000; k++)
+            System.out.printf("Id : %s\n", idGenerator.newId());
     }
 }
 \end{lstlisting}

@@ -1,11 +1,9 @@
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.HazelcastInstance;
-
+import com.hazelcast.core.*;
 import java.util.concurrent.BlockingQueue;
 public class ConsumerMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
-        BlockingQueue<Integer> queue = hazelcastInstance.getQueue("queue");
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        BlockingQueue<Integer> queue = hzInstance.getQueue("queue");
         while (true){
             int item = queue.take();
             System.out.println("Consumed: " + item);

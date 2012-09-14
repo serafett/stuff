@@ -46,7 +46,6 @@ public class EchoTask implements Runnable, Serializable {
     public EchoTask(String msg) {
         this.msg = msg;
     }
-    @Override
     public void run() {
         try {
             Thread.sleep(5000);
@@ -65,8 +64,8 @@ import com.hazelcast.core.Hazelcast;
 import java.util.concurrent.Executor;
 public class MasterMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
-        ExecutorService executor = hazelcastInstance.getExecutorService("executor");
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        ExecutorService executor = hzInstance.getExecutorService("executor");
         for (int k = 1; k <= 1000; k++) {
             Thread.sleep(1000);
             System.out.println("Producing echo task: " + k);
@@ -130,7 +129,6 @@ Scaling up the ExecutorService in Hazelcast is very simple, just increment the m
     <network>
         <join><multicast enabled="true"/></join>
     </network>
-
     <executor-service name="executor">
         <max-pool-size>5</max-pool-size>
         <core-pool-size>5</core-pool-size>
@@ -184,7 +182,7 @@ To scale up our echo example, we can add the following very basic slave member:
 import com.hazelcast.core.*;
 public class SlaveMember {
     public static void main(String[] args) {
-        Hazelcast.getDefaultInstance();
+        Hazelcast.newHazelcastInstance(null);
     }
 }
 \end{lstlisting}
@@ -206,18 +204,16 @@ import com.hazelcast.core.*;
 import java.io.Serializable;
 public class SomeTask implements
         Runnable, Serializable, HazelcastInstanceAware {
-    private transient HazelcastInstance hazelcastInstance;
-    @Override
-    public void setHazelcastInstance(HazelcastInstance hazelcastInstance) {
-        this.hazelcastInstance = hazelcastInstance;
+    private transient HazelcastInstance hzInstance;
+    public void setHazelcastInstance(HazelcastInstance hzInstance) {
+        this.hzInstance = hzInstance;
     }
-    @Override
     public void run() {
         ....
     }
 }
 \end{lstlisting}
-When this Task is processed (not when it is submitted), the Hazelcast executor checks if the task implements HazelcastInstanceAware. If so, it will inject the HazelcastInstance of the executor, by calling the 'setHazelcastInstance' method. The hazelcastInstance field can be transient since it will never be send over the line. 
+When this Task is processed (not when it is submitted), the Hazelcast executor checks if the task implements HazelcastInstanceAware. If so, it will inject the HazelcastInstance of the executor, by calling the 'setHazelcastInstance' method. The hzInstance field can be transient since it will never be send over the line. 
 
 \section{Futures}
 The java Executor interface only exposes a single 'void execute(Runnable)' method that can be called to have a task asynchronously executed. But in some cases you want to synchronize on task completion or cancel the task (for example when it takes too much time to run). This can be done making use of the java.util.concurrent.Future and one of the submit methods of the ExecutorService (the ExecutorService extends the Executor). TODO: When working with a callable, you probably want to use a future.
@@ -231,7 +227,6 @@ public class FibonacciCallable implements Callable<Long>, Serializable {
     public FibonacciCallable(int input) {
         this.input = input;
     }
-    @Override
     public Long call() {
         return calculate(input);
     }
@@ -253,8 +248,8 @@ import com.hazelcast.core.*;
 import java.util.concurrent.*;
 public class MasterMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
-        ExecutorService executorService = hazelcastInstance.getExecutorService();
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        ExecutorService executorService = hzInstance.getExecutorService();
         int n = Integer.parseInt(args[0]);
         Future<Long> future = executorService.submit(new FibonacciCallable(n));
         try {
@@ -310,9 +305,9 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 public class MasterMember {
     public static void main(String[] args){
-        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
-        ExecutorService executorService = hazelcastInstance.getExecutorService();
-        Set<Member> members = hazelcastInstance.getCluster().getMembers();
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        ExecutorService executorService = hzInstance.getExecutorService();
+        Set<Member> members = hzInstance.getCluster().getMembers();
         int k=0;
         for(Member member:members){
             EchoTask task = new EchoTask("echo-"+k);
@@ -354,21 +349,18 @@ import java.io.Serializable;
 public class VerifyTask implements
         Runnable, PartitionAware, Serializable, HazelcastInstanceAware {
     private final String key;
-    private transient HazelcastInstance hazelcastInstance;
+    private transient HazelcastInstance hzInstance;
     public VerifyTask(String key) {
         this.key = key;
     }
-    @Override
-    public void setHazelcastInstance(HazelcastInstance hazelcastInstance) {
-        this.hazelcastInstance = hazelcastInstance;
+    public void setHazelcastInstance(HazelcastInstance hzInstance) {
+        this.hzInstance = hzInstance;
     }
-    @Override
     public void run() {
-        IMap map = hazelcastInstance.getMap("map");
+        IMap map = hzInstance.getMap("map");
         boolean localKey = map.localKeySet().contains(key);
         System.out.println("Key is local:" + localKey);
     }
-    @Override
     public Object getPartitionKey() {
         return key;
     }
@@ -385,16 +377,14 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 public class MasterMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance defaultInstance = Hazelcast.getDefaultInstance();
-        Map<String, String> map = defaultInstance.getMap("map");
-        for (int k = 0; k < 10; k++) {
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        Map<String, String> map = hzInstance.getMap("map");
+        for (int k = 0; k < 10; k++) 
             map.put(UUID.randomUUID().toString(), "");
-        }
-        ExecutorService executor = defaultInstance.getExecutorService();
-        for (String key : map.keySet()) {
+        ExecutorService executor = hzInstance.getExecutorService();
+        for (String key : map.keySet()) 
             executor.execute(new VerifyTask(key));
-        }
-    }
+     }
 }
 \end{lstlisting}
 First we start a few slave members and then we the master member and you will get output like:
@@ -424,14 +414,12 @@ import java.io.Serializable;
 import java.util.concurrent.Callable;
 public class SumTask implements
         Callable<Integer>, Serializable, HazelcastInstanceAware {
-    private transient HazelcastInstance hazelcastInstance;
-    @Override
-    public void setHazelcastInstance(HazelcastInstance hazelcastInstance) {
-        this.hazelcastInstance = hazelcastInstance;
+    private transient HazelcastInstance hzInstance;
+    public void setHazelcastInstance(HazelcastInstance hzInstance) {
+        this.hzInstance = hzInstance;
     }
-    @Override
     public Integer call() throws Exception {
-        IMap<String, Integer> map = hazelcastInstance.getMap("map");
+        IMap<String, Integer> map = hzInstance.getMap("map");
         int result = 0;
         for (String key : map.localKeySet()) {
             System.out.println("Calculating for key: " + key);
@@ -448,30 +436,24 @@ The master member will first create the map of 100 entries. Then it will create 
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutorService;
 public class MasterMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
-        insertDummyData(hazelcastInstance);
-        System.out.println("Result: " + count(hazelcastInstance));
-    }
-    private static int count(HazelcastInstance hazelcastInstance) throws Exception {
-        //fork the tasks
-        Set<Member> members = hazelcastInstance.getCluster().getMembers();
-        MultiTask<Integer> task = new MultiTask<Integer>(new CountTask(), members);
-        ExecutorService executorService = hazelcastInstance.getExecutorService();
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        Map map = hzInstance.getMap("map");
+        //insert dummy data
+        for (int k = 0; k < 15; k++)
+            map.put(UUID.randomUUID().toString(), null);
+        //fork the tasks.
+        Set<Member> members = hzInstance.getCluster().getMembers();
+        MultiTask<Integer> task = new MultiTask<Integer>(new SumTask(), members);
+        ExecutorService executorService = hzInstance.getExecutorService();
         executorService.execute(task);
         //join the results.
         Collection<Integer> results = task.get();
-        int count = 0;
-        for (Integer i : results) count += i;
-        return count;
-    }
-    private static void insertDummyData(HazelcastInstance hazelcastInstance) {
-        Map map = hazelcastInstance.getMap("map");
-        for (int k = 0; k < 15; k++) {
-            map.put(""+k, 1);
-        }
+        int x = 0;
+        for (Integer i : results) x += i;
+        System.out.println("Result: " + x);
     }
 }
 \end{lstlisting}

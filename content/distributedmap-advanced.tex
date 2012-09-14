@@ -6,8 +6,7 @@ Listing of subjects in this chapter
 \item Indices
 \item Data Locality
 \item Near Cache
-\item Multi Map
-\item Many Map
+
 \item EntryListeners
 \end{enumerate}
 
@@ -305,55 +304,6 @@ The Near Cache can be configured like this:
 todo: explain the different arguments
 todo: give performance example with near cache enabled/disabled
 
-\section{Multi Map}
-
-In some cases you need to attach multiple values for a single key. Luckily Hazelcast provides out of the box functionality for that in the form of a MultiMap. The Hazelcast MultiMap documentation can be found here: http://www.hazelcast.com/javadoc/com/hazelcast/core/MultiMap.html
-The MultiMap doesn't implement the java.util.Map interface since the signatures of the method are different. The MultiMap does have support for most of the functionality provided by the IMap (so locking, listeners etc). But it doesn't support indexing.
-
-todo: good example with multi map; perhaps use orderline and drop order?
-
-Creating a MultiMap
-
-\begin{verbatim}
-class Foo{
-   private final MultiMap map = Hazelcast.getMultiMap("foo");
-	
-}
-\end{verbatim}
-
-Adding a value
-
-\begin{verbatim}
-public void add(String key, String value){
-	map.put("key",value);
-}
-\end{verbatim}
-
-Retrieving all values
-
-\begin{verbatim}
-	public Collection<String> getAll(String key){
-		return map.get(key);
-	}
-\end{verbatim}
-
-It is important to realize that this a copy of the values at some moment in time. Changes to this collection will not reflect as changes in the stored values. todo: is this collection readonly?
-
-Removing items
-
-\begin{verbatim}
-   public boolean remove(String key, String value){
-      return map.remove(key,value);
-   }
-
-   public Collection<String> removeAll(String key){
-      return (Collection<String>)map.remove(key);
-   }
-\end{verbatim}
-
-\section{Many Map}
-
-todo: explanation of the Many Map
 
 \section{EntryListeners}
 

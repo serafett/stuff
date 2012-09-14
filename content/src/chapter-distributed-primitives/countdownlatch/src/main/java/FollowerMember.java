@@ -1,11 +1,8 @@
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.core.ICountDownLatch;
-
+import com.hazelcast.core.*;
 public class FollowerMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
-        ICountDownLatch latch = hazelcastInstance.getCountDownLatch("countDownLatch");
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        ICountDownLatch latch = hzInstance.getCountDownLatch("countDownLatch");
         System.out.println("Waiting");
         latch.await();
         System.out.println("Complete!");

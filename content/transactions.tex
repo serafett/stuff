@@ -1,33 +1,65 @@
 \chapter{Transactions}
+Till so far we have not looked at transaction. VERIFY: The default behavior is that operations are weakly atomic, so it could be that if a system fails while doing some operation (e.g. map.putall) that some entries have been added and some not. With a transaction it will be an all or nothing. Transactions work with queues, maps, set... Other transactional structures like the distributed primitives, executor, topic are not transactional. So if you use them within a transaction, and the transaction is aborted, these change will not be aborted.
+
 TODO: Copy/Paste
 Hazelcast can be used in transactional context. Basically start a transaction, work with queues, maps, sets and do other things then commit/rollback in one shot.
 
+TODO: Is the List/Queue also transactional since it is backed up by a map? 
+TODO: is itopic transactional?
+
+If you run the following example:
 \begin{lstlisting}[language=java]
-import java.util.Queue;
+import com.hazelcast.core.*;
 import java.util.Map;
-import java.util.Set;
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.Transaction; 
-
-Queue queue = Hazelcast.getQueue("myqueue");
-Map map     = Hazelcast.getMap  ("mymap");
-Set set     = Hazelcast.getSet  ("myset");
-
-Transaction txn = Hazelcast.getTransaction();
-txn.begin();
-try {    
-    Object obj = queue.poll();
-    //process obj
-    map.put ("1", "value1");
-    set.add ("value");
-    //do other things..
-    txn.commit();
-}catch (Throwable t)  {
-    txn.rollback();
+public class WithoutTransaction {
+    public static void main(String[] args) {
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        Map map = hzInstance.getMap("map");
+        try {
+            map.put("1", "1");
+            map.put("2", "2");
+            throw new RuntimeException();
+        } catch (RuntimeException e) {
+        }
+        System.out.println("Map.size: "+map.size());
+    }
 }
 \end{lstlisting}
+The output will show that map.size is 2.
 
-Isolation is always read committed. If you are in a transaction, you can read the data in your transaction and the data that is already committed and if not in a transaction, you can only read the committed data. Implementation is different for queue and map/set. For queue operations (offer,poll), offered and/or polled objects are copied to the next member in order to safely commit/rollback. For map/set, Hazelcast first acquires the locks for the write operations (put, remove) and holds the differences (what is added/removed/updated) locally for each transaction. When transaction is set to commit, Hazelcast will release the locks and apply the differences. When rolling back, Hazelcast will simply releases the locks and discard the differences. Transaction instance is attached to the current thread and each Hazelcast operation checks if the current thread holds a transaction, if so, operation will be transaction aware. When transaction is committed, rolled back or timed out, it will be detached from the thread holding it.
+This can be fixed by:
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.*;
+import java.util.Map;
+public class WithTransaction {
+    public static void main(String[] args) {
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        Map map = hzInstance.getMap("map");
+        Transaction txn = hzInstance.getTransaction();
+        txn.begin();
+        try {
+            map.put("1", "1");
+            map.put("2", "2");
+            //simulate the exception
+            if(true)throw new RuntimeException();
+            txn.commit();
+        } catch (Throwable t) {
+            txn.rollback();
+        }
+        System.out.println("Map.size: " + map.size());
+    }
+}
+\end{lstlisting}
+The output will now show that the map.size is 0, since the transaction is aborted.
+
+
+Isolation is always read committed. If you are in a transaction, you can read the data in your transaction and the data that is already committed and if not in a transaction, you can only read the committed data[own: so you will not see data of uncommitted transaction] Implementation is different for queue and map/set. For queue operations (offer,poll), offered and/or polled objects are copied to the next member in order to safely commit/rollback. For map/set, Hazelcast first acquires the locks for the write operations (put, remove) and holds the differences (what is added/removed/updated) locally for each transaction. When transaction is set to commit, Hazelcast will release the locks and apply the differences. When rolling back, Hazelcast will simply releases the locks and discard the differences. Transaction instance is attached to the current thread and each Hazelcast operation checks if the current thread holds a transaction, if so, operation will be transaction aware. When transaction is committed, rolled back or timed out, it will be detached from the thread holding it.
+
+Transaction is put on a threadlocal; can we access this threadlocal?
+Is there a sprint tx manager?
+what about the hibernate integration for hazelcast?
+Hazelcast transaction will track all modifications made in the distributed datastructures, but it can't be compared to a jpa-entity manager/hibernate session that tracks all dirty objects. Of you have some kind of entity that is loaded from a map, and you make changes on it.. you need to put back this entity into the map. 
+tx and executor.
 
 \section{What is next}
 JEE Integration.

@@ -3,21 +3,18 @@ import java.io.Serializable;
 public class VerifyTask implements
         Runnable, PartitionAware, Serializable, HazelcastInstanceAware {
     private final String key;
-    private transient HazelcastInstance hazelcastInstance;
+    private transient HazelcastInstance hzInstance;
     public VerifyTask(String key) {
         this.key = key;
     }
-    @Override
-    public void setHazelcastInstance(HazelcastInstance hazelcastInstance) {
-        this.hazelcastInstance = hazelcastInstance;
+    public void setHazelcastInstance(HazelcastInstance hzInstance) {
+        this.hzInstance = hzInstance;
     }
-    @Override
     public void run() {
-        IMap map = hazelcastInstance.getMap("map");
+        IMap map = hzInstance.getMap("map");
         boolean localKey = map.localKeySet().contains(key);
         System.out.println("Key is local:" + localKey);
     }
-    @Override
     public Object getPartitionKey() {
         return key;
     }

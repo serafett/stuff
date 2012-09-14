@@ -5,7 +5,7 @@
 
     <artifactId>chapter-distributed-map</artifactId>
     <name>Chapter DistributedMap</name>
-    <groupId>book.hazelcast</groupId>
+    <groupId>book.hazelcast.distributed-map</groupId>
     <description>
         Chapter about the distributed Map
     </description>
@@ -18,11 +18,12 @@
     </parent>
 
     <modules>
-        <module>create-and-get</module>
-        <module>update</module>
-        <module>example6</module>
-        <module>example7</module>
+        <module>basics</module>
         <module>predicate-builder</module>
+        <module>hashcodeandequals</module>
+        <module>locking</module>
+        <module>multimap</module>
+        <module>manymap</module>
     </modules>
 
 </project>

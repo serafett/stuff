@@ -3,14 +3,12 @@ import java.io.Serializable;
 import java.util.concurrent.Callable;
 public class SumTask implements
         Callable<Integer>, Serializable, HazelcastInstanceAware {
-    private transient HazelcastInstance hazelcastInstance;
-    @Override
-    public void setHazelcastInstance(HazelcastInstance hazelcastInstance) {
-        this.hazelcastInstance = hazelcastInstance;
+    private transient HazelcastInstance hzInstance;
+    public void setHazelcastInstance(HazelcastInstance hzInstance) {
+        this.hzInstance = hzInstance;
     }
-    @Override
     public Integer call() throws Exception {
-        IMap<String, Integer> map = hazelcastInstance.getMap("map");
+        IMap<String, Integer> map = hzInstance.getMap("map");
         int result = 0;
         for (String key : map.localKeySet()) {
             System.out.println("Calculating for key: " + key);

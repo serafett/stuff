@@ -1,11 +1,9 @@
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.HazelcastInstance;
-
+import com.hazelcast.core.*;
 import java.util.concurrent.BlockingQueue;
 public class ProducerMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
-        BlockingQueue<Integer> queue = hazelcastInstance.getQueue("queue");
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        BlockingQueue<Integer> queue = hzInstance.getQueue("queue");
         for (int k = 1; k < 1000; k++) {
             queue.put(k);
             System.out.println("Producing: " + k);

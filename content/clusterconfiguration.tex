@@ -8,7 +8,7 @@ import com.hazelcast.core.Hazelcast;
 
 public class Node {
     public static void main(String[] args) {
-        Hazelcast.getDefaultInstance();
+        Hazelcast.newHazelcastInstance(null);
     }
 }
 \end{lstlisting}
@@ -200,7 +200,6 @@ If multicast is not preferred way of discovery for your environment, then you ca
 \subsection{Configuring Hazelcast for EC2 Auto Discovery}
 
 Hazelcast supports EC2 Auto Discovery as of 1.9.4. It is useful when you don't want or can't provide the list of possible IP addresses. Here is a sample configuration: Disable join over multicast and tcp/ip and enable aws. Also provide the credentials. The aws tag accepts an attribute called "conn-timeout-seconds". The default value is 5. Increasing this value is recommended if you have many IP's listed and members can not properly build up the cluster.
-
 
 \begin{lstlisting}[language=xml]
 <hazelcast>

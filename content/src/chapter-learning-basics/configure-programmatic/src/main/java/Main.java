@@ -1,10 +1,8 @@
 import com.hazelcast.config.Config;
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.HazelcastInstance;
-
+import com.hazelcast.core.*;
 public class Main {
     public static void main(String[] args){
         Config config = new Config();
-        HazelcastInstance hazelcastInstance = Hazelcast.newHazelcastInstance(config);
+        Hazelcast.newHazelcastInstance(config);
     }
 }

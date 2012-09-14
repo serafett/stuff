@@ -2,8 +2,8 @@ import com.hazelcast.core.*;
 import java.util.Set;
 public class WriteMember {
     public static void main(String[] args) {
-        HazelcastInstance hazelcastInstance = Hazelcast.getDefaultInstance();
-        Set<String> set = hazelcastInstance.getSet("set");
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        Set<String> set = hzInstance.getSet("set");
         set.add("Tokyo");
         set.add("Paris");
         set.add("London");

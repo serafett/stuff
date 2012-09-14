@@ -4,7 +4,6 @@ public class EchoTask implements Runnable,Serializable{
     public EchoTask(String msg) {
         this.msg = msg;
     }
-    @Override
     public void run() {
         System.out.println(msg);
     }
