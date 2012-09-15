@@ -12,27 +12,27 @@ public class AbaProtectedOptimisticMember {
                 Value oldValue = map.get(key);
                 Value newValue = new Value(oldValue);
                 Thread.sleep(10);
-                newValue.field++;
+                newValue.amount++;
                 newValue.version++;
                 if(map.replace(key, oldValue, newValue))
                     break;
             }
         }
-        System.out.println("Finished! Result = " + map.get(key).field);
+        System.out.println("Finished! Result = " + map.get(key).amount);
     }
     static class Value implements Serializable {
-        public int field;
+        public int amount;
         public int version;
         public Value(){}
         public Value(Value that) {
-            this.field = that.field;
+            this.amount = that.amount;
             this.version = that.version;
         }
         public boolean equals(Object o){
             if(o == this)return true;
             if(!(o instanceof Value))return false;
             Value that  = (Value)o;
-            return that.field == this.field && this.version==that.version;
+            return that.amount == this.amount && this.version==that.version;
         }
     }
 }

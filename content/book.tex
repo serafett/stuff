@@ -5,15 +5,36 @@
 \usepackage{fancyhdr}
 \usepackage{tocloft}
 \usepackage{graphicx}
-\usepackage{listings}
 \usepackage{sectsty}
 \usepackage{etoolbox}
 \usepackage{enumitem}
-
+\usepackage{titlesec}
+\usepackage{lipsum}
+\usepackage[svgnames]{xcolor}
+\usepackage{listings}
+\usepackage{textcomp}
+\lstset{language=Java,
+    keywordstyle=\color{RoyalBlue},
+    basicstyle=\scriptsize\ttfamily,
+    commentstyle=\color{Green}\ttfamily,
+    rulecolor=\color{black},
+    upquote=true,
+    numbers=none,
+    numberstyle=\tiny\color{gray},
+    stepnumber=1,
+    numbersep=0pt,
+    showstringspaces=false,
+    breaklines=true,
+    frameround=ftff,
+    frame=none,
+    belowcaptionskip=0em,
+    belowskip=0em,
+}
 %removing spaces between enumerations
 \setlist{nolistsep}
 
-
+\titleformat{\chapter}{\Huge\bfseries}{\chaptername\ \thechapter}{0pt}{\vskip 20pt\raggedright}%
+\titlespacing{\chapter}{0pt}{50pt}{0pt}% 
 
 %\usepackage{helvet}
 %\renewcommand{\familydefault}{\sfdefault}

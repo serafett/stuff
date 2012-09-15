@@ -61,5 +61,11 @@ what about the hibernate integration for hazelcast?
 Hazelcast transaction will track all modifications made in the distributed datastructures, but it can't be compared to a jpa-entity manager/hibernate session that tracks all dirty objects. Of you have some kind of entity that is loaded from a map, and you make changes on it.. you need to put back this entity into the map. 
 tx and executor.
 
+No support for distributed transaction; 
+
+TODO: Verify: Transaction is hazelcast are not perfect; if during transaction commit one of the participating nodes goes down, then the system could end up in an inconsistent state. So best effort.
+
+TODO: Verify: A transaction that doesn't cause data to leave the member, can be optimized. Is there any synchronous remoting going on? 
+
 \section{What is next}
 JEE Integration.

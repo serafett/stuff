@@ -12,15 +12,15 @@ public class PessimisticUpdateMember {
             try {
                 Value value = map.get(key);
                 Thread.sleep(10);
-                value.field++;
+                value.amount++;
                 map.put(key, value);
             } finally {
                 map.unlock(key);
             }
         }
-        System.out.println("Finished! Result = " + map.get(key).field);
+        System.out.println("Finished! Result = " + map.get(key).amount);
     }
     static class Value implements Serializable {
-        public int field;
+        public int amount;
     }
 }

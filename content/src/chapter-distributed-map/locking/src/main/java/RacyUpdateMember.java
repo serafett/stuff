@@ -11,13 +11,12 @@ public class RacyUpdateMember {
             if(k%100 == 0)System.out.println("At: "+k);
             Value value = map.get(key);
             Thread.sleep(10);
-            value.field++;
+            value.amount++;
             map.put(key, value);
         }
-
-        System.out.println("Finished! Result = " + map.get(key).field);
+        System.out.println("Finished! Result = " + map.get(key).amount);
     }
     static class Value implements Serializable {
-        public int field;
+        public int amount;
     }
 }

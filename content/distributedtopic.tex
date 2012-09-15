@@ -4,7 +4,7 @@ In the previous chapter we talked about the BlockingQueue, which can be used to 
 Hazelcast provides a publish/subscribe mechanism in the form of the com.hazelcast.core.ITopic. It is a distributed mechanism for publishing messages to multiple subscribers. Any number of members can publish messages to a topic and any number of members can receive messages on the topics they are subscribed to. And luckily the message can be an ordinary POJO, although it must be serializable. 
 
 I'll show how the distributed topic works based on a very simple example; there is a single topic that is shared between a publisher and a subscriber. The publisher publishes the current date on the topic:
-\begin{verbatim}
+\begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
 import java.util.Date;
 public class PublisherMember {
@@ -15,8 +15,8 @@ public class PublisherMember {
         System.out.println("Published");
     }
 }
-\end{verbatim}
-And the subscriber acquires the same topic and adds a Topic MessageListener so that is is subscribed to the topic:
+\end{lstlisting}
+And the subscriber acquires the same topic and adds a MessageListener so that is is subscribed to the topic:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
 import java.util.*;
@@ -34,19 +34,40 @@ public class SubscribedMember {
     }
 }
 \end{lstlisting}
-We first start up the subscriber, and we'll see: "Subscribed" in the console. After that we start the publisher and after it has published the message "Published", the subscriber output will show something like:
-\begin{verbatim}
-Received: Sat Sep 08 13:05:24 EEST 2012
-\end{verbatim}
-To make it a bit more interesting, you can start multiple subscribers. After you have done that, and start the publisher again, all subscribers will receiving the same published message.
+We first start up the subscriber, and we'll see: "Subscribed" in the console. After we start the publisher, and it has published the message "Published", the subscriber will output something like:
+\begin{lstlisting}
+Received: Sat Sep 30 13:05:24 EEST 2012
+\end{lstlisting}
+To make it a bit more interesting, you can up multiple subscribed members. If you run the publisher again, all subscribers will receiving the same published message.
 
 \emph{Durable subscriptions}, known from JMS, give a guarantee to the subscriber will not loose any messages. A subscriber registers itself under a certain id and the message broker ensures that the subscriber will receive all messages, even if the subscriber goes offline. Hazelcast doesn't support durable subscriptions.
 
 \subsection{globalOrderingEnabled}
 TODO:
 
-\subsection{Multi-threading}
-Messages are ordered, meaning that listeners(subscribers) will process the messages in the order they are actually published. If cluster member M publishes messages m1, m2, m3...mn to a topic T, then Hazelcast makes sure that all of the subscribers of topic T will receive and process m1, m2, m3...mn in order. Therefore there is only single thread invoking onMessage. The user shouldn't keep the thread busy and preferably dispatch it via an Executor. This will increase the performance of the topic
+\subsection{Single threaded}
+TODO: Verify that each listener has its own tpe
+When a message is send to a topic, it is immediately send to each node that has registered itself as message-listener. Each message-listener will have its own local threadpoolexecutor. The message will be wrapped in a runnable and stored in the workqueue of this executor.
+
+Messages are delivered in order, meaning that message listeners will receive the messages in the order they are published. If cluster member M publishes messages m1, m2, m3...mn to a topic T, then Hazelcast makes sure that all of the subscribers of topic T will receive and process m1, m2, m3...mn in order. To guarantee this the executor of the message listener will have only a single thread.
+
+If message ordering isn't important, the easiest thing to overcome the single threaded nature of the listener, is to offload the processing to another executor with more than one thread, e.g.:
+\begin{lstlisting}[language=java]
+    private final static Executor executor = Executors.newFixedThreadPool(10);       
+
+    private static class MessageListenerImpl implements MessageListener<Date> {
+        public void onMessage(final Message<Date> m) {
+            Runnable task = new Runnable() {
+                @Override
+                public void run() {
+                    System.out.println("Received: " + m.getMessageObject());
+                }
+            };
+            executor.execute(task);
+        }
+    } 
+\end{lstlisting}
+This will greatly boost the processing capacity since messages can now be processed in parallel.
 
 \section{What is next}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi libero sem,

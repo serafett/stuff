@@ -22,7 +22,7 @@ In this chapter the following distributed primitives will be explained:
 \section{AtomicNumber}
 The AtomicNumber is the distributed version of the java.util.concurrent.atomic.AtomicLong, so if you have used it before, working with the AtomicNumber should feel very similar. The main difference is the way it is created.
 
-The AtomicNumber exposes most of the operations the AtomicLong provides like get, set, getAndSet, compareAndSet and incrementAndGet.
+The AtomicNumber exposes most of the operations the AtomicLong provides like get, set, getAndSet, compareAndSet and incrementAndGet, there is of course a big difference in performance since remote calls are involved.
 
 We'll demonstrate the AtomicNumber by creating an instance and incrementing it one million times:
 \begin{lstlisting}[language=java]

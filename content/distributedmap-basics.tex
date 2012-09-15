@@ -178,8 +178,9 @@ TODO: Is it case sensitive?
 \end{enumerate}
 
 \section{Concurrency Control}
-Hazelcast supports concurrency control, it can either be pessimistic using locks or optimistic using compare and swap operations. Todo: what about transactions?
+The Hazelcast map itself is threadsafe just like the ConcurrentHashMap or the Collections.synchronizedMap, but in some cased your threadsafety requirements are bigger than what hazelcast provides out of the box. Luckily Hazelcast provides multiple concurrency contorl solutions;  it can either be pessimistic using locks or optimistic using compare and swap operations. Todo: what about transactions?
 
+Take a look at the following example; if run by multiple members in parallel the total amount would be 
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
 import java.io.Serializable;
@@ -245,8 +246,9 @@ public class PessimisticUpdateMember {
 Another way to lock is to acquire some predictable Lock object from Hazelcast. You could give every value its own lock, but you could also create a stripe of locks. Although it potentially can increase contention, it will reduce space.
 
 \subsection{Optimistic Locking}
-Does optimistic rely on a lock or is truly using cas?
-It is important to implement equals in the value, because this is used to determine of 2 objects are equal. With the ConcurrentHashMap it is based on object reference. On the keys the byte-array equals is used, but on the replace(key,oldValue,newValue) the equals is used. If you fail to forget it, your code will not work!
+TODO: Does optimistic rely on a lock or is truly using cas?
+
+It is important to implement equals on the value, because this is used to determine of 2 objects are equal. With the ConcurrentHashMap it is based on object reference. On the keys the byte-array equals is used, but on the replace(key,oldValue,newValue) the equals is used. If you fail to forget it, your code will not work!
 
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
@@ -287,21 +289,19 @@ public class OptimisticMember {
     }
 }
 \end{lstlisting}
-
 Aba problem; it can be that the following thing happens. And explain how it can be solved by adding a version; although all the other fields will be equal, the version field will prevent objects from being seen as equal.
 
 \subsection{Pessimistic vs Optimistic}
+TODO: When to choose one, when to choose the other. Normally optimistic performs better if there is not that much contention. What is the reason to do so in Hazelcast? Is it better performing?
 
 \section{Multi Map}
-
 In some cases you need to attach multiple values for a single key. Luckily Hazelcast provides out of the box functionality for that in the form of a MultiMap. The Hazelcast MultiMap documentation can be found here: http://www.hazelcast.com/javadoc/com/hazelcast/core/MultiMap.html
 The MultiMap doesn't implement the java.util.Map interface since the signatures of the method are different. The MultiMap does have support for most of the functionality provided by the IMap (so locking, listeners etc). But it doesn't support indexing.
 
-todo: good example with multi map; perhaps use orderline and drop order?
-todo: what is the reason not to use a collection as value?
 
-Creating a MultiMap
+The reason why the multimap exists, apart from being easy to use is efficiency. If you would use the hazelcast map with an ordinary collection as value, then you need to deserialize the whole collection for every operation you do on that collection (e.g. adding a single element). With the multimap this isn't needed, so it is a lot more efficient.
 
+To demonstrate the MultiMap where are going to create 2 member; in one member dummy data is created and in the other member it is read and written to the console.
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
 public class PutMember {
@@ -331,13 +331,20 @@ public class PrintMember {
 }
 \end{lstlisting}
 
-It is important to realize that this a copy of the values at some moment in time. Changes to this collection will not reflect as changes in the stored values. todo: is this collection readonly?
+It is important to realize that map.get(key) returns a copy of the values at some moment in time. Changes to this collection will result in an a UnsupportedOperationException. So if you want to change the values, you need to do it through the map.remove methods.
 
-Removing items;
-with the multimap you can remove an item from the value collection. Todo what happens when the collection is null, is it removed or they empty collection stays?
+Removing items; you can remove items from the multimap. This is using the equals operator of the value. If the collection for a specific key is empty, this collection will not automatically be removed, so it can be that you need to clean up the multimap so that no empty value collections remains.
+
+Hash/equals: (verified with tests)
+The key doesn't need to implement hash/equals, its byte-array content will be used
+The value needs to implement equals, its equals will be used
+
+The value collection is set based, so no duplicates and there is no ordering.Null value is not allowed (npe). But the multimap can also be configured to be list based: MultiMapConfig.setValueCollectionType(ValueCollectionType.LIST). 
+
+One thing worth knowing; if a value collection with K is stored on member1 because K is owned by that member1, and member2 does a map.get(K), then the whole collection will transported from member1 to member 2. So if that value collection is big, it could lead to performance problems. A solution would be to send the whole operation to member1, so send the logic to the data instead of the data to the logic.
+
 
 \section{Gotcha's}
-
 When Map.entrySet(), Map.keySet() or Map.values() is called, a snapshot of the current state of the map is returned. Changes that are made in the map, so not reflect into changes these maps. Also when changes are made on these collections, an UnsupportedOperationException is thrown.
 
 \section{What is next}

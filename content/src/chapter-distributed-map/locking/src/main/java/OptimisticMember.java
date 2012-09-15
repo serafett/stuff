@@ -13,25 +13,25 @@ public class OptimisticMember {
             for (; ; ) {
                 Value oldValue = map.get(key);
                 Value newValue = new Value(oldValue);
-                //   Thread.sleep(10);
-                newValue.field++;
+                   Thread.sleep(10);
+                newValue.amount++;
                 if(map.replace(key, oldValue, newValue))
                     break;
             }
         }
-        System.out.println("Finished! Result = " + map.get(key).field);
+        System.out.println("Finished! Result = " + map.get(key).amount);
     }
     static class Value implements Serializable {
-        public int field;
+        public int amount;
         public Value(){}
         public Value(Value that) {
-            this.field = that.field;
+            this.amount = that.amount;
         }
         public boolean equals(Object o){
             if(o == this)return true;
             if(!(o instanceof Value))return false;
             Value that  = (Value)o;
-            return that.field == this.field;
+            return that.amount == this.amount;
         }
     }
 }
