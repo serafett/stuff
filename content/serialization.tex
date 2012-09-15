@@ -1,13 +1,14 @@
-\chapter{Different serialization mechanisms}
-Till so far all our examples have relied on the standard Java serialization mechanism by letting the objects we store in Hazelcast, implement the java.io.Serializable interface. This mechanism is very generic and very easy to use, but has a price:
+\chapter{Custom Serialization}
+Till so far all our examples have relied on the standard Java serialization mechanism by letting the objects we store in Hazelcast, implement the java.io.Serializable interface. This mechanism is very generic and very easy to use, but it comes at a price:
 \begin{enumerate}
 \item lack of control on how the fields are serialized/deserialized.
 \item suboptimal performance due to streaming class descriptors, versions, keeping track of seen objects to deal with cycles etc. This causes additional cpu load and suboptimal size of serialized data.
 \end{enumerate}
 That is why Hazelcast introduced a custom serialization mechanism based on the com.hazelcast.nio.DataSerializable interface. 
 
-Serialization in Hazelcast works like this; when an object is placed in Hazelcast (e.g. in a map or queue), Hazelcast first checks if it is an instance of String, Long, Integer, byte[], ByteBuffer, Date etc, since serialization for these types can be optimized. If that fails, it checks if it is an instance of DataSerializable and if that fails it will fall back on the standard serialization mechanism (or fails because the class isn't Serializable).
+Serialization in Hazelcast works like this; when an object is placed in Hazelcast (e.g. in a map or queue), Hazelcast first checks if it is an instance of String, Long, Integer, byte[], ByteBuffer, Date etc, since serialization for these types can be optimized. If that fails, it checks if it is an instance of DataSerializable and if that fails it will fall back on the standard serialization mechanism (or fails because the class isn't Serializable). The DataSerializable also makes it possible to delegate to completely different serialization mechanisms like Protobuf, JSON etc.
 
+To show how DataSerializable works, check the following example where a Person class is serialized:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
 import com.hazelcast.nio.DataSerializable;
@@ -43,9 +44,9 @@ public class SerializationMember {
     }
 }
 \end{lstlisting}
-As you can see the writing of the fields is done in the same order as reading. If you do it in a different order you will be running into problems. Another thing you can see is the no arg constructor, which is allowed to be private. This no arg constructor is mandatory, failing to provide one will result in a IOException. Because of this no arg constructor it could be that you need to relax your final field requirements.
+As you can see the writing of the Person fields is done in the same order as reading. If you do it in a different order you will be running into problems. Another thing you can see is the no-arg Person constructor. This constructor is mandatory, failing to provide one will result in a IOException. Because of this constructor, which is allowed to be private, it could be that you need to relax your final field requirements.
 
-If an object that implements DataSerializable has a field that also is DataSerializable, the write and read operations can be forwarded to that object. For example if we would add a DataSerializable address field to Person, the write and read operations would look like this:
+If an object that implements DataSerializable, has a field that also is DataSerializable, the write and read operations need to be forwarded to that object. For example if we would add a DataSerializable address field to Person, the write and read operations of Person would look like this:
 \begin{lstlisting}[language=java]
     public void writeData(DataOutput out) throws IOException {
         out.writeUTF(name);
@@ -60,21 +61,13 @@ If an object that implements DataSerializable has a field that also is DataSeria
     }
 \end{lstlisting}
 One thing to look out for however are cycles between objects because it can lead to a stackoverflow. 
-Standard Java serialization protects against this, but since manual traversal is done in DataSerializable objects, out of the box there is no protection. If this becomes an issue, you could store a map in a ThreadLocal that can be used to check for cycles.......
-
-The DataSerializable also makes it possible to make use of a completely different serialization mechanism like Protobuf, JSON etc.
+Standard Java serialization protects against this, but since manual traversal is done in DataSerializable objects, out of the box there is no protection. If this becomes an issue, you could store a map in a ThreadLocal that can be used to check for cycles.
 
 With the standard java serialization mechanism there is a build in mechanism for class versioning. With the DataSerializable this isn't provided out of the box, but it is very easy to add. You can include a version field in the class that is written when the class is serialized. And when the class is deserialized, the version can be restored and one could even decide to read data in different ways based on the found version to ensure being able to read older serialized classes.
-
 \section{Gotcha's}
-
-\emph{Caution} Hazelcast serialization is done on the user thread and it assumes that there will be only one object serialization at a time. So putting any Hazelcast operation that will require to serialize anything else will break the serialization. For Example: Putting
-Hazelcast.getMap("anyMap").put("key", "dummy value");
-line in readData or writeData methods will break the serialization. If you have to perform such an operation, at least it should be performed in another thread which will force the serialization to take on different thread.
-
+TODO: Copy Paste
+\emph{Caution} DataSerializable doesn't deal with nested serialization; so while you are serializing or deserializing a class, you should not call an operation on Hazelcast that leads to new DataSerializable serialize/deserialization calls,  doing so leads to a StackOverflowError. A solution to this problem is to execute the operation on a different thread. 
 \emph{Caution} When an DataSerializable object x is wrapped in a normal Serializable object y and y is serialized, then will be serialized using Serializable as well. This works because the DataSerializable interface extends Serializable so therefor each object that is DataSerializable is Serializable by default.
-
 \section{Externalizable vs DataSerializable}
 The java.io.Externalizable can also be used for serialization/deserialization since it extends Serializable. So when Hazelcast defaults to the standard java serialization mechanism, the Externizable mechanism works without a problem. So although Externizable provides more control compared to Serializable, it still suffers from some overhead compared to a DataSerializable.
-
 \section{What is next}
