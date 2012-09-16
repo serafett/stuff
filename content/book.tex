@@ -13,6 +13,7 @@
 \usepackage[svgnames]{xcolor}
 \usepackage{listings}
 \usepackage{textcomp}
+\usepackage{enumitem}
 \lstset{language=Java,
     keywordstyle=\color{RoyalBlue},
     basicstyle=\scriptsize\ttfamily,
@@ -45,6 +46,9 @@
 \begin{document}
 \setlength{\parindent}{0in}
 
+\setcounter{tocdepth}{1}
+
+\setenumerate{topsep=-\baselineskip}
 
 \pagestyle{empty}
 %\pagenumbering{}
@@ -128,6 +132,5 @@ The team that produced this book includes:
 \input{serialization}
 \input{transactions}
 \input{clusterconfiguration}
-\input{various}
 \end{document}
 

@@ -9,7 +9,6 @@ Hazelcast provides direct support for synchronization primitives that are distri
 \item failover; so if one machine fails, the system will still be working
 \item scalability; just add more machines and you will get more capacity. Although this doesn't mean that your system will automatically become better scalable when you introduce Hazelcast, 
 \end{enumerate}
-
 In this chapter the following distributed primitives will be explained:
 \begin{enumerate}
 \item AtomicNumber
@@ -18,7 +17,6 @@ In this chapter the following distributed primitives will be explained:
 \item ICountdownLatch
 \item IdGenerator
 \end{enumerate}
-
 \section{AtomicNumber}
 The AtomicNumber is the distributed version of the java.util.concurrent.atomic.AtomicLong, so if you have used it before, working with the AtomicNumber should feel very similar. The main difference is the way it is created.
 
@@ -40,14 +38,14 @@ public class AtomicNumberMember {
 }
 \end{lstlisting}
 If you start the AtomicNumberMember, you will see this:
-\begin{verbatim}
+\begin{lstlisting}
 At: 0
 At: 200000
 At: 400000
 At: 600000
 At: 800000
 Count is 1000000
-\end{verbatim}
+\end{lstlisting}
 If you run multiple instances of this member, then the total count should be equal to one million times the number of members you have started.
 
 The AtomicNumbers is very useful in lock free algorithms, although you need to take care that uncontrolled repeating can lead to live-locking; the system is appears to do something since no progress is made, but in reality it is only burning cpu cycles and network resources. In most cases it is best to limit the number of retries and throw an exception when it is exceeded.
@@ -96,11 +94,11 @@ The idea is that a thread is going to increment 2 numbers half of the time and i
 If we run only a single instance of the RacyMember, we won't get any race problem since either the 2 numbers will be incremented, or the 2 numbers will be printed. There will no be an interleaving of these operations.
 
 But if we start multiple instances of the RacyMember, we'll start to see the following:
-\begin{verbatim}
+\begin{lstlisting}
 Datarace detected!
 Datarace detected!
 ...
-\end{verbatim}	
+\end{lstlisting}
 The reason this race problem is occurring is that the writing and the reading of the 2 numbers is not placed in a critical section. With the Hazelcast distributed lock we can easily solve this problem:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
@@ -199,7 +197,7 @@ We want to limit the concurrent access to the resource by allowing for at most 3
 </hazelcast>
 \end{lstlisting}
 Now start the SemaphoreMember 5 times and you will see output like this:
-\begin{verbatim}
+\begin{lstlisting}
 At iteration: 0
 Active Threads: 1
 At iteration: 1
@@ -210,7 +208,7 @@ At iteration: 3
 Active Threads: 3
 At iteration: 4
 Active Threads: 3
-\end{verbatim}
+\end{lstlisting}
 As you can see the maximum number of concurrent users of that resource, always are equal or smaller than 3. As an experiment you can remove the semaphore acquire/release statements and see for yourself that there is no longer control on the number of concurrent usages of the resources.
 
 TODO: text is copy paste
@@ -261,14 +259,14 @@ public class Follower{
 }
 \end{lstlisting}
 We can spawn as many of these waiters as you want, and all will be displaying:
-\begin{verbatim}
+\begin{lstlisting}
 Waiting
-\end{verbatim}
+\end{lstlisting}
 Once the leader counts down to zero, all followers will be notified and show the following output:
-\begin{verbatim}
+\begin{lstlisting}
 Waiting
 Complete!
-\end{verbatim}
+\end{lstlisting}
 This example show a CountdownLatch with only a single 'step'. But if the process has n steps, initialize the CountdownLatch with n. In the following example a process that is made up of 2 steps is shown:
 \begin{lstlisting}[language=java]
 public class MultiStepLeader{

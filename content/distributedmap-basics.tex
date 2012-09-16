@@ -245,6 +245,8 @@ public class PessimisticUpdateMember {
 
 Another way to lock is to acquire some predictable Lock object from Hazelcast. You could give every value its own lock, but you could also create a stripe of locks. Although it potentially can increase contention, it will reduce space.
 
+todo: when a key is locked, it still is possible to do a read, but not to do a write.
+
 \subsection{Optimistic Locking}
 TODO: Does optimistic rely on a lock or is truly using cas?
 
@@ -294,12 +296,10 @@ Aba problem; it can be that the following thing happens. And explain how it can 
 \subsection{Pessimistic vs Optimistic}
 TODO: When to choose one, when to choose the other. Normally optimistic performs better if there is not that much contention. What is the reason to do so in Hazelcast? Is it better performing?
 
-\section{Multi Map}
-In some cases you need to attach multiple values for a single key. Luckily Hazelcast provides out of the box functionality for that in the form of a MultiMap. The Hazelcast MultiMap documentation can be found here: http://www.hazelcast.com/javadoc/com/hazelcast/core/MultiMap.html
-The MultiMap doesn't implement the java.util.Map interface since the signatures of the method are different. The MultiMap does have support for most of the functionality provided by the IMap (so locking, listeners etc). But it doesn't support indexing.
+\section{MultiMap}
+In some cases you need to attach multiple values for a single key. Luckily Hazelcast provides out of the box functionality for that in the form of a MultiMap. The MultiMap doesn't implement the java.util.Map interface since the signatures of the method are different. The MultiMap does have support for most of the functionality provided by the IMap (so locking, listeners etc). But it doesn't support indexing.
 
-
-The reason why the multimap exists, apart from being easy to use is efficiency. If you would use the hazelcast map with an ordinary collection as value, then you need to deserialize the whole collection for every operation you do on that collection (e.g. adding a single element). With the multimap this isn't needed, so it is a lot more efficient.
+The reason why the MultiMap exists, apart from being easy to use is efficiency. If you would use the hazelcast map with an ordinary collection as value, then you need to deserialize the whole collection for every operation you do on that collection (e.g. adding a single element). With the MultiMap this isn't needed, so it is a lot more efficient.
 
 To demonstrate the MultiMap where are going to create 2 member; in one member dummy data is created and in the other member it is read and written to the console.
 \begin{lstlisting}[language=java]
@@ -333,19 +333,29 @@ public class PrintMember {
 
 It is important to realize that map.get(key) returns a copy of the values at some moment in time. Changes to this collection will result in an a UnsupportedOperationException. So if you want to change the values, you need to do it through the map.remove methods.
 
-Removing items; you can remove items from the multimap. This is using the equals operator of the value. If the collection for a specific key is empty, this collection will not automatically be removed, so it can be that you need to clean up the multimap so that no empty value collections remains.
+Removing items; you can remove items from the MultiMap. This is using the equals operator of the value. If the collection for a specific key is empty, this collection will not automatically be removed, so it can be that you need to clean up the MultiMap so that no empty value collections remains.
 
 Hash/equals: (verified with tests)
 The key doesn't need to implement hash/equals, its byte-array content will be used
 The value needs to implement equals, its equals will be used
 
-The value collection is set based, so no duplicates and there is no ordering.Null value is not allowed (npe). But the multimap can also be configured to be list based: MultiMapConfig.setValueCollectionType(ValueCollectionType.LIST). 
+The value collection is set based, so no duplicates and there is no ordering.Null value is not allowed (npe). But the MultiMap can also be configured to be list based: MultiMapConfig.setValueCollectionType(ValueCollectionType.LIST). 
 
 One thing worth knowing; if a value collection with K is stored on member1 because K is owned by that member1, and member2 does a map.get(K), then the whole collection will transported from member1 to member 2. So if that value collection is big, it could lead to performance problems. A solution would be to send the whole operation to member1, so send the logic to the data instead of the data to the logic.
 
 
 \section{Gotcha's}
+
 When Map.entrySet(), Map.keySet() or Map.values() is called, a snapshot of the current state of the map is returned. Changes that are made in the map, so not reflect into changes these maps. Also when changes are made on these collections, an UnsupportedOperationException is thrown.
+
+Changes made on keys/values after they have been persisted, will not reflect in changes in the map. This is because not the key/value object themselves are stored, but their serialized version. So the following idiom is broken:
+\begin{lstlisting}[language=java]
+Employee e = employeeMap.get("123");
+e.fire();
+\end{lstlisting}
+If you want the changes in e to be published, you need to write e back to the map.
+
+TODO: What about cache where serializion for local object is 'skipped?
 
 \section{What is next}
 In this chapter a lot of the basic operations on the Distributed Map were explained. In the next chapter we'll cover more advanced features.

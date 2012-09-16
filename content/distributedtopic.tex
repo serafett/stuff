@@ -40,25 +40,20 @@ Received: Sat Sep 30 13:05:24 EEST 2012
 \end{lstlisting}
 To make it a bit more interesting, you can up multiple subscribed members. If you run the publisher again, all subscribers will receiving the same published message.
 
-\emph{Durable subscriptions}, known from JMS, give a guarantee to the subscriber will not loose any messages. A subscriber registers itself under a certain id and the message broker ensures that the subscriber will receive all messages, even if the subscriber goes offline. Hazelcast doesn't support durable subscriptions.
+TODO:globalOrderingEnabled
 
-\subsection{globalOrderingEnabled}
-TODO:
-
-\subsection{Single threaded}
+\section{Scaling up the MessageListener}
 TODO: Verify that each listener has its own tpe
-When a message is send to a topic, it is immediately send to each node that has registered itself as message-listener. Each message-listener will have its own local threadpoolexecutor. The message will be wrapped in a runnable and stored in the workqueue of this executor.
+When a message is send to a topic, it is immediately send to each node that has registered itself as message-listener. Each message-listener will have its own local ThreadPoolExecutor. The message will be wrapped in a Runnable and stored in the work-queue of this executor.
 
-Messages are delivered in order, meaning that message listeners will receive the messages in the order they are published. If cluster member M publishes messages m1, m2, m3...mn to a topic T, then Hazelcast makes sure that all of the subscribers of topic T will receive and process m1, m2, m3...mn in order. To guarantee this the executor of the message listener will have only a single thread.
+Messages are delivered in order, meaning that message listeners will receive the messages in the order they are published. If cluster member M publishes messages m1, m2, m3...mn to a topic T, then Hazelcast makes sure that all of the subscribers of topic T will receive and process m1, m2, m3...mn in order. To guarantee this, the executor of the message listener will have only a single thread.
 
 If message ordering isn't important, the easiest thing to overcome the single threaded nature of the listener, is to offload the processing to another executor with more than one thread, e.g.:
 \begin{lstlisting}[language=java]
     private final static Executor executor = Executors.newFixedThreadPool(10);       
-
     private static class MessageListenerImpl implements MessageListener<Date> {
         public void onMessage(final Message<Date> m) {
             Runnable task = new Runnable() {
-                @Override
                 public void run() {
                     System.out.println("Received: " + m.getMessageObject());
                 }
@@ -67,11 +62,13 @@ If message ordering isn't important, the easiest thing to overcome the single th
         }
     } 
 \end{lstlisting}
-This will greatly boost the processing capacity since messages can now be processed in parallel.
+This can greatly boost the processing capacity since messages can now be processed in parallel.
+
+\section{Gotcha's}
+
+\emph{No processing guarantee} is provided on the messages. If a member that hosts one or more messagelisteners fails, all unprocessed messages for these message listener will be lost.
+
+\emph{Not transactional}. The ITopic is not transactional, so be careful when it is used inside a transaction.
 
 \section{What is next}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi libero sem,
-interdum eget varius vel, faucibus placerat purus. Sed vulputate diam sit amet
-risus dapibus dignissim. Praesent lobortis eleifend augue. Cum sociis natoque
-penatibus et magnis dis parturient montes, nascetur ridiculus mus. Morbi libero
-turpis, viverra ac vulputate a, faucibus vel quam.
+In this chapter we have seen the ITopic. From a high level there is some overlap with JMS, but the provided functionality is much more limited. On the other side, the ITopic is extremely easy to use and doesn't require message brokers to be running.

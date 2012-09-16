@@ -56,48 +56,48 @@ public class ConsumerMember {
 If you take a closer look at the consumer, you see that when the consumer receives the poison pill, it puts the poison pill back on the queue before it ends the loop. This is done to make sure that all consumer will receive the poison pill, and not only the one that received it first.
 
 When you begin with starting a single producer, you will see the following output:
-\begin{verbatim}
+\begin{lstlisting}
 Produced 1
 Produced 2
 Produced 3
 ....
-\end{verbatim}
+\end{lstlisting}
 When you start a single consumer, you will see the following output:
-\begin{verbatim}
+\begin{lstlisting}
 Consumed 1
 Consumed 2
 Consumed 3
 ....
-\end{verbatim}
+\end{lstlisting}
 As you can see, the items produced on the queue by the producer are being consumed from that same queue by the consumer. 
 
 Because messages are produced 5 times faster than they are consumed, with a single member the queue will keep growing. To improve scalability, you can start more consumers. If we start another consumer, we'll see that one consumer takes care of on half of the messages and the other consumer takes care of the other half.
 
 Consumer 1:
-\begin{verbatim}
+\begin{lstlisting}
 Consumed 20
 Consumed 22
 Consumed 24
 ....
-\end{verbatim}
+\end{lstlisting}
 Consumer 2:
-\begin{verbatim}
+\begin{lstlisting}
 Consumed 21
 Consumed 23
 Consumed 25
 ....
-\end{verbatim}
+\end{lstlisting}
 And when you kill one of the consumers, the remaining consumer will process all elements again:
 
 Consumer 1:
-\begin{verbatim}
+\begin{lstlisting}
 Consumed 40  
 Consumed 42 
 Consumed 44 
 Consumed 45
 Consumed 46
 ....
-\end{verbatim}
+\end{lstlisting}
 
 TODO: Needs to be verified.
 One thing to take care of that if there are many producers/consumers interacting with the queue, is that the queue eventually will become a bottleneck and this is caused by contention. One way of solving this problem is to introduce a stripe (essentially a list) of BlockingQueues. But if you do, the ordering of messages send to different queues will not be guaranteed anymore. In a lot of cases a strict ordering isn't required and a stripe can be a simple solution to deal with scalability.
@@ -112,7 +112,7 @@ With the traditional BlockingQueue implementations like the LinkedBlockingQueue,
 Hazelcast also provided control in the capacity, but instead of having a fixed capacity for the whole cluster, Hazelcast provides a scalable capacity by setting the queue capacity per member. So if the capacity per member is 1000 and there are 5 members's, the total capacity is 5000. So capacity depends on the size of the cluster.
 
 To give our queue a capacity of 10 per member, we add the following to our hazelcast.xml file:
-\begin{verbatim}
+\begin{lstlisting}
 <hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config hazelcast-config-2.3.xsd"
            xmlns="http://www.hazelcast.com/schema/config"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
@@ -125,23 +125,23 @@ To give our queue a capacity of 10 per member, we add the following to our hazel
         <max-size-per-jvm>10</max-size-per-jvm>
     </queue>
 </hazelcast>
-\end{verbatim}
+\end{lstlisting}
 When we start a single producer, we'll see that 10 items are produced and then the producer blocks. When we start a single consumer, we'll immediately see that the producer will continue since the total capacity for the queue has doubled to 20 (2 JVM's times 10 items per queue). 
 
 But since the producer produces 5 times as fast as the consume, the queue will reach its maximum capacity again quickly and it will block. We can can increase the capacity of the cluster by starting new consumers (the processing and the storage capacity increase) or just empty members (the storage capacity increases).
 
 Since Hazelcast 1.9.3, distributed queues are backed by distributed maps. So all the configuration options available to a map, for example storage, are indirectly available for the queue. The value in the map will be the value placed on the queue, and the key of the map (of type Long) will be a global unique id. By default the name to backing map will be the name of the queue prefixed with 'q:', example:
-\begin{verbatim}
+\begin{lstlisting}
     <queue name="queue">
         ...
     </queue>
     <map name="q:queue">
        ...
     </map>
-\end{verbatim}
+\end{lstlisting}
 
 This naming convention can be overridden by setting the backingMapRef on the queue explicitly, e.g:
-\begin{verbatim}
+\begin{lstlisting}
     <queue name="queue">
        <backingMapRef>somemap</backingMapRef>
        ... 
@@ -149,7 +149,7 @@ This naming convention can be overridden by setting the backingMapRef on the que
     <map name="somemap">
         ...
     </map>
-\end{verbatim}
+\end{lstlisting}
 See the Distributed Map chapters for the options available.
 TODO: The map can't be retrieved by that name; so either a bug or I'm doing something wrong.
 TODO: Is there support to overflow to disk?
@@ -188,13 +188,13 @@ public class ReadMember {
 }
 \end{lstlisting}
 If you first start the write member and after that has completed, you start the read member; the read member will output the following:
-\begin{verbatim}
+\begin{lstlisting}
 Tokyo
 Paris
 London
 New York
 Reading finished!
-\end{verbatim}
+\end{lstlisting}
 As you can see, the data written to the list by the write member is visible in the read member and you also can see that the order is maintained.
 
 The distributed list also is backed up by the distributed queue and the queue is backed up by a map. The key will be of type Long and the value will by them item placed in the list. To find the map behind the list, prefix the list name with 'c:q:l:'. But no guarantees are given that the map can be accessed this way way in the future, so please beware. The list has no other configuration options.
@@ -231,15 +231,14 @@ public class ReadMember {
 }
 
 \end{lstlisting}
-
 If you first start the write member and after that has completed, you start the read member; the read member will output the following:
-\begin{verbatim}
+\begin{lstlisting}
 Paris
 Tokyo
 London
 New York
 Reading finished!	
-\end{verbatim}
+\end{lstlisting}
 As you can see, the data written to the set by the write member is visible in the read member. As you also can see the order is not maintained since order is not defined by the set.
 
 TODO: Reference to equal/hash of Map.
@@ -287,12 +286,12 @@ public class CollectionChangeMember{
 }
 \end{lstlisting}
 First start up the itemlistener-member and wait till it displays "ItemListener started". After that start the collection-change-member and you will see the following output in the itemlistener-member:
-\begin{verbatim}
+\begin{lstlisting}
 item added:foo
 item added:bar
 item removed:foo
 item removed:bar
-\end{verbatim}
+\end{lstlisting}
 ItemListeners are useful if you need to react upon changes in collections. But realize that listeners are executed asynchronously, so it could be that at the time your listener runs, that the collection has changed again. 
 
 \emph{Ordering} All events are ordered, meaning, listeners will receive and process the events in the order they are actually occurred. TODO: Is the ordering only guaranteed within the member, or is there a cluster wide ordering?

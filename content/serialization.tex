@@ -60,14 +60,13 @@ If an object that implements DataSerializable, has a field that also is DataSeri
         address.readData(in);
     }
 \end{lstlisting}
-One thing to look out for however are cycles between objects because it can lead to a stackoverflow. 
-Standard Java serialization protects against this, but since manual traversal is done in DataSerializable objects, out of the box there is no protection. If this becomes an issue, you could store a map in a ThreadLocal that can be used to check for cycles.
+One thing to look out for however are cycles between objects because it can lead to a stack overflow. Standard Java serialization protects against this, but since manual traversal is done in DataSerializable objects, out of the box there is no protection. If this becomes an issue, you could store a map in a ThreadLocal that can be used to check for cycles.
 
 With the standard java serialization mechanism there is a build in mechanism for class versioning. With the DataSerializable this isn't provided out of the box, but it is very easy to add. You can include a version field in the class that is written when the class is serialized. And when the class is deserialized, the version can be restored and one could even decide to read data in different ways based on the found version to ensure being able to read older serialized classes.
 \section{Gotcha's}
-TODO: Copy Paste
+
 \emph{Caution} DataSerializable doesn't deal with nested serialization; so while you are serializing or deserializing a class, you should not call an operation on Hazelcast that leads to new DataSerializable serialize/deserialization calls,  doing so leads to a StackOverflowError. A solution to this problem is to execute the operation on a different thread. 
 \emph{Caution} When an DataSerializable object x is wrapped in a normal Serializable object y and y is serialized, then will be serialized using Serializable as well. This works because the DataSerializable interface extends Serializable so therefor each object that is DataSerializable is Serializable by default.
 \section{Externalizable vs DataSerializable}
-The java.io.Externalizable can also be used for serialization/deserialization since it extends Serializable. So when Hazelcast defaults to the standard java serialization mechanism, the Externizable mechanism works without a problem. So although Externizable provides more control compared to Serializable, it still suffers from some overhead compared to a DataSerializable.
+The java.io.Externalizable can also be used for serialization/deserialization since it extends Serializable. So when Hazelcast defaults to the standard java serialization mechanism, the Externalizable mechanism works without a problem. So although Externalizable provides more control compared to Serializable, it still suffers from some overhead compared to a DataSerializable.
 \section{What is next}

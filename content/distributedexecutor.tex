@@ -89,7 +89,7 @@ First we retrieve the executor from the HazelcastInstance and then we slowly sub
 \end{lstlisting}
 
 When we run the master member you will get output like this:
-\begin{verbatim}
+\begin{lstlisting}
 Producing echo task: 1
 Producing echo task: 2
 Producing echo task: 3
@@ -104,7 +104,7 @@ Producing echo task: 10
 echo:2
 Producing echo task: 11
 Producing echo task: 12	
-\end{verbatim}
+\end{lstlisting}
 
 As you can see the production of messages is 1/second and the processing is 0.2/second (each echo task sleeps 5 seconds), this means that we produce work 5 times faster than we are able to process it. There are a few ways to speed things up (apart from making the echo task faster of course):
 \begin{enumerate}
@@ -136,7 +136,7 @@ Scaling up the ExecutorService in Hazelcast is very simple, just increment the m
 </hazelcast>
 \end{lstlisting}
 When we run the master node we'll see something like this:
-\begin{verbatim}
+\begin{lstlisting}
 Producing echo task: 1
 Producing echo task: 2
 Producing echo task: 3
@@ -154,11 +154,10 @@ echo:5
 Producing echo task: 10
 echo:6
 Producing echo task: 11	
-\end{verbatim}
+\end{lstlisting}
 As you can see, the tasks are being processed as quickly as they are being produced. So we now reached maximum scalability.
 
 If you take a closer look at the previous hazelcast configuration, you saw that we configured the max-pool-size and the core-pool-size to be 5. The core-pool-size is the minimal size of the thread pool, even if there is nothing to do. But in some cases you want to have a thread pool with a dynamic size since threads (even if they are not running) consume memory. So if you want a pool that increases size when there is a lot of work to do and decreases size when there is not much work to do, you can configure the max-pool-size to be bigger than the core-pool-size. Example:
-
 \begin{lstlisting}[language=xml]
 <hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config
      ...  
@@ -169,7 +168,6 @@ If you take a closer look at the previous hazelcast configuration, you saw that 
     </executor-service>
 </hazelcast>
 \end{lstlisting}
-
 With this configuration the thread pool of the executor is configured with a minimum size of 1 thread and a maximum size of 5 threads. You can also see that we configured the keep-alive-seconds; this is the number of seconds an idle thread is allowed to stay alive before it is destroyed. The default keep-alive-seconds is 300 (5 minutes), so if you are fine with that you don't need to configure it.
 
 In this case scaling up was very simple since the amount of resources (cpu, memory, IO bandwidth, disk-space etc) is more than enough. But often one or more of these resources will be the limiting factor. Of course we can always add more of these resources, but there will be a point that adding resources will not be cost efficient since they will cost more and more but provide less increments in capacity.
@@ -189,11 +187,11 @@ public class SlaveMember {
 We don't need to do anything else because this member will automatically start the executor that was started in the master node.
 
 When you start one master and slave member, you will see that the slave member is processing tasks as well:
-\begin{verbatim}
+\begin{lstlisting}
 echo:31
 echo:33
 echo:35	
-\end{verbatim}
+\end{lstlisting}
 So in only a few lines of code, we are now able to scale out! If you want, you can start more slave members, but with tasks being created at 1 messages/second, adding more than 4 slave members (which make a total of 5 members running the executor) we have reached maximum scalability. 
 
 \section{Executors and HazelcastInstanceAware}
@@ -266,16 +264,16 @@ public class MasterMember {
 As you can see when we call the executorService.submit, we get back a Future as result. This future allows us to synchronize on completion or cancel the computation. 
 
 When we can run this application with 5 as argument, the output will be: 
-\begin{verbatim}
+\begin{lstlisting}
 result: 5
 Finished
-\end{verbatim}
+\end{lstlisting}
 But when you run this application with 500 as argument, it will take more than 10 seconds to complete and therefor the future.get will timeout. The output will be:
-\begin{verbatim}
+\begin{lstlisting}
 A timeout happened, the future is cancelled
 FibonacciCallable is interrupted
 Finished
-\end{verbatim}
+\end{lstlisting}
 This is because the future.get operation will timeout (if it doesn't instead of using 10 seconds as timeout, use a lower value; it could be that you have a very fast machine). When the timeout happens, a TimeoutException is thrown and we cancel the future. This cancel operation on the future is send back to the thread that is potentially running on a different member and will set the interrupted status of that Thread. It is up to the task (runnable/callable) that is being run by executor to check the interrupted status of the thread periodically to be able to be responsive to interrupts.
 
 \section{Execution Callback}
@@ -321,14 +319,13 @@ public class MasterMember {
 When we start one slave and master member, we'll get output like:
 
 slave member:
-\begin{verbatim}
+\begin{lstlisting}
 echo-0
-\end{verbatim}
-
+\end{lstlisting}
 master member:
-\begin{verbatim}
+\begin{lstlisting}
 echo-1
-\end{verbatim}
+\end{lstlisting}
 So as you can see, it is very easy to execute a task on a specific member.
 
 TODO: What happens when the member goes down after the task has been submitted, but before it is executed. No other member is allowed to pick up that task since it was made specifically for that member. Is there some callback mechanism?
@@ -388,13 +385,13 @@ public class MasterMember {
 }
 \end{lstlisting}
 First we start a few slave members and then we the master member and you will get output like:
-\begin{verbatim}
+\begin{lstlisting}
 key is local:true
 key is local:true
 key is local:true
 key is local:true
 key is local:true
-\end{verbatim}
+\end{lstlisting}
 As you can see, the tasks are executed on the same member as where the data is living. So with Hazelcast it is very easy to group data and functions operating on this data. This  and this is extremely important for since it provides locality of reference and this allows us to create very efficient systems because you don't need to go over the network that much.
 
 A nice experiment is to let the VerifyTask getPartitionKey method return null. This will cause the task to be executed on a random member and therefor there will not be a locality of reference.
@@ -458,23 +455,23 @@ public class MasterMember {
 }
 \end{lstlisting}
 When we start 2 slave members and then a master member, we'll see something like this, for slave member 1:
-\begin{verbatim}
+\begin{lstlisting}
 Calculating for key: 11
 Calculating for key: 0
 Calculating for key: 4
 Calculating for key: 5
 Local Result: 4
-\end{verbatim}
+\end{lstlisting}
 And slave member 2
-\begin{verbatim}
+\begin{lstlisting}
 Calculating for key: 10
 Calculating for key: 1
 Calculating for key: 13
 Calculating for key: 3
 Local Result: 4
-\end{verbatim}
+\end{lstlisting}
 And master member:
-\begin{verbatim}
+\begin{lstlisting}
 Calculating for key: 12
 Calculating for key: 8
 Calculating for key: 6
@@ -484,7 +481,7 @@ Calculating for key: 14
 Calculating for key: 9
 Local Result: 7
 Result: 15
-\end{verbatim}
+\end{lstlisting}
 As you can see the load is 'equally' spread among all the members. 
 
 In this example we executed a task on all members, but if you only want to execute a task on a subset of members, you can apply some filtering on the members. 
