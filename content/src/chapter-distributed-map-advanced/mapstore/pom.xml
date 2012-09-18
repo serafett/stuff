@@ -3,11 +3,10 @@
     <modelVersion>4.0.0</modelVersion>
     <packaging>jar</packaging>
 
-    <artifactId>lost-update-pessimistic</artifactId>
-    <name>Chapter DistributedMap Advanced - Lost Update Pessimistic</name>
+    <artifactId>mapstore</artifactId>
+    <name>Chapter DistributedMap Advanced - MapStore</name>
 
     <description>
-        Lost Update Pessimistic
     </description>
 
     <parent>

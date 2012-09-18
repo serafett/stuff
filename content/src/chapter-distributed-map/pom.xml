@@ -19,11 +19,11 @@
 
     <modules>
         <module>basics</module>
-        <module>predicate-builder</module>
         <module>hashcodeandequals</module>
         <module>locking</module>
         <module>multimap</module>
-        <module>manymap</module>
+        <module>criteria</module>
+        <module>sqlquery</module>
     </modules>
 
 </project>

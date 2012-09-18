@@ -48,9 +48,9 @@ public class GetMember {
 \end{lstlisting}
 
 \section{Custom Keys}
-My experience is that in most cases when you work with a Hazelcast map you will make use of a Long, Integer or String as key. But in some cases you will need to create custom keys, but to do it correctly in Hazelcast, you need to understand how this works. 
+In most cases when you work with a Hazelcast map you probably will make use of a Long, Integer or String as key. But in some cases you will need to create custom keys, but to do it correctly in Hazelcast, you need to understand how this works. 
 
-When you store a key/value in a Hazelcast map, the actual objects are not stored in the map because an object can't move from one JVM to another. Instead the key/value are serialized to byte-arrays and these will be stored in a local ConcurrentHashMap. So the Hazelcast map will not make use of the hashcode/equals of your object, but of the byte array versions of your object. That is why you need to make sure that equal keys result in equal byte arrays. 
+When you store a key/value in a Hazelcast map, the actual objects are not stored in the map because an object can't move from one JVM to another. Instead the key/value are serialized to byte-arrays and these will be stored in a local ConcurrentHashMap. For keys the hash/equals is used of the byte array version of the object, so equal keys need to result in equal byte arrays. For values the hash/equals of the object is used.
 
 Below is an example of a key implementation that is valid if you use it as key in a normal HashMap, but stops working when it is used as a key in a Hazelcast map:
 \begin{lstlisting}[language=java]
@@ -73,11 +73,11 @@ public final class BrokenKey implements Serializable {
 }
 \end{lstlisting}
 Although equals and hashCode are implemented correctly; equal object should result in the same hashCode. In this case equals and hashCode are both based solely on the significant field. So if you have 2 keys:
-\begin{verbatim}
+\begin{lstlisting}
 BrokenKey key1 = new BrokenKey("a","b");
 BrokenKey key2 = new BrokenKey("a","c");
-\end{verbatim} 
-Then 'key1.equals(key2)' and 'key1.hashCode()==key2.hashCode()' is true. But since the byte-array content of both objects is different, this key implementation should not be used with a Hazelcast map.
+\end{lstlisting} 
+Then 'key1.equals(key2)' and 'key1.hashCode()==key2.hashCode()' is true. But since the byte-array content of both objects is different, this key implementation should not be used with a Hazelcast map. Although this BrokenKey is a bad candidate to used as a key in a Hazelcast map, it can be used without a problem as a value, since its equals is implemented correctly.
 
 TODO:
 Note that the distributed Set and List stores its entries as the keys in a distributed Map. So the notes above apply to the objects you store in Set and List.
@@ -113,25 +113,25 @@ Luckily Hazelcast solves these problems by supporting distributed queries using 
 
 The distributed version looks like this:
 
-\begin{verbatim}
+\begin{lstlisting}
 public Set<Customer> getWithName(String name){
     EntryObject e = new PredicateBuilder().getEntryObject();
     Predicate predicate = e.get("name").equals(name);
     return (Set<Customer>) customerMap.values(predicate);
 }
-\end{verbatim}
+\end{lstlisting}
 
 Explain EntryObject, Predicate.
 
 \subsection{Distributed SQL Query}
 It also is possible instead of using the programmatic api to create a query, to use a more SQL like language:
 
-\begin{verbatim}
+\begin{lstlisting}
 public Set<Customer> getWithName(String name){
     Predicate predicate = new SqlPredicate(String.format("name = %s",name));
     return (Set<Customer>) customerMap.values(predicate);
 }
-\end{verbatim}
+\end{lstlisting}
 
 supported SQL syntax:
 TODO: Is it case sensitive?
@@ -343,7 +343,6 @@ The value collection is set based, so no duplicates and there is no ordering.Nul
 
 One thing worth knowing; if a value collection with K is stored on member1 because K is owned by that member1, and member2 does a map.get(K), then the whole collection will transported from member1 to member 2. So if that value collection is big, it could lead to performance problems. A solution would be to send the whole operation to member1, so send the logic to the data instead of the data to the logic.
 
-
 \section{Gotcha's}
 
 When Map.entrySet(), Map.keySet() or Map.values() is called, a snapshot of the current state of the map is returned. Changes that are made in the map, so not reflect into changes these maps. Also when changes are made on these collections, an UnsupportedOperationException is thrown.
@@ -355,7 +354,7 @@ e.fire();
 \end{lstlisting}
 If you want the changes in e to be published, you need to write e back to the map.
 
-TODO: What about cache where serializion for local object is 'skipped?
+TODO: What about cache where serialization for local object is 'skipped?
 
 \section{What is next}
 In this chapter a lot of the basic operations on the Distributed Map were explained. In the next chapter we'll cover more advanced features.

@@ -1,5 +1,4 @@
 \chapter{Distributed Executor Service}
-
 Java 5 was perhaps the most fundamental upgrade since Java was released. On a language level we got generics, static imports, enumerations, varargs, enhanced for loop and annotations. Although less known, Java 5 also got fundamental fixes for the Java Memory Model (JSR-133) and last but certainly not least; we got a whole new concurrency library (JSR-166) found in java.util.concurrent.
 
 The concurrency library contains a lot of goodies; some parts you probably don't use on a regular based, but other parts you perhaps do. One of the features that was added is the java.util.concurrent.Executor. The idea is that you wrap a piece of functionality in a Runnable (if you don't need to return a value) or a in a Callable (if you need to return a value) and hand it over to the Executor. In case of the ThreadPoolExecutor, these tasks are stored in a queue (the work queue) and inside the ThreadPoolExecutor there is a pool of worker threads that take work from this queue to process it. These worker threaded are pooled to reduce overhead for thread creation  and also to control the number of threads running concurrently.
@@ -105,7 +104,6 @@ echo:2
 Producing echo task: 11
 Producing echo task: 12	
 \end{lstlisting}
-
 As you can see the production of messages is 1/second and the processing is 0.2/second (each echo task sleeps 5 seconds), this means that we produce work 5 times faster than we are able to process it. There are a few ways to speed things up (apart from making the echo task faster of course):
 \begin{enumerate}
 \item scale up 
@@ -113,7 +111,7 @@ As you can see the production of messages is 1/second and the processing is 0.2/
 \end{enumerate}
 Both of the strategies are explained below and in practice they are often combined. 
 
-\emph{Task Serialization.} You need be aware that you need to think with a different hat than you do with the traditional ThreadPoolExecutor because the JVM where the tasks is executed potentially is different one than the JVM that submitted the task. This means that you can't pass dependencies like a database connection pool through fields of that task. The solution to this problem is that you need to add enough 'context' so that when a task is executed it is able to reconstruct its execution context. A singleton can be a help in this case.
+\emph{Task Serialization.} You need be aware that you need to think with a different hat than you do with the traditional ThreadPoolExecutor because the JVM where the tasks is executed potentially is different one than the JVM that submitted the task. This means that you can't pass complex dependencies like a database connection pool, through fields of that task. The solution to this problem is that you need to add enough 'context' so that when a task is executed it is able to reconstruct its execution context. A singleton can be a help in this case.
 
 \section{Scaling up}
 Scaling up, also called vertical scaling, is done by increasing the processing capacity on a single JVM. In this case we can launch more threads by setting the corePoolSize/maxPoolSize of the Executor. Since each thread can process 0.2 messages/second and we get 1 message/second, with 5 threads we can process messages as fast as they are produced.
@@ -213,75 +211,6 @@ public class SomeTask implements
 \end{lstlisting}
 When this Task is processed (not when it is submitted), the Hazelcast executor checks if the task implements HazelcastInstanceAware. If so, it will inject the HazelcastInstance of the executor, by calling the 'setHazelcastInstance' method. The hzInstance field can be transient since it will never be send over the line. 
 
-\section{Futures}
-The java Executor interface only exposes a single 'void execute(Runnable)' method that can be called to have a task asynchronously executed. But in some cases you want to synchronize on task completion or cancel the task (for example when it takes too much time to run). This can be done making use of the java.util.concurrent.Future and one of the submit methods of the ExecutorService (the ExecutorService extends the Executor). TODO: When working with a callable, you probably want to use a future.
-
-In the first example we are going to wait for the result on a future and in the second example we are going to cancel a future:
-\begin{lstlisting}[language=java]
-import java.io.Serializable;
-import java.util.concurrent.Callable;
-public class FibonacciCallable implements Callable<Long>, Serializable {
-    private final int input;
-    public FibonacciCallable(int input) {
-        this.input = input;
-    }
-    public Long call() {
-        return calculate(input);
-    }
-    private long calculate(int n) {
-        if (Thread.currentThread().isInterrupted()) {
-            System.out.println("FibonacciCallable is interrupted");
-            throw new RuntimeException("Fibonacci is interrupted");
-        }
-        if (n <= 1) return n;
-        else return calculate(n - 1) + calculate(n - 2);
-    }
-}
-\end{lstlisting}
-As you can see there is a check 'Thread.currentThread().isInterrupted()' that is run frequently while calculating. When the thread is interrupted, the calculation will be aborted. In our case we are going to throw an exception to abort the calculation. 
-
-The future can be used like this:
-\begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
-import java.util.concurrent.*;
-public class MasterMember {
-    public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
-        ExecutorService executorService = hzInstance.getExecutorService();
-        int n = Integer.parseInt(args[0]);
-        Future<Long> future = executorService.submit(new FibonacciCallable(n));
-        try {
-            long result = future.get(10, TimeUnit.SECONDS);
-            System.out.println("result: "+result);
-        } catch (TimeoutException ex) {
-            System.out.println("A timeout happened, the future is cancelled");
-            future.cancel(true);
-        }
-        System.out.println("Finished");
-    }
-}
-\end{lstlisting}
-As you can see when we call the executorService.submit, we get back a Future as result. This future allows us to synchronize on completion or cancel the computation. 
-
-When we can run this application with 5 as argument, the output will be: 
-\begin{lstlisting}
-result: 5
-Finished
-\end{lstlisting}
-But when you run this application with 500 as argument, it will take more than 10 seconds to complete and therefor the future.get will timeout. The output will be:
-\begin{lstlisting}
-A timeout happened, the future is cancelled
-FibonacciCallable is interrupted
-Finished
-\end{lstlisting}
-This is because the future.get operation will timeout (if it doesn't instead of using 10 seconds as timeout, use a lower value; it could be that you have a very fast machine). When the timeout happens, a TimeoutException is thrown and we cancel the future. This cancel operation on the future is send back to the thread that is potentially running on a different member and will set the interrupted status of that Thread. It is up to the task (runnable/callable) that is being run by executor to check the interrupted status of the thread periodically to be able to be responsive to interrupts.
-
-\section{Execution Callback}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi libero sem,
-interdum eget varius vel, faucibus placerat purus. Sed vulputate diam sit amet
-risus dapibus dignissim. Praesent lobortis eleifend augue. Cum sociis natoque
-penatibus et magnis dis parturient montes, nascetur ridiculus mus. Morbi libero
-turpis, viverra ac vulputate a, faucibus vel quam.
 
 \section{Routing}
 Till so far we didn't care about which member did the actual processing of the task; as long as any member picked it up. But in some cases you want to have control on which member is going to execute. Luckily Hazelcast provides different ways to route messages:
@@ -489,6 +418,109 @@ In this example we executed a task on all members, but if you only want to execu
 TODO: Map/Reduce
 
 TODO: Tell about cluster change between task creation and task execution.
+
+\section{Futures}
+The java Executor interface only exposes a single 'void execute(Runnable)' method that can be called to have a task asynchronously executed. But in some cases you want to synchronize on task completion or cancel the task (for example when it takes too much time to run). This can be done making use of the java.util.concurrent.Future and one of the submit methods of the ExecutorService (the ExecutorService extends the Executor). TODO: When working with a callable, you probably want to use a future.
+
+In the first example we are going to wait for the result on a future and in the second example we are going to cancel a future:
+\begin{lstlisting}[language=java]
+import java.io.Serializable;
+import java.util.concurrent.Callable;
+public class FibonacciCallable implements Callable<Long>, Serializable {
+    private final int input;
+    public FibonacciCallable(int input) {
+        this.input = input;
+    }
+    public Long call() {
+        return calculate(input);
+    }
+    private long calculate(int n) {
+        if (Thread.currentThread().isInterrupted()) {
+            System.out.println("FibonacciCallable is interrupted");
+            throw new RuntimeException("Fibonacci is interrupted");
+        }
+        if (n <= 1) return n;
+        else return calculate(n - 1) + calculate(n - 2);
+    }
+}
+\end{lstlisting}
+As you can see there is a check 'Thread.currentThread().isInterrupted()' that is run frequently while calculating. When the thread is interrupted, the calculation will be aborted. In our case we are going to throw an exception to abort the calculation. 
+
+The future can be used like this:
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.*;
+import java.util.concurrent.*;
+public class MasterMember {
+    public static void main(String[] args) throws Exception {
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        ExecutorService executorService = hzInstance.getExecutorService();
+        int n = Integer.parseInt(args[0]);
+        Future<Long> future = executorService.submit(new FibonacciCallable(n));
+        try {
+            long result = future.get(10, TimeUnit.SECONDS);
+            System.out.println("result: "+result);
+        } catch (TimeoutException ex) {
+            System.out.println("A timeout happened, the future is cancelled");
+            future.cancel(true);
+        }
+        System.out.println("Finished");
+    }
+}
+\end{lstlisting}
+As you can see when we call the executorService.submit, we get back a Future as result. This future allows us to synchronize on completion or cancel the computation. 
+
+When we can run this application with 5 as argument, the output will be: 
+\begin{lstlisting}
+result: 5
+Finished
+\end{lstlisting}
+But when you run this application with 500 as argument, it will take more than 10 seconds to complete and therefor the future.get will timeout. The output will be:
+\begin{lstlisting}
+A timeout happened, the future is cancelled
+FibonacciCallable is interrupted
+Finished
+\end{lstlisting}
+This is because the future.get operation will timeout (if it doesn't instead of using 10 seconds as timeout, use a lower value; it could be that you have a very fast machine). When the timeout happens, a TimeoutException is thrown and we cancel the future. This cancel operation on the future is send back to the thread that is potentially running on a different member and will set the interrupted status of that Thread. It is up to the task (runnable/callable) that is being run by executor to check the interrupted status of the thread periodically to be able to be responsive to interrupts.
+
+\section{Execution Callback}
+With a future it is possible to synchronize on task completion. In some cases you want to wait on tasks completion in the same thread that submitted the task. But in other you want to have some logic executed when the task completes, but you don't want to block the submitting thread. Hazelcast provides a solution for this using the execution callback.
+
+In the futures topic we created an example where we calculated fibonacci and wait on the completion of that calculation using the future.get() method. In the following example we are also going to calculate Fibonacci, but instead of waiting for that task to complete, we register an execution callback where we print the result asynchronously. We do this by wrapping our Fibonacci task in a com.hazelcast.core.DistributedTask and register an ExecutionCallback on this DistributedTask like this:
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.*;
+import java.util.concurrent.*;
+public class MasterMember {
+    public static void main(String[] args){
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        ExecutorService es = hzInstance.getExecutorService();
+        DistributedTask<Long> task = new DistributedTask<Long>(new FibonacciCallable(10));
+        ExecutionCallback<Long> executionCallback = new ExecutionCallback<Long>() {
+            public void done(Future<Long> future) {
+                try {
+                    if (!future.isCancelled()) {
+                        System.out.println("Fibonacci calculation result = " + future.get());
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        };
+        task.setExecutionCallback(executionCallback);
+        es.execute(task);
+        System.out.println("Successfully Fibonacci task");
+    }
+}
+\end{lstlisting}
+As you can see, the ExecutionCallback has a single method 'done' that needs to be implemented and receives future .... As soon as the task has completed (either normally, exception or cancelled) the 'done' method will be called and the status of the tasks including its result can be retrieved using the future. In our case we are going to print the result.
+
+If you run this example you will see the following output:
+\begin{lstlisting}
+Successfully Fibonacci task
+Fibonacci calculation result = 55
+\end{lstlisting}
+As you can see, the tasks that submitted the tasks to be executed, was not blocked. You can also see that eventually the result of the Fibonacci calculation will be printed. 
+
+
 
 \section{What is next}
 In this chapter we explored the distributed execution of tasks using the Hazelcast ExecutorService. When you have worked with the ExecutorService before, you know that there are some gotcha's that can cause spending a lot of time on small things that are easy to solve. Hazelcast also introduces some gotcha's that are important to know up front.

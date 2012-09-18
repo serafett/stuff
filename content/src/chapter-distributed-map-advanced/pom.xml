@@ -18,12 +18,12 @@
     </parent>
 
     <modules>
-        <module>lost-update-pessimistic</module>
-        <module>lost-update-optimistic</module>
+        <module>backups</module>
         <module>data-locality</module>
         <module>index-declarative</module>
         <module>index-programmatic</module>
         <module>near-cache</module>
+        <module>mapstore</module>
     </modules>
 
 </project>

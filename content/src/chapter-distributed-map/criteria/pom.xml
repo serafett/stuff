@@ -3,16 +3,16 @@
     <modelVersion>4.0.0</modelVersion>
     <packaging>jar</packaging>
 
-    <artifactId>lost-update-optimistic</artifactId>
-    <name>Chapter DistributedMap Advanced - Lost Update Optimistic</name>
+    <artifactId>criteria</artifactId>
+    <name>Chapter DistributedMap - Criteria</name>
 
     <description>
-        Lost update optimistic
+        Chapter Distributed Map - Criteria
     </description>
 
     <parent>
-        <groupId>book.hazelcast</groupId>
-        <artifactId>chapter-distributed-map-advanced</artifactId>
+        <groupId>book.hazelcast.distributed-map</groupId>
+        <artifactId>chapter-distributed-map</artifactId>
         <version>0.1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>

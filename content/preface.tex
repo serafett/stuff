@@ -1,11 +1,9 @@
 \chapter*{Preface}
-
 Writing concurrent system has been a long passion of mine and it is a very logical step to go from concurrency control within a single JVM to concurrency control over multiple JVM's. There is a big overlap in functionality; a lot of the knowledge that is applicable to concurrency control in a single JVM also applies to concurrency over multiple JVM's; but there also is a whole new dimension of problems that make distributed systems even more interesting to deal with. 
-
 \subsection*{What is Hazelcast}
 When you write applications for the JVM for your profession, it is likely that you are going to write server-side applications. Although Java has support for writing desktop applications, the server-side is really where Java shines.
 
-Today it becomes more and more important that server-side systems are:
+Today, especially with the introduction of cloud infrastructure, it becomes more and more important that server-side systems are:
 \begin{enumerate}
 \item Scalable: just add and remove machines to match required capacity 
 \item Highly available: if one or more machines in a system fail, the system should continue as if nothing happened.
@@ -14,24 +12,13 @@ Today it becomes more and more important that server-side systems are:
 
 Hazelcast is an Open Source clustering and highly scalable data distribution platform for the JVM that is:
 \begin{enumerate}
-\item Dynamically scalable: scales up as new servers are added and scales down when servers are removed.
-\item Highly available; not losing data after JVM's crash.
-\item Lightning-fast; thousands of operations/sec.
+\item Dynamically scalable: this is done by making certain Hazelcast data-structures partitioned like the distributed Map. Moving the partitions around, e.g when cluster members are added or removed, is one of the most basic features Hazelcast provides. 
+\item Highly available; not losing data after a JVM's crash. This is done by automatically replicating data on other cluster members. In case of a member going down, the system will automatically failover by restoring the backup data to the available members. Another important design feature of Hazelcast is that there is no 'master member that can form a single point of failure; each member has equal responsibilities.
+\item Lightning-fast; Each Hazelcast member can do thousands of operations/second.
 \end{enumerate}
-One of the things I like most about Hazelcast is that it isn't very intrusive; as a developer/architect you are in control how much Hazelcast you get in your system. You are not forced to mutilate objects so they can be distributed, forced to use specific (application) servers, completely need to refactor the architecture or the need to install software; just add the Hazelcast jar to your classpath and you are done.
+One of the things I like most about Hazelcast is that it isn't very intrusive; as a developer/architect you are in control how much Hazelcast you get in your system. You are not forced to mutilate objects so they can be distributed, forced to use specific (application) servers or complex api's or the need to install software; just add the Hazelcast jar to your classpath and you are done.
 
-This freedom combined with very well thought out API's, in a lot of cases you can just use interfaces like java.util.concurrent.Executor, java.util.concurrent.BlockingQueue or java.util.Map, makes Hazelcast really a joy to work with. And it leads to highly available, scalable and performant Java systems, written in little time and based on very simple and elegant code.
-
-\section{How to convince my boss}
-No matter how cool a product is, often you need to have buy in from either your team, your boss or the customer. So I hope to give you some information that makes this easier.
-
-TODO: Tell something about sizes of datasets, number of nodes, performance (operations a second) etc. Numbers to impress. Clouds
-
-\emph{Customers} big banks (concrete names), telco's (concrete names), ... number of customers.. etc
-
-\emph{Support} is mandatory for a lot of companies to reduce risk. Although Hazelcast is Open Source and you don't need to pay anything in production, Hazelcast has an extensive commercial support, including training and consulting,  offering: http://hazelcast.com/support.jsp. 
-
-\emph{Gartner} has elected Hazelcast as Cool vendor in 2012: http://tinyurl.com/9fj4lvm
+This freedom combined with very well thought out API's, in a lot of cases you can just use interfaces like java.util.concurrent.Executor, java.util.concurrent.BlockingQueue or java.util.Map, makes Hazelcast really a joy to work with. And it leads to highly available, scalable and performant systems, written in little time and based on very simple and elegant code.
 
 \subsection*{Who should read this book}
 This books aims at developers/architects that build applications on top of the JVM and want to get a better understanding of how to write distributed applications using Hazelcast. It doesn't matter if you are using Java, Groovy Scala etc. It is even possible to call Hazelcast from .NET.
@@ -41,29 +28,28 @@ If you are a developer that has no prior experience with Hazelcast then you will
 \subsection*{What's is in this book}
 This book shows you how to make use of Hazelcast by going through most basic features:
 In 'Chapter 1: Learning the Basics' you will learn how to download and set up Hazelcast and to create a basic project.
-In 'Chapter 2: Distributed Primitives' you will learn how to use basic concurrency primitives like Lock, AtomicNumber etc.
+In 'Chapter 2: Distributed Primitives' you will learn how to use basic concurrency primitives like Lock, AtomicNumber, Semaphore etc.
 In 'Chapter 3: Distributed Collections' you will learn how to make use of distributed collections like the BlockingQueue.
-In 'Chapter 4: Distributed Map' you will learn about how to make use of the Distributed Map functionality.
-In 'Chapter 5: Distributed Map Advanced' you will learn about the more advanced concept of the Distributed Map like indexing, nearcache, multimaps etc.
+In 'Chapter 4: Distributed Map' you will learn the basics about the Distributed Map functionality.
+In 'Chapter 5: Distributed Map Advanced' you will learn about the more advanced concept of the Distributed Map like indexing, nearcache, mapstore etc.
 In 'Chapter 6: Distributed Executor' you will learn about executing tasks using the distributed Executor.
 In 'Chapter 7: Distributed Topic' you will learn about creating a publish/subscribe solution using the Distributed Topic functionality.
 In 'Chapter 8: Customer Distributed Data Structures' you will learn about creating custom distributed data-structures build on top of the new functionality in Hazelcast 3.
 In 'Chapter 9: Distributed Services' you will lean about creating distributed services.
-In 'Chapter 10: Distributed Services' you will lean about creating distributed services.
-After that in  'Chapter 11: Hazelcast client' you will lean about connecting to a Hazelcast cluster as a client.
-Next in 'Chapter 12: Cluster Configuration' you will learn about cluster configuration.
+In 'Chapter 10: Hazelcast client Services' you will lean about connecting to a Hazelcast cluster as a client.
+After that in  'Chapter 11: Custom Serialization' you will learn more about custom serialization.  
+Next in 'Chapter 12: Transactions' you will learn about transactions
 Finally in 'Chapter 13: Cluster Configuration' you will learn about cluster configuration.
 
 \subsection*{What you need}
 In Order to use Hazelcast you'll need a computer that is able to run Java 5. If you don't have Java installed on your machine, you probably want to install Java 7: 
-http://www.oracle.com/technetwork/java/javase/downloads/index.html
+http://www.oracle.com/technetwork/java/javase/downloads/index.html. 
 
-To run the code examples that belong to this book, also make sure that Maven 3+ is installed. Maven can be downloaded from the following website: 
-http://maven.apache.org.
+To run the code examples for this book, make sure that Maven 3 is installed. Maven can be downloaded from the following website: http://maven.apache.org.
 
-Apart from Java and Maven, you can use your favorite editor or IDE (e.g. Eclipse or IntelliJ) to make view and edit the code and to run the examples. 
+Apart from Java and Maven, you can use your favorite editor or IDE (e.g. Eclipse or IntelliJ) to  view and edit the code and to run the examples. 
 \subsection*{Online resources}
-There is a website for this book that contains a link to an interactive discussion forum and you can submit your errata to the book here as well. Also the Java sourcecode and the configuration files can be found here. 
+There is a website for this book that contains a link to an interactive discussion forum and you can submit your errata to the book here as well. Also the Java source code and the configuration files can be found here. 
 
 The Hazelcast website various important pieces of information can be found:
 \begin{enumerate}
@@ -73,7 +59,4 @@ The Hazelcast website various important pieces of information can be found:
 \item email address usergroup: hazelcast@googlegroups.com
 \item Hazelcast on Github: https://github.com/hazelcast/hazelcast/
 \end{enumerate}
-
-Building distributed systems on Hazelcast really is interesting and I hope I can make you as enthusiastic about it as I am. So lets get started and lay a foundation to build distributed applications you can be proud of.
-
-TODO: Tell something about all nodes being equal.
+Building distributed systems on Hazelcast really is joy to do and I hope I can make you as enthusiastic about it as I am. So lets get started and lay a foundation to build distributed applications you can be proud of.

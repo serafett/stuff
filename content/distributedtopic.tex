@@ -43,12 +43,11 @@ To make it a bit more interesting, you can up multiple subscribed members. If yo
 TODO:globalOrderingEnabled
 
 \section{Scaling up the MessageListener}
-TODO: Verify that each listener has its own tpe
-When a message is send to a topic, it is immediately send to each node that has registered itself as message-listener. Each message-listener will have its own local ThreadPoolExecutor. The message will be wrapped in a Runnable and stored in the work-queue of this executor.
+When a message is send to a topic, it is immediately send to each member that has registered itself as message-listener. On each member there is a single 'event' ThreadPoolExecutor (by default 16 threads, but can be configured through setting the Hazelcast property 'hazelcast.executor.event.thread.count'). Each worker-thread will have its own work-queue and when a message is send, it is wrapped in a runnable and send to the correct work-queue using a hash based on the topic and the member that published the message.
 
-Messages are delivered in order, meaning that message listeners will receive the messages in the order they are published. If cluster member M publishes messages m1, m2, m3...mn to a topic T, then Hazelcast makes sure that all of the subscribers of topic T will receive and process m1, m2, m3...mn in order. To guarantee this, the executor of the message listener will have only a single thread.
+This guarantees that messages are delivered in order because all messages from the same source are processed by the same thread. The ordering guarantee ensures that message listeners will receive the messages in the order they are published. If cluster member M publishes messages m1, m2, m3...mn to a topic T, then Hazelcast makes sure that all of the subscribers of topic T will receive and process m1, m2, m3...mn in order. 
 
-If message ordering isn't important, the easiest thing to overcome the single threaded nature of the listener, is to offload the processing to another executor with more than one thread, e.g.:
+In practice it could be you don't need this strict ordering and then it will become a bottleneck. If message ordering isn't important you can offload the processing to another executor with more than one thread, e.g.:
 \begin{lstlisting}[language=java]
     private final static Executor executor = Executors.newFixedThreadPool(10);       
     private static class MessageListenerImpl implements MessageListener<Date> {

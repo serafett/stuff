@@ -1,7 +1,0 @@
-<hazelcast>
-    <map name="customers">
-    	<indexes>
-       		    <index ordered="false">name</index>
-       	</indexes>
-    </map>
-</hazelcast>

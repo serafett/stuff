@@ -3,11 +3,11 @@
     <modelVersion>4.0.0</modelVersion>
     <packaging>jar</packaging>
 
-    <artifactId>manymap</artifactId>
-    <name>Chapter DistributedMap - Manymap</name>
+    <artifactId>sqlquery</artifactId>
+    <name>Chapter DistributedMap - SqlQuery</name>
 
     <description>
-        Chapter Distributed Map - Manymap
+        Chapter Distributed Map - SqlQuery
     </description>
 
     <parent>

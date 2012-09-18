@@ -69,4 +69,5 @@ With the standard java serialization mechanism there is a build in mechanism for
 \emph{Caution} When an DataSerializable object x is wrapped in a normal Serializable object y and y is serialized, then will be serialized using Serializable as well. This works because the DataSerializable interface extends Serializable so therefor each object that is DataSerializable is Serializable by default.
 \section{Externalizable vs DataSerializable}
 The java.io.Externalizable can also be used for serialization/deserialization since it extends Serializable. So when Hazelcast defaults to the standard java serialization mechanism, the Externalizable mechanism works without a problem. So although Externalizable provides more control compared to Serializable, it still suffers from some overhead compared to a DataSerializable.
+\section{serialVersionUID:} When you create java.io.Serializable objects, make sure that they get a serialVersionUID. This prevents the JVM from calculating one on the fly that could lead to all kinds of class compatibility problems. In the examples I didn't add them to save some space.
 \section{What is next}
