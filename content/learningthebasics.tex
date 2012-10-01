@@ -39,11 +39,11 @@ After this dependency is added, Maven will automatically downloaded the dependen
 \section{Configuring Hazelcast}
 Hazelcast can be configured in different ways:
 \begin{enumerate}
-\item Programmatic:
+\item xml-configuration file
+\item programmatic 
 \item Spring
-\item XML-configuration file
 \end{enumerate}
-In this book we'll use the xml configuration file. When you are running a maven project; just add a resources directory under your src/main/ and create a file 'hazelcast.xml'. The following shows an empty configuration:
+In this book we'll use the xml configuration file. When you are running a maven project; just add a resources directory under your src/main/ and create a file 'hazelcast.xml'. The following xml shows an empty configuration:
 \begin{verbatim}
 <hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config
            hazelcast-config-2.0.xsd"
@@ -51,38 +51,93 @@ In this book we'll use the xml configuration file. When you are running a maven 
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 </hazelcast>
 \end{verbatim}
+But in our examples we rely on multicast being enabled for member discovery. So this will be the basic configuration we rely on:
+\begin{lstlisting}[language=xml]
+<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config hazelcast-config-2.3.xsd"
+           xmlns="http://www.hazelcast.com/schema/config"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <network>
+       <join><multicast enabled="true"/></join>
+   </network>
+</hazelcast>
+\end{lstlisting}
+For more information check [chapter Cluster Configuration: Multicast]
 
-This is how the XML file can be used.
+In this book, and probably also in practice, will be using the following approach to load a HazelcastInstance:
 \begin{lstlisting}[language=java]
-import com.hazelcast.config.XmlConfigBuilder;
-import com.hazelcast.core.*;
 public class Main {
     public static void main(String[] args){
-        XmlConfigBuilder builder = new XmlConfigBuilder();
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(builder.build());
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        ...
     }
 }
 \end{lstlisting}
+As you can see we passed a null config reference as config object, to tell Hazelcast to use the following chain of mechanisms to load a config:
+\begin{enumerate}
+\item checks if the 'hazelcast.config' system property is set. This is useful if you want to make use of an external configuration file that is not embedded in the project jar(s). This config option can be set by adding the following to the java command: '-Dhazelcast.config=<path to the hazelcast.xml>' 
+\item check if there is a 'hazelcast.xml' available on the classpath. 
+\item loads the default hazelcast configuration based on the 'hazelcast-default.xml' that is part of the Hazelcast jar
+\end{enumerate}
 
-TODO: Explain about following:
-
-Elements in configuration are not definitions of instances (map, queue etc.), Hazelcast does not create real instances by reading those definitions. They are definitions of configurations; when HazelcastInstance.getX(configName) is called, Hazelcast creates instance X by using configuration named 'configName'. Even if that 'configName' can not be found, Hazelcast creates instance using 'default' configuration.
-
-The programmatic configuration can be done like this:
-
+Another option to load a HazelcastInstance is to make use of programmatic configuration, e.g: 
 \begin{lstlisting}[language=java]
-import com.hazelcast.config.Config;
-import com.hazelcast.core.*;
 public class Main {
     public static void main(String[] args){
         Config config = new Config();
-        HazelcastInstance hazelcastInstance = Hazelcast.newHazelcastInstance(config);
-    }
+                
+        NetworkConfig newWorkConfig = config.getNetworkConfig();
+        Join join = newWorkConfig.getJoin();
+        join.getMulticastConfig().setEnabled(false);
+                
+        MapConfig mapConfig = new MapConfig();
+        mapConfig.setName("testMap");
+        mapConfig.setBackupCount(2);
+        mapConfig.getMaxSizeConfig().setSize(10000);
+        mapConfig.setTimeToLiveSeconds(300);             
+        config.addMapConfig(mapConfig);
+
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(config);
+        ...
+     }
 }
 \end{lstlisting}
-TODO: Fluent interface
+The Hazelcast Config objects have fluent interfaces; so the config object is returned when a config method is called, so that the next config method can be called. Programmatic configuration in my experience often is useful for testing purposes. For example, we want to configure a map that has a time to live of 10 seconds; so after 10 seconds the elements are dropped. We can configure it like this:
 
-TODO: This can even be simplified by passing null as config.. this defaults to first checking of all kinds of env properties. check manual.. important to get right.
+\section{Configuring elements}
+
+
+\section{Wildcard configuration}
+The Hazelcast xml configuration can contain configuration elements for all kinds of distributed data-structures: sets, executors, maps etc. For example:
+\begin{lstlisting}[language=xml]
+<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config
+           hazelcast-config-2.0.xsd"
+           xmlns="http://www.hazelcast.com/schema/config"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+   <map name="testmap">
+       <time-to-live-seconds>10</time-to-live-seconds>
+   </map>
+</hazelcast>
+\end{lstlisting}
+But what if we want to create multiple map instances using the same configuration? Do we need to define all these maps within the configuration file? This is impossible to do if you have a dynamic number of maps and you don't know up front how many need to be created. The solution to this problem is wildcard configuration. Hazelcast supports wildcard configuration Maps, Queues and Topics. This makes it possible to use the single configuration for multiple instances. For example, we could configure the previous testmap example with a time using a wildcard configuration like this:
+\begin{lstlisting}[language=xml]
+<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config
+           hazelcast-config-2.0.xsd"
+           xmlns="http://www.hazelcast.com/schema/config"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+   <map name="testmap*">
+       <time-to-live-seconds>10</time-to-live-seconds>
+   </map>
+</hazelcast>
+\end{lstlisting}
+Using an asterisk (*) character in the name, different instances of Maps, Queues and Topics can be configured by a single configuration. This wildcard configuration can be used like this:
+\begin{lstlisting}[language=java]
+     Map map1 = hzInstance.getMap("testmap1");
+     Map map2 = hzInstance.getMap("testmap2");
+\end{lstlisting}
+The maps 'testmap1' and 'testmap2' both match 'testmap*' so they will use the same configuration.
+
+[todo: what happens when multiple configs match? Is the first one selected, is some kind of error thrown]
+[todo: does hazelcast provide some import?]
 
 \section{Downloading example sources}
 If you want to play around with the example sources of this book, check the following link:
@@ -96,9 +151,8 @@ import com.hazelcast.config.Config;
 import com.hazelcast.core.*;
 public class MultipleMembers {
     public static void main(String[] args){
-        Config config = new Config();
-        HazelcastInstance hazelcastInstance1 = Hazelcast.newHazelcastInstance(config);
-        HazelcastInstance hazelcastInstance2 = Hazelcast.newHazelcastInstance(config);
+        HazelcastInstance hazelcastInstance1 = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hazelcastInstance2 = Hazelcast.newHazelcastInstance(null);
     }
 }
 \end{lstlisting}

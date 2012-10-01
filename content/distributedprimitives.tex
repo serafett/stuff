@@ -132,31 +132,32 @@ public class RaceFreeMember {
 \end{lstlisting}
 When this code is executed; you will not see "Datarace detected!". This is because the lock provides a critical section around writing and reading of the numbers. 
 
-A few things worth knowing about the Hazelcast lock:
+A few things worth knowing about the Hazelcast lock and locking in general:
 \begin{enumerate}
 \item No Condition support: With the java.util.concurrent.locks.Lock it also is possible to create a java.util.concurrent.locks.Condition object to wait for a certain condition to happen; e.g. a custom made queue just received an element. Unfortunately the Condition functionality is not supported by Hazelcast at the moment.
-\item Hazelcast lock is reentrant, so you can acquire it multiple times in a single thread without causing a deadlock, of course you need to release it as many times as you have acquired it, to make it available to other threads.
-\item The lock should always be acquired outside of a try/finally block. Else it can happen that the lock acquire failed, but an unlock is still executed.
+\item It is reentrant, so you can acquire it multiple times in a single thread without causing a deadlock, of course you need to release it as many times as you have acquired it, to make it available to other threads.
+\item Just like with the other Lock implementations, it should always be acquired outside of a try/finally block. Else it can happen that the lock acquire failed, but an unlock is still executed. 
 \item Fairness: TODO
 \item Keep locks as short as possible. If locks are kept too long, it can lead to performance problems or worse: deadlock.
-\item With locks it is easy to run into deadlocks if you don't know what you are doing; so make sure that you do. Having code you don't control running inside your locks is asking for problems. Make sure you understand exactly the scope of the lock.
+\item With locks it is easy to run into deadlocks if you don't know what you are doing; so make sure that you do. Having code you don't control running inside your locks is asking for problems. Make sure you understand exactly the scope of the lock. 
+\item To reduce the length of a deadlock, the tryLock methods can be used that control the waiting period. The lock.lock() method luckily will not block indefinitely, but will timeout with a OperationTimeoutException after 300 seconds.  
 \item Locks are automatically released when a member has acquired a lock and this member goes down. This prevents threads that are waiting for a lock to wait indefinitely and this is important for failover to work in a distributed system. The downside however is that if a member goes down that acquired the lock and started making changes, that other members could start to see partial changes. In these cases either the system could do some self repair or else a transaction potentially can solve the problem.
 \item a lock must always be released by the same lock that acquired it, otherwise look at the ISemaphore.
 \item there are no configuration options available for the lock
+\item it isn't possible to partition a lock; so to have it close to your other partitioned data.
 \end{enumerate}
-
 \section{ISemaphore}
-A semaphore is a synchronization aid that can be used if you want to control how many threads concurrently execute some activity, e.g. using a resource. Each semaphore has a number of permits which should be equal to the maximum number of concurrent threads. 
+The semaphore is a classic synchronization aid that can be used to control the number of threads doing a certain activity concurrently, e.g. using a resource. Conceptually each semaphore has a number of permits, where each permit represents a single thread allowed to execute that activity concurrently. As soon as a thread want to start with the activity, it takes a permit (or waits until one becomes available) and once finished with the activity, the permit is returned.
 
-Hazelcast provides a distributed version of the java.util.concurrent.Semaphore named the com.hazelcast.core.ISemaphore. When a permit needs to be acquired the following can happen:
+If you initialize the semaphore with a single permit, it looks a lot like a lock. The big difference however is that the Semaphore no concept of ownership. So with a lock the thread that acquired the lock must release it, and with a semaphore any thread can release an acquired permit.
+
+Hazelcast provides a distributed version of the java.util.concurrent.Semaphore named the com.hazelcast.core.ISemaphore. When a permit is acquired on the ISemaphore the following can happen:
 \begin{enumerate}
-\item a permit is available; the number of permits in the semaphore is decreased by one and the calling thread can continue. After that thread is finished with the resource, it should release the permit.
+\item a permit is available; the number of permits in the semaphore is decreased by one and the calling thread can continue. After that thread is finished with the activity, it should release the permit.
 \item no permit is available; the calling thread will block until a permit comes available, a timeout happens, the thread is interrupted or when the semaphore is destroyed an InstanceDestroyedException will be thrown.
 \end{enumerate}
 
-The big difference between a semaphore and a lock is that the former has no concept of ownership. So with a lock the thread that acquired the lock must release it, and with a semaphore any thread can release it. 
-
-I explain the semaphore with an example. To simulate a resource we have an AtomicNumber initialized with the value 0. We are going to use this resources 1000 times. Every time the thread starts to use that resource it increments it and once completed it decrements the resource.
+I'll explain the semaphore with an example. To simulate a shared resource we have an AtomicNumber initialized with the value 0. We are going to use this resources 1000 times; a thread starts to use that resource it increments it and once completed it decrements it.
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
 public class SemaphoreMember {
@@ -180,8 +181,7 @@ public class SemaphoreMember {
     }
 }
 \end{lstlisting}
-
-We want to limit the concurrent access to the resource by allowing for at most 3 thread. We do this by adding the following configuration:
+We want to limit the concurrent access to the resource by allowing for at most 3 thread. We do this by configuring the initial-permits for the semaphore though the Hazelcast config file:
 \begin{lstlisting}[language=xml]
 <hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config hazelcast-config-2.3.xsd"
            xmlns="http://www.hazelcast.com/schema/config"
@@ -196,7 +196,7 @@ We want to limit the concurrent access to the resource by allowing for at most 3
     </semaphore>
 </hazelcast>
 \end{lstlisting}
-Now start the SemaphoreMember 5 times and you will see output like this:
+When we start the SemaphoreMember 5 times you will see output like this:
 \begin{lstlisting}
 At iteration: 0
 Active Threads: 1
@@ -209,15 +209,17 @@ Active Threads: 3
 At iteration: 4
 Active Threads: 3
 \end{lstlisting}
-As you can see the maximum number of concurrent users of that resource, always are equal or smaller than 3. As an experiment you can remove the semaphore acquire/release statements and see for yourself that there is no longer control on the number of concurrent usages of the resources.
+As you can see the maximum number of concurrent threads of that resource always is equal or smaller than 3. As an experiment you can remove the semaphore acquire/release statements and see for yourself that there is no longer control on the number of concurrent usages of the resources.
 
-TODO: text is copy paste
-\emph{fairness:} The Hazelcast distributed semaphore implementation guarantees that threads invoking any of the acquire methods are selected to obtain permits in the order in which their invocation of those methods was processed(first-in-first-out; FIFO). Note that FIFO ordering necessarily applies to specific internal points of execution within the cluster. So, it is possible for one member to invoke acquire before another, but reach the ordering point after the other, and similarly upon return from the method.
-
-TODO: text is copy paste
-\emph{Attach:} The Hazelcast semaphore also allows you to attach()/detach() permits to the caller address. This provides a safety mechanism in case that address becomes disconnected from the cluster. Attached permits will automatically be released to the semaphore if a disconnection occurs. An address can also have an excess number of detached permits and is represented by a negative attached permit count. This is the number of permits that the semaphore will automatically be reduced by if a disconnection occurs.
+A few things worth knowing about the ISemaphore:
+\begin{enumerate}
+\item fairness: the Semaphore acquire methods are fair and this is not configurable. So under contention, the longest waiting thread for a permit will acquire it before all other threads. This is done to prevent starvation (threads not being able to acquire a permit) at the expense of reduced throughput.
+\item attach permits: one of the features added to the ISemaphore to make it more reliable in a distributed environment where failover is important, is the addition of attached permits. Normally when a permit is acquired, and the member that acquired the permit goes down, the permit is not released. The consequence is that the permit is lost and the maximum number of concurrent threads for a specific activity is reduced. It can even lead to a deadlock situation when the number of available permits reaches 0. With the attached permits, the permit is attached to a member, and when it goes down, the permit is automatically releases (similar as with the Hazelcast Lock).
+\item the acquire() method doesn't timeout, unlike the Hazelcast Lock.lock() method. To prevent running into a deadlock, using one of timed acquire methods is a good solution.
+\end
 
 TODO: Semaphore factory.
+TODO: Dynamic Semaphore creation.
 
 \section{ICountDownLatch}
 The CountDownLatch was introduced in Java 1.5 and is a synchronization aid that makes it possible for threads to wait until a set of operations being performed in another thread  complete. Very simplistically; a CountDownLatch could be seen as a gate containing a counter; behind this gate threads can wait till the counter reaches zero. In my experience CountDownLatches often are used when you have some kind of processing operation, and you one or more threads that wait till this operation is completed so they can do their logic.

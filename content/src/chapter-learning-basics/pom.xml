@@ -22,5 +22,6 @@
        <module>multiple-hazelcast-instances</module>
        <module>configure-programmatic</module>
        <module>configure-xml</module>
+       <module>wildcard-configuration</module>
     </modules>
 </project>

@@ -1,0 +1,25 @@
+<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config
+           hazelcast-config-2.0.xsd"
+           xmlns="http://www.hazelcast.com/schema/config"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+
+    <map name="testmap*">
+           <time-to-live-seconds>10</time-to-live-seconds>
+       </map>
+
+
+    <map name="testmap">
+              <time-to-live-seconds>10</time-to-live-seconds>
+          </map>
+
+
+   <map name="test*">
+       <time-to-live-seconds>5</time-to-live-seconds>
+   </map>
+
+
+    <map name="t*">
+         <time-to-live-seconds>15</time-to-live-seconds>
+     </map>
+</hazelcast>
