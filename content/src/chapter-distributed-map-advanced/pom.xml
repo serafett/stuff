@@ -20,8 +20,6 @@
     <modules>
         <module>backups</module>
         <module>data-locality</module>
-        <module>index-declarative</module>
-        <module>index-programmatic</module>
         <module>near-cache</module>
         <module>mapstore</module>
     </modules>

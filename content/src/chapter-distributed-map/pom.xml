@@ -20,11 +20,12 @@
     <modules>
         <module>basics</module>
         <module>hashcodeandequals</module>
-        <module>criteria</module>
+        <module>criteria-api</module>
         <module>sqlquery</module>
+        <module>index-declarative</module>
+        <module>index-programmatic</module>
         <module>locking</module>
         <module>multimap</module>
     </modules>
-
 
 </project>

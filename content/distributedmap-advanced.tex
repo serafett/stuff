@@ -85,56 +85,6 @@ And it can be configured like this:
 
 The write-delay-seconds defaults to 0 and this means that if a change is made in the map, a write through to the CustomerStore is going to happen. Although this example doesn't use a database, but if one would be used, the database would immediately be updated if the map is updated. If the write-delay-seconds is higher than zero, the entry will be marked as dirty and at some point in time it will be written to the database, this is called a write behind.
 
-\section{Indices}
-
-To speed up queries, just like in databases, Hazelcast indexes to be created on fields. In this case we could create a index on the name field. Using an index prevents from iterating over all possible values (in database terms this is called a full table scan), but directly jump to the interesting ones. There are 2 types of indexes:
-\begin{enumerate}
-\item Ordered: e.g. a numeric field
-\item Unordered: e.g. a name field.
-\end{enumerate}
-A single table can have multiple indexes. To retrieve the index field of an Object, first a getter will be tried and if that doesn't exist, direct field access will be used.
-
-We can create an index in 3 ways; programmatic, configuration and using Spring.
-
-[todo: can we call accessors]
-[todo: can we do '.' in the index name to indicate traversal]
-
-\subsection{Programmatic configuration of the index}
-
-An index can be added programmatically by calling the IMap.addIndex method like this:
-
-\begin{verbatim}
-class CustomerService{
-    private final IMap<String,Customer> customerMap = Hazelcast.getMap("customers");
-
-    public CustomerService(){
-       customerMap.addIndex("name",true);
-    }
-\end{verbatim}
-
-Adding the index should be done before an item is placed in the map. Sometimes by design adding an index to map may be impossible before any value is added. For example if a map has MapLoader that loads entries during map creation, then adding indexes to map becomes meaningless. To solve this problem, Hazelcast introduces defining IMap indexes in configuration.
-
-\subsection{Configuration}
-Configuration of the index through the configuration file:
-
-The indexes on the map can also be configured through the hazelcast configuration file. 
-
-\begin{verbatim}
-<hazelcast>
-   ...
-<map name="customers">
-   ...
-   <indexes>
-      <index ordered="false">name</index>
-      <index ordered="true">age</index>
-   </indexes>
-</map>
-</hazelcast>
-\end{verbatim}
-
-Apart from solving the issue with programmatic index creation, other advantages of using the configuration file is that map configuration it isn't spread over the Java code and makes configuring and tuning the system a lot easier.
-
-TODO: Give example of performance difference of using a map with and without index.
 
 \section{Data locality}
 

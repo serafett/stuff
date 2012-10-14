@@ -3,15 +3,16 @@
     <modelVersion>4.0.0</modelVersion>
     <packaging>jar</packaging>
 
-    <artifactId>index-programmatic</artifactId>
-    <name>Chapter DistributedMap Advanced - Index Programmatic</name>
+    <artifactId>index-declarative</artifactId>
+    <name>Chapter DistributedMap Advanced - Index Declarative</name>
 
     <description>
+        Chapter DistributedMap : Index Declarative
     </description>
 
     <parent>
         <groupId>book.hazelcast</groupId>
-        <artifactId>chapter-distributed-map-advanced</artifactId>
+        <artifactId>chapter-distributed-map</artifactId>
         <version>0.1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
