@@ -2,23 +2,24 @@ import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.Map;
 
 public class BrokenKeyMember {
 
     public static void main(String[] args){
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
-        Map<BrokenKey,String> map = hzInstance.getMap("map");
+        Map<BrokenKey,String> hzmap = hzInstance.getMap("map");
+        Map<BrokenKey,String> normalMap = new HashMap<BrokenKey,String>();
+
         BrokenKey key1 = new BrokenKey("a","b");
         BrokenKey key2 = new BrokenKey("a","c");
 
-        map.put(key1, "foo");
+        hzmap.put(key1, "foo");
+        normalMap.put(key1,"foo");
 
-        System.out.println("key1.equals(key2):"+key1.equals(key2));
-        System.out.println("key1.hashcode == key2.hashcode: "+ (key1.hashCode()==key2.hashCode()));
-
-        String result = map.get(key2);
-        System.out.println(result);
+        System.out.println("HazelcastMap.get: "+hzmap.get(key2));
+        System.out.println("NormalMap.get: "+normalMap.get(key2));
     }
 
     private static class BrokenKey implements Serializable {

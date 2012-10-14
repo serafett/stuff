@@ -1,6 +1,6 @@
 \chapter{Distributed Map Basics}
 
-In this chapter, we'll learn how to use one of the most important data structures for distributed applications; the distributed map. A few of the differences between an ordinary map and a distributed map in Hazelcast
+In this chapter, you'll learn how to use one of the most versatile data structures in Hazelcast; the distributed map. A few of the differences between an ordinary map and a distributed map in Hazelcast
 \begin{enumerate}
 \item scalable; so just add or remove machine when needed to match the required capacity.
 \item high availability; so if a machine crashes, a different machine can take over. 
@@ -23,36 +23,56 @@ TODO: Give some idea about capacity in production.. number of entries... total s
 \end{enumerate}
 
 \section{Reading/Writing}
-Because the HazelcastMap implements the Map interface, putting entries and retrieving them is very simple since you can use operators use normally use when you deal with the map like get/put etc. Here is a small example where you can see 2 members; in the put member an item is placed in the map, and in the get member it is retrieved.
+The HazelcastMap implements the java.util.Map interface, so putting retrieving key/values is very simple since you can use familiar methods like get/put etc.
 
+I'll show this behavior using an example where 1 member fills a map with some entries:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
 import java.util.Map;
-public class PutMember {
+public class FillMapMember {
     public static void main(String[] args) {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
         Map<String, String> map = hzInstance.getMap("map");
         map.put("1", "Tokyo");
-    }
-}
-
-import com.hazelcast.core.*;
-import java.util.Map;
-public class GetMember {
-    public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
-        Map<String, String> map = hzInstance.getMap("map");
-        System.out.println(map.get("1"));
+        map.put("2", "Paris");
+        map.put("3", "New York");
     }
 }
 \end{lstlisting}
+As you can see the Map can be retrieved using the hzInstance.getMap(mapName) and after the map is retrieved, some entries are stored in that map. 
 
-\section{Custom Keys}
-In most cases when you work with a Hazelcast map you probably will make use of a Long, Integer or String as key. But in some cases you will need to create custom keys, but to do it correctly in Hazelcast, you need to understand how this works. 
+And reading out the entries we can do like this:
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.*;
+import java.util.Map;
+public class PrintAllMember {
+    public static void main(String[] args) {
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        Map<String, String> map = hzInstance.getMap("map");
+        for(Map.Entry<String,String> entry : map.entrySet()){
+            System.out.println(entry.getKey()+" "+entry.getValue());
+        }
+    }
+}
+\end{lstlisting}
+When we first start the FillMapMember and then PrintAllMember, we'll get output like this:
+\begin{lstlisting}
+1 Tokyo
+2 Paris
+3 New York
+\end{lstlisting}
 
-When you store a key/value in a Hazelcast map, the actual objects are not stored in the map because an object can't move from one JVM to another. Instead the key/value are serialized to byte-arrays and these will be stored in a local ConcurrentHashMap. For keys the hash/equals is used of the byte array version of the object, so equal keys need to result in equal byte arrays. For values the hash/equals of the object is used.
+\section{Hashcode and equals}
+In most cases, when you work with a Hazelcast map, you probably will make use of some basic type like a  Long, Integer or String as key. But in some cases you will need to create custom keys. But to do it correctly in Hazelcast, you need to understand how this mechanism in Hazelcast works. 
 
-Below is an example of a key implementation that is valid if you use it as key in a normal HashMap, but stops working when it is used as a key in a Hazelcast map:
+When you store a key/value in a Hazelcast map, the actual objects are not stored in the map, because an object can't move from one JVM to another. Instead the keys and values are serialized to byte arrays and these will be stored in the Hazelcast map. To correctly make use of hash/equals in Hazelcast you need to know the following:
+\begin{enumerate}
+\item For keys the hash/equals is determined based on the content of the byte array, so equal keys need to result in equal byte arrays.
+\item For values the hash/equals of the object is used, and not the hash/equals of the byte array content. So the hash/equals for value work as normal.
+\end{enumerate}
+As you can see the difference is subtile, but it is crucial to understand.
+
+Below is an example of a key implementation that is valid if you use it as key in a normal map implementation like the HashMap, but stops working when it is used as a key in a Hazelcast map:
 \begin{lstlisting}[language=java]
 public final class BrokenKey implements Serializable {
     private final String significant;
@@ -72,35 +92,37 @@ public final class BrokenKey implements Serializable {
    }
 }
 \end{lstlisting}
-Although equals and hashCode are implemented correctly; equal object should result in the same hashCode. In this case equals and hashCode are both based solely on the significant field. So if you have 2 keys:
+This BrokenKey has 2 fields; the significant field is used in the hash/equals implementation and the insignificant field is not. If we would make 2 keys:
 \begin{lstlisting}
 BrokenKey key1 = new BrokenKey("a","b");
 BrokenKey key2 = new BrokenKey("a","c");
 \end{lstlisting} 
-Then 'key1.equals(key2)' and 'key1.hashCode()==key2.hashCode()' is true. But since the byte-array content of both objects is different, this key implementation should not be used with a Hazelcast map. Although this BrokenKey is a bad candidate to used as a key in a Hazelcast map, it can be used without a problem as a value, since its equals is implemented correctly.
+Then 'key1.equals(key2)' and 'key1.hashCode()==key2.hashCode()'. So it is a valid key for a normal map implementation. But because the byte array of key1 (which will contains 'a' and 'b') is different than the byte array of key2 (which will contain 'a' and 'c'), the hash code and equals will be different. And therefor this key is broken. Of course the problem can be solved by preventing the field to be part of the byte array, e.g. by making the field transient.
 
-TODO:
-Note that the distributed Set and List stores its entries as the keys in a distributed Map. So the notes above apply to the objects you store in Set and List.
+[TODO:Note that the distributed Set and List stores its entries as the keys in a distributed Map. So the notes above apply to the objects you store in Set and List.]
 
 \section{Hazelcast Query API}
+Imagine that you have a cluster of Hazelcast members and there is a Hazelcast map containing Person objects. Also imagine that  
 
-To explain the Hazelcast Query API we'll begin with a naive example; retrieving all customers with the given name.
+To explain the Hazelcast Query API we'll begin with a naive example; retrieving all persons with the given name.
 
 \begin{verbatim}
-public Set<Customer> getWithName(String name){
-    Set<Customer> result = new HashSet<Customer>();
-    for(Customer customer: customerMap.values()){
-        if(customer.getName().equals(name))
-           result.add(customer);
+   public Set<Person> getWithNameNaive(String name){
+        Set<Person> result = new HashSet<Person>();
+        for(Person person: personMap.values()){
+            if(person.name.equals(name)){
+                result.add(person);
+            }
+        }
+
+        return result;
     }
-    return result;
-}
 \end{verbatim}
 
 Although the code is simple it contains a few problems:
 \begin{enumerate}
-\item Not parallelizable: One node will iterate over all customers; imagine that there are millions of customers. So this approach doesn't make use of the computing capacity of the machines.
-\item Inefficient: all customers need to be pulled into memory, so need to be deserialized before a single field is read and then the object is discarded. 
+\item Not parallelizable: One member will iterate over all persons instead of spreading the load over multiple members. Imagine that there are a million persons and checking each person takes 1ms. Then it will take that member 1.000.000 * 1m = 1000 seconds to iterate over all persons. It doesn't matter if you add additional members to the cluster to improve performance, the total time to process will remain the same. If this operation would be parallelizable then increasing performance is simple: just increase the number of members in the cluster. 
+\item Inefficient: all persons need to be pulled over the line, deserialized into the memory of the executing member. So there is a huge amount of network traffic and cpu load.
 \end{enumerate}
 
 Luckily Hazelcast solves these problems by supporting distributed queries using 2 different mechanisms:
@@ -110,26 +132,107 @@ Luckily Hazelcast solves these problems by supporting distributed queries using 
 \end{enumerate}
 
 \subsection{Criteria API}
+To implement the Person search using the criteria API, it could be as simple as this:
+\begin{lstlisting}[language=java]
+public Set<Person> getWithName(String name) {
+    Predicate predicate = Predicates.equal(Predicates.get("name"), name);
+    return (Set<Person>) personMap.values(predicate);
+}
+\end{lstlisting}
+When this predicate is evaluated, it is send to all members in the cluster and applied the values of the personMap in their partition and the result is returned. Once each member has returned its results, the joined results are returned.
 
-The distributed version looks like this:
+\subsubsection{The get expression}
+first an accessor is looked up, so in case of 'name' the methods 'isName' and 'getName' is looked up. If it exists, this accessor will be called. Of course the accessor doesn't need to access a field, it could also calculate some value on the fly. 
 
-\begin{lstlisting}
-public Set<Customer> getWithName(String name){
-    EntryObject e = new PredicateBuilder().getEntryObject();
-    Predicate predicate = e.get("name").equals(name);
-    return (Set<Customer>) customerMap.values(predicate);
+If the accessor method doesn't exist, a field with the given name is looked up. It doesn't matter what the accessibility of a field is or accessor method is, so you don't need to make them public.
+
+field traversal also can be done. e.g. 'get("address.street")'. First the address part is going to be evaluated (so first look for an accessor method and then direct field access). If an Address object is found, than the 'street' part if evaluated on this Address object. You can chain as many properties as you want. If a 'property' before the '.' is null, the get-expression will return null instead of throwing a NullPointerException.
+
+If you find the get expression too limited, you can create your own expression by extending the com.hazelcast.query.Expression:
+\begin{lstlisting}[language=java]
+public interface Expression<T> extends Serializable {
+    T getValue(Object obj);
 }
 \end{lstlisting}
 
-Explain EntryObject, Predicate.
+\subsubsection{Equal predicate}
+
+Predicate equal(final Expression x, final Object y)
+
+Predicate notEqual(final Expression x, final Object y) 
+
+\subsection{And, Or and Not predicates}
+Predicates can also be joined using the and/or:
+\begin{lstlisting}[language=java]
+   public Set<Person> getWithNameAndAge(String name, int age) {
+      Predicate namePredicate = equal(get("name"), name);
+      Predicate agePredicate = equal(get("age"), age);
+      Predicate predicate = and(namePredicate, agePredicate);
+      return (Set<Person>) personMap.values(predicate);
+   }
+   public Set<Person> getWithNameOrAge(String name, int age) {
+       Predicate namePredicate = equal(get("name"), name);
+       Predicate agePredicate = equal(get("age"), age);
+       Predicate Person = or(namePredicate, agePredicate);
+       return (Set<Person>) personMap.values(predicate);
+   }
+\end{lstlisting}
+
+In the previous examples you saw the and/or and of course we can't forget the not:
+\begin{lstlisting}[language=java]
+    public Set<Person> getNotWithName(String name) {
+        Predicate namePredicate = equal(get("name"), name);
+        Predicate predicate = not(namePredicate);
+        return (Set<Person>) personMap.values(predicate);
+    }
+\end{lstlisting}
+
+\subsubsection{Other predicates}
+In the Predicates class you can find a whole collections of predicates:
+\begin{enumerate}
+\item instanceOf: checks if the result of an expression has a certain type
+\item like: checks the result of an expression matches some string pattern. [todo: add percentage sign] (percentage sign) is placeholder for many characters, _ (underscore) is placeholder for only one character.
+\item greaterThan: checks if the result of an expression is greater than a certain value.
+\item greaterEqual: checks if the result of an expression is greater or equal than a certain value.
+\item lessThan: checks if the result of an expression is less than a certain value
+\item lessEqual: checks if the result of an expression is than than or equal to a certain value.
+\item between: checks if the result of an expression is between 2 values (this is inclusive).
+\item in: checks if the result of an expression is an element of a certain collection.
+\item isNot: [todo:]why do we need this? We already have the notEqual
+\item regular expression: checks if the result of an expression matches some regular expression. Although there is no static convenience function for it, the Predicates.RegexPredicate is publicly available.
+
+[todo]. There is no method available on the Predicates.. but it can be instantiated 
+\end{enumerate}
+If the predicates provided by Hazelcast are not enough, you can always write your own predicate by implementing the Predicate interface:
+\begin{lstlisting}[language=java]
+public interface Predicate<K, V> extends Serializable {
+    boolean apply(MapEntry<K, V> mapEntry);
+}
+\end{lstlisting}
+Hazelcast will take care of sending it to all members, applying it to all map entries and returning the results. The Predicate API is not limited to IMap.values(Predicate) only. You can also apply it on the keySet, the entrySet and the localKeySet of the IMap.
+
+\subsubsection{PredicateBuilder}
+The syntax above is clear but can be simplified by making use of the PredicateBuilder. It provides a fluent interface to make building predicates a lot simpler. But underwater the same functionality is being used as with explicit Predicates. Underneath you can see the how a predicate is build where all persons with a certain name and age are selected:
+\begin{lstlisting}[language=java]
+    public Set<Person> getWithNameAndAgeSimplified(String name, int age) {
+        EntryObject e = new PredicateBuilder().getEntryObject();
+        Predicate predicate = e.get("name").equal(name).and(e.get("age").equal(age));
+        return (Set<Person>) personMap.values(predicate);
+    }
+\end{lstlisting}
+As you can see, it can simplify things, especially if you have complex predicates. But it is a matter of taste which approach you prefer.
+
+[todo:Operations are done on the values, not on the byte arrays]
 
 \subsection{Distributed SQL Query}
 It also is possible instead of using the programmatic api to create a query, to use a more SQL like language:
 
+[todo: verify underwater the predicate api is used]
+
 \begin{lstlisting}
-public Set<Customer> getWithName(String name){
+public Set<Person> getWithName(String name){
     Predicate predicate = new SqlPredicate(String.format("name = %s",name));
-    return (Set<Customer>) customerMap.values(predicate);
+    return (Set<Person>) personMap.values(predicate);
 }
 \end{lstlisting}
 
@@ -178,7 +281,7 @@ TODO: Is it case sensitive?
 \end{enumerate}
 
 \section{Concurrency Control}
-The Hazelcast map itself is threadsafe just like the ConcurrentHashMap or the Collections.synchronizedMap, but in some cased your threadsafety requirements are bigger than what hazelcast provides out of the box. Luckily Hazelcast provides multiple concurrency contorl solutions;  it can either be pessimistic using locks or optimistic using compare and swap operations. Todo: what about transactions?
+The Hazelcast map itself is threadsafe just like the ConcurrentHashMap or the Collections.synchronizedMap, but in some cased your thread safety requirements are bigger than what hazelcast provides out of the box. Luckily Hazelcast provides multiple concurrency control solutions;  it can either be pessimistic using locks or optimistic using compare and swap operations. Todo: what about transactions?
 
 Take a look at the following example; if run by multiple members in parallel the total amount would be 
 \begin{lstlisting}[language=java]
@@ -330,21 +433,15 @@ public class PrintMember {
     }
 }
 \end{lstlisting}
-
 It is important to realize that map.get(key) returns a copy of the values at some moment in time. Changes to this collection will result in an a UnsupportedOperationException. So if you want to change the values, you need to do it through the map.remove methods.
 
 Removing items; you can remove items from the MultiMap. This is using the equals operator of the value. If the collection for a specific key is empty, this collection will not automatically be removed, so it can be that you need to clean up the MultiMap so that no empty value collections remains.
-
-Hash/equals: (verified with tests)
-The key doesn't need to implement hash/equals, its byte-array content will be used
-The value needs to implement equals, its equals will be used
 
 The value collection is set based, so no duplicates and there is no ordering.Null value is not allowed (npe). But the MultiMap can also be configured to be list based: MultiMapConfig.setValueCollectionType(ValueCollectionType.LIST). 
 
 One thing worth knowing; if a value collection with K is stored on member1 because K is owned by that member1, and member2 does a map.get(K), then the whole collection will transported from member1 to member 2. So if that value collection is big, it could lead to performance problems. A solution would be to send the whole operation to member1, so send the logic to the data instead of the data to the logic.
 
 \section{Gotcha's}
-
 When Map.entrySet(), Map.keySet() or Map.values() is called, a snapshot of the current state of the map is returned. Changes that are made in the map, so not reflect into changes these maps. Also when changes are made on these collections, an UnsupportedOperationException is thrown.
 
 Changes made on keys/values after they have been persisted, will not reflect in changes in the map. This is because not the key/value object themselves are stored, but their serialized version. So the following idiom is broken:
@@ -358,10 +455,3 @@ TODO: What about cache where serialization for local object is 'skipped?
 
 \section{What is next}
 In this chapter a lot of the basic operations on the Distributed Map were explained. In the next chapter we'll cover more advanced features.
-
-
-
-
-
-
-

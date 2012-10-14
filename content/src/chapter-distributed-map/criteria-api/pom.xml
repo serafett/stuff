@@ -4,10 +4,10 @@
     <packaging>jar</packaging>
 
     <artifactId>criteria</artifactId>
-    <name>Chapter DistributedMap - Criteria</name>
+    <name>Chapter DistributedMap - Criteria API</name>
 
     <description>
-        Chapter Distributed Map - Criteria
+        Chapter Distributed Map - Criteria API
     </description>
 
     <parent>

@@ -216,10 +216,10 @@ A few things worth knowing about the ISemaphore:
 \item fairness: the Semaphore acquire methods are fair and this is not configurable. So under contention, the longest waiting thread for a permit will acquire it before all other threads. This is done to prevent starvation (threads not being able to acquire a permit) at the expense of reduced throughput.
 \item attach permits: one of the features added to the ISemaphore to make it more reliable in a distributed environment where failover is important, is the addition of attached permits. Normally when a permit is acquired, and the member that acquired the permit goes down, the permit is not released. The consequence is that the permit is lost and the maximum number of concurrent threads for a specific activity is reduced. It can even lead to a deadlock situation when the number of available permits reaches 0. With the attached permits, the permit is attached to a member, and when it goes down, the permit is automatically releases (similar as with the Hazelcast Lock).
 \item the acquire() method doesn't timeout, unlike the Hazelcast Lock.lock() method. To prevent running into a deadlock, using one of timed acquire methods is a good solution.
-\end
+\end{enumerate}
 
-TODO: Semaphore factory.
-TODO: Dynamic Semaphore creation.
+[TODO: Semaphore factory.]
+[TODO: Dynamic Semaphore creation.]
 
 \section{ICountDownLatch}
 The CountDownLatch was introduced in Java 1.5 and is a synchronization aid that makes it possible for threads to wait until a set of operations being performed in another thread  complete. Very simplistically; a CountDownLatch could be seen as a gate containing a counter; behind this gate threads can wait till the counter reaches zero. In my experience CountDownLatches often are used when you have some kind of processing operation, and you one or more threads that wait till this operation is completed so they can do their logic.
@@ -246,7 +246,7 @@ public class Leader{
 }
 \end{lstlisting}
 
-TODO: What happens when the latch is destroyed before all the followers are notitifed?
+[TODO: What happens when the latch is destroyed before all the followers are notified?]
 
 And we also need followers; so Java applications that are going to wait for the latch to notify them:
 \begin{lstlisting}[language=java]

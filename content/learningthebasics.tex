@@ -106,6 +106,8 @@ The Hazelcast Config objects have fluent interfaces; so the config object is ret
 \section{Configuring elements}
 
 
+[todo: does hazelcast provide some import?]
+
 \section{Wildcard configuration}
 The Hazelcast xml configuration can contain configuration elements for all kinds of distributed data-structures: sets, executors, maps etc. For example:
 \begin{lstlisting}[language=xml]
@@ -129,21 +131,24 @@ But what if we want to create multiple map instances using the same configuratio
    </map>
 </hazelcast>
 \end{lstlisting}
-Using an asterisk (*) character in the name, different instances of Maps, Queues and Topics can be configured by a single configuration. This wildcard configuration can be used like this:
+Using a single asterisk (*) character any place in the name, different instances of Maps, Queues and Topics can be configured by a single configuration. This wildcard configuration can be used like this:
 \begin{lstlisting}[language=java]
      Map map1 = hzInstance.getMap("testmap1");
      Map map2 = hzInstance.getMap("testmap2");
 \end{lstlisting}
 The maps 'testmap1' and 'testmap2' both match 'testmap*' so they will use the same configuration.
 
-[todo: what happens when multiple configs match? Is the first one selected, is some kind of error thrown]
-[todo: does hazelcast provide some import?]
+One thing you need to watch out for are multiple configurations that match. Hazelcast will not thrown an error or log a warning. Also selecting the right configuration doesn't depend on the order of definition in the configuration file or based on the best fitting match. So really make sure that your wildcard configurations are very specific. One of the ways to do it is to include the package name within the wildcard configuration:
+\begin{lstlisting}[language=xml]
+    <map name="com.foo.testmap*">
+        <time-to-live-seconds>10</time-to-live-seconds>
+    </map>
+\end{lstlisting}
+Using this configuration, only maps in the com.foo.testmap* 
+And the map can be loaded calling 'Map map1 = hzInstance.getMap("com.foo.testmap1")'. 
 
-\section{Downloading example sources}
-If you want to play around with the example sources of this book, check the following link:
-TODO: Link to the source
-
-\section{Multiple instances}
+\section{Multiple Hazelcast instances}
+Normally you probably have a single Hazelcast Instance per JVM. But 
 Multiple Hazelcast Instances can run in a single JVM. This is useful for testing..Are there other usages?
 
 \begin{lstlisting}[language=java]
@@ -171,6 +176,10 @@ Members [2] {
 As you can see there is a 2 member cluster created.
 
 \section{Configure logging}
+
+\section{Downloading example sources}
+If you want to play around with the example sources of this book, check the following link:
+TODO: Link to the source
 
 \section{JVM Settings}
 TODO: Explain the ipv4 config setting else nodes won't be able to discover each other.
