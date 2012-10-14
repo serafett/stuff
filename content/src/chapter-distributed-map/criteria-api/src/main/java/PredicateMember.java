@@ -5,6 +5,7 @@ import com.hazelcast.query.EntryObject;
 import com.hazelcast.query.Expression;
 import com.hazelcast.query.Predicate;
 import com.hazelcast.query.PredicateBuilder;
+import com.hazelcast.query.Predicates;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -61,7 +62,8 @@ public class PredicateMember {
     }
 
     public Set<Person> getWithName(String name) {
-        Predicate predicate = equal(get("name"), name);
+        Expression getNameExpression = get("name");
+        Predicate predicate = equal(getNameExpression, name);
         return (Set<Person>) personMap.values(predicate);
     }
 

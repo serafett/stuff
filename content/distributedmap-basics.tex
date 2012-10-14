@@ -101,8 +101,8 @@ Then 'key1.equals(key2)' and 'key1.hashCode()==key2.hashCode()'. So it is a vali
 
 [TODO:Note that the distributed Set and List stores its entries as the keys in a distributed Map. So the notes above apply to the objects you store in Set and List.]
 
-\section{Hazelcast Query API}
-Querying data in a Hazelcast Map has its own complications due to the distributed nature of that map. The map can have a huge size; and instead of the whole operation in the memory of a single JVM, it could be that you need to go over the line. Imagine that we have a Hazelcast map containing persons where the key is some id and the value is the Person object. And imagine that we want to retrieve all persons with a given name. We could create the following very naive implementation:
+\section{Distributed Queries}
+Imagine that we have a Hazelcast map containing persons where the key is some id and the value is Person object and we want to retrieve all persons with a given name. We could create the following very naive implementation:
 \begin{verbatim}
    public Set<Person> getWithNameNaive(String name){
         Set<Person> result = new HashSet<Person>();
@@ -115,51 +115,56 @@ Querying data in a Hazelcast Map has its own complications due to the distribute
         return result;
     }
 \end{verbatim}
-This is what you probably would write if the map would be an ordinary map. But when the map is distributed map, there are some problems:
+This is what you probably would write if the map would be an ordinary map. But when the map is distributed map, there are some performance and scalability problems with this approach:
 \begin{enumerate}
-\item Not parallelizable: One member will iterate over all persons instead of spreading the load over multiple members. Imagine that there are a million persons and checking each person takes 1ms. Then it will take that member 1.000.000 * 1m = 1000 seconds to iterate over all persons. It doesn't matter if you add additional members to the cluster to improve performance, the total time to process will remain the same. If this operation would be parallelizable then increasing performance is simple: just increase the number of members in the cluster.
-\item Inefficient: all persons need to be pulled over the line, deserialized into the memory of the executing member. So there is a huge amount of network traffic and cpu load. It would be a lot better to let each machine select all values that are stored locally and merge the results.
+\item It is not parallelizable. One member will iterate over all persons instead of spreading the load over multiple members. Because the search isn't parallelizable, the system can't scale; you can add more members to the cluster to increase performance.
+\item It is inefficient because all persons need to be pulled over the line before being deserialized into the memory of the executing member. So there is a huge amount of network traffic because all data go over the line.
 \end{enumerate}
 
-Luckily Hazelcast solves these problems by supporting distributed queries using 2 different mechanisms:
+Luckily Hazelcast solves these problems by supporting predicates that are executed on top of a fork/join mechanism:
+\begin{enumerate}
+\item when the predicate is requested to be evaluated by the caller, it is forked to each member in the cluster
+\item each member will filter all map entries that are stored locally using the predicate. Before a predicate evaluates an map entry, the key/value of that entry are deserialized and passed to the predicate. 
+\item the caller joins on the completion by all members and merges the results into a single set
+\end{enumerate}
+The fork/join approach is highly scalable because it parallelizable. By adding additional cluster members, the number of partitions per member is reduced and therefor the time a member needs to iterate over all its data, is reduced as well. Also the local filtering is parallelizable because a pool of 'partition threads' will evaluate segments of elements concurrently. And last but not least, the amount of network traffic is reduced drastically, since only filtered data are send instead of all data.
+
+Hazelcast provides 2 api's for distributed queries:
 \begin{enumerate}
 \item Criteria API
 \item Distributed SQL Query
 \end{enumerate}
 
-\subsection{Criteria API}
+\subsection*{Criteria API}
 To implement the Person search using the criteria API, it could be as simple as this:
 \begin{lstlisting}[language=java]
-public Set<Person> getWithName(String name) {
-    Predicate predicate = Predicates.equal(Predicates.get("name"), name);
-    return (Set<Person>) personMap.values(predicate);
-}
+import static com.hazelcast.query.Predicates.*;
+    ...
+    public Set<Person> getWithName(String name) {
+        Expression getNameExpression = get("name");
+        Predicate predicate = equal(getNameExpression, name);
+        return (Set<Person>) personMap.values(predicate);
+    }
 \end{lstlisting}
-When this predicate is evaluated, it is send to all members in the cluster and applied to all the map entries  of the personMap in their partition. The predicate works on the deserialized key and value, not on the byte arrays. Once the iteration over all the local map entries is complete, the result is send back to the calling member. And once each member has returned its results, the joined results are returned. 
+First we need to get the name of the Person. This is done by the 'get' expression. Then we need to create an equal predicate that has as input the expression that gets the name and the name we are looking for. After we have created the predicate, we apply it to the personMap by calling the 'IMap.values(Predicate)' method which takes care of sending it to all members in the cluster, evaluating it, and merging the result. The Predicate is not limited to values only. It can also apply be applied on the keySet, the entrySet and the localKeySet of the IMap. 
 
-\subsubsection{The get expression}
-first an accessor is looked up, so in case of 'name' the methods 'isName' and 'getName' is looked up. If it exists, this accessor will be called. Of course the accessor doesn't need to access a field, it could also calculate some value on the fly. 
+\subsubsection*{Get expression}
+In the previous example we already saw the get expression in action where it gets the name of the person object. When it is evaluated, it first tries to lookup an accessor method, so in case of 'name', the accessor methods it will try are 'isName()' and 'getName()'. If one found, it is called and the evaluation has completed. Of course an accessor method doesn't need to return a field, it could also be a synthetic accessor where some value is determined on the fly. If no accessor is found, a field with the given name is looked up. If that exists, it is returned and otherwise a RuntimeException is thrown. Hazelcast doesn't care about the accessibility of a field or an accessor method, so you are not forced to make them public.
 
-If the accessor method doesn't exist, a field with the given name is looked up. It doesn't matter what the accessibility of a field is or accessor method is, so you don't need to make them public.
+In some cases you need to traverse over an object structure, e.g. we want the street of the address the person lives at. With the get expression this can be done like this: 'address.street'. This expression is evaluated from left to right and there is no limit on the number of steps involved. Also accessor methods can be used here. Another thing important to know is how the get expression deals with null, especially with object traversal. As soon null is found, null is returned instead of a NullPointerException being thrown. So if address would be null, the evaluation of the expression 'address.street' will return null.
 
-field traversal also can be done. e.g. 'get("address.street")'. First the address part is going to be evaluated (so first look for an accessor method and then direct field access). If an Address object is found, than the 'street' part if evaluated on this Address object. You can chain as many properties as you want. If a 'property' before the '.' is null, the get-expression will return null instead of throwing a NullPointerException.
-
-If you find the get expression too limited, you can create your own expression by extending the com.hazelcast.query.Expression:
+If you find the get expression too limited, you can create your own expression by extending the com.hazelcast.query.Expression interface:
 \begin{lstlisting}[language=java]
 public interface Expression<T> extends Serializable {
     T getValue(Object obj);
 }
 \end{lstlisting}
 
-\subsubsection{Equal predicate}
-
-Predicate equal(final Expression x, final Object y)
-
-Predicate notEqual(final Expression x, final Object y) 
-
-\subsection{And, Or and Not predicates}
-Predicates can also be joined using the and/or:
+\subsubsection*{And, Or and Not predicates}
+Predicates can also be joined using the 'and' and 'or' predicate:
 \begin{lstlisting}[language=java]
+import static com.hazelcast.query.Predicates.*;
+   ...
    public Set<Person> getWithNameAndAge(String name, int age) {
       Predicate namePredicate = equal(get("name"), name);
       Predicate agePredicate = equal(get("age"), age);
@@ -173,8 +178,7 @@ Predicates can also be joined using the and/or:
        return (Set<Person>) personMap.values(predicate);
    }
 \end{lstlisting}
-
-In the previous examples you saw the and/or and of course we can't forget the not:
+And of course we can't forget the 'not' predicate:
 \begin{lstlisting}[language=java]
     public Set<Person> getNotWithName(String name) {
         Predicate namePredicate = equal(get("name"), name);
@@ -183,11 +187,12 @@ In the previous examples you saw the and/or and of course we can't forget the no
     }
 \end{lstlisting}
 
-\subsubsection{Other predicates}
+\subsubsection*{Other predicates}
 In the Predicates class you can find a whole collections of predicates:
 \begin{enumerate}
+\item notEqual: checks if the result of an expression is not equal to a certain value.
 \item instanceOf: checks if the result of an expression has a certain type
-\item like: checks the result of an expression matches some string pattern. [todo: add percentage sign] (percentage sign) is placeholder for many characters, _ (underscore) is placeholder for only one character.
+\item like: checks the result of an expression matches some string pattern. \% (percentage sign) is placeholder for many characters, \_ (underscore) is placeholder for only one character.
 \item greaterThan: checks if the result of an expression is greater than a certain value.
 \item greaterEqual: checks if the result of an expression is greater or equal than a certain value.
 \item lessThan: checks if the result of an expression is less than a certain value
@@ -203,9 +208,9 @@ public interface Predicate<K, V> extends Serializable {
     boolean apply(MapEntry<K, V> mapEntry);
 }
 \end{lstlisting}
-Hazelcast will take care of sending it to all members, applying it to all map entries and returning the results. The MapEntry not only contains the key/value, but also contains all kinds of metadata like the time it was created/expires/last-accessed etc. The Predicate API is not limited to IMap.values(Predicate) only. You can also apply it on the keySet, the entrySet and the localKeySet of the IMap. 
+The MapEntry not only contains the key/value, but also contains all kinds of metadata like the time it was created/expires/last-accessed etc. 
 
-\subsubsection{PredicateBuilder}
+\subsubsection*{PredicateBuilder}
 The syntax we used so far to create Predicates is clear but can be simplified by making use of the PredicateBuilder. It provides a fluent interface that can make building predicates simpler. But underwater the same functionality is being used. Here is an example where a predicate is build that selects all persons with a certain name and age using this PredicateBuilder:
 \begin{lstlisting}[language=java]
     public Set<Person> getWithNameAndAgeSimplified(String name, int age) {
@@ -216,60 +221,111 @@ The syntax we used so far to create Predicates is clear but can be simplified by
 \end{lstlisting}
 As you can see, it can simplify things, especially if you have complex predicates. But it is a matter of taste which approach you prefer.
 
-\subsection{Distributed SQL Query}
-In the previous section the Criteria API was explained where expression objects are manually created. The pain can be reduced a bit by making use of the PredicateBuilder, but it still isn't perfect. That is why a DSL implementation was added: the Distributed SQL Query where a SQL like language is used as DSL. But underwater the Criteria API is used.
+\subsection*{Distributed SQL Query}
+In the previous section the Criteria API was explained where expression/predicate objects are manually created. The pain can be reduced a bit by making use of the PredicateBuilder, but it still isn't perfect. That is why a DSL implementation was added: the Distributed SQL Query where a SQL like language is used. But underwater the the Criteria API is used. 
 
+The 'get with name' function we already implemented using the Criteria API, can be implementing using the Distributed SQL Query like this:
 \begin{lstlisting}
 public Set<Person> getWithName(String name){
     Predicate predicate = new SqlPredicate(String.format("name = %s",name));
     return (Set<Person>) personMap.values(predicate);
 }
 \end{lstlisting}
+As you can see, the SqlPredicate is a Predicate itself and therefor can be combined with the Criteria API. The language itself isn't case sensitive.
 
 supported SQL syntax:
 
 [todo: the language is not case sensitive, although the accessing fields is.]
 
-\subsubsection{AND/OR}
+\subsubsection*{AND/OR}
 <expression> AND <expression> AND <expression>...
-\begin{enumerate}
-\item active AND age>30
-\item active=false OR age = 45 OR name = 'Joe'
-\item active AND (age >20 OR salary < 60000)
-\end{enumerate}
+\begin{lstlisting}
+active AND age>30
+active=false OR age = 45 OR name = 'Joe'
+active AND (age >20 OR salary < 60000)
+\end{lstlisting}
 
-\subsection{=, !=, <, <=, >, >=}
+\subsubsection*{=, !=, <, <=, >, >=}
 <expression> = value
-\begin{enumerate}
-\item age <= 30
-\item name ="Joe"
-\item salary != 50000
-\end{enumerate}
+\begin{lstlisting}
+age <= 30
+name ="Joe"
+salary != 50000
+\end{lstlisting}
 
-\subsubsection{BETWEEN}
+\subsubsection*{BETWEEN}
 <attribute> [NOT] BETWEEN <value1> AND <value2>
+\begin{lstlisting}
+age BETWEEN 20 AND 33 (same as age >=20 AND age<=33)
+age NOT BETWEEN 30 AND 40 (same as age <30 OR age>40)
+\end{lstlisting}
 
-\begin{enumerate}
-\item age BETWEEN 20 AND 33 (same as age >=20 AND age<=33)
-\item age NOT BETWEEN 30 AND 40 (same as age <30 OR age>40)
-\end{enumerate}
-
-%\subsection{LIKE}
-%<attribute> [NOT] LIKE 'expression'
-% (percentage sign) is placeholder for many characters, _ (underscore) is placeholder for only one character.
-%\begin{enumerate}
-%\item name LIKE 'Jo%' (true for 'Joe', 'Josh', 'Joseph' etc.)
-%\item name LIKE 'Jo_' (true for 'Joe'; false for 'Josh')
-%\item name NOT LIKE 'Jo_' (true for 'Josh'; false for 'Joe')
-%\item name LIKE 'J_s%' (true for 'Josh', 'Joseph'; false 'John', 'Joe')
-%\begin{enumerate}
+\subsection{LIKE}
+<attribute> [NOT] LIKE 'expression'
+\% (percentage sign) is placeholder for many characters, \_ (underscore) is placeholder for only one character.
+\begin{lstlisting}
+name LIKE 'Jo%' (true for 'Joe', 'Josh', 'Joseph' etc.)
+name LIKE 'Jo_' (true for 'Joe'; false for 'Josh')
+name NOT LIKE 'Jo_' (true for 'Josh'; false for 'Joe')
+name LIKE 'J_s%' (true for 'Josh', 'Joseph'; false 'John', 'Joe')
+\end{lstlisting}
 
 \subsubsection{IN}
 <attribute> [NOT] IN (val1, val2, ...)
+\begin{lstlisting}
+age IN (20, 30, 40)
+age NOT IN (60, 70)
+\end{lstlisting}
+
+
+\section{Indices}
+To speed up queries, just like in databases, Hazelcast indexes to be created on fields. In this case we could create a index on the name field. Using an index prevents from iterating over all values (in database terms this is called a full table scan), but directly jump to the interesting ones. There are 2 types of indexes:
 \begin{enumerate}
-\item age IN (20, 30, 40)
-\item age NOT IN (60, 70)
+\item Ordered: e.g. a numeric field
+\item Unordered: e.g. a name field.
 \end{enumerate}
+A single table can have multiple indexes. 
+
+To retrieve the index field of an Object, first a getter will be tried and if that doesn't exist, direct field access will be used.
+
+We can create an index in 3 ways; programmatic, configuration and using Spring.
+
+[todo: can we call accessors]
+[todo: can we do '.' in the index name to indicate traversal]
+
+\subsection{Programmatic configuration of the index}
+An index can be added programmatically by calling the IMap.addIndex method like this:
+\begin{lstlisting}[language=java]
+class CustomerService{
+    private final IMap<String,Customer> customerMap = Hazelcast.getMap("customers");
+
+    public CustomerService(){
+       customerMap.addIndex("name",true);
+    }
+\end{lstlisting}
+Adding the index should be done before an item is placed in the map. Sometimes by design adding an index to map may be impossible before any value is added. For example if a map has MapLoader that loads entries during map creation, then adding indexes to map becomes meaningless. To solve this problem, Hazelcast introduces defining IMap indexes in configuration.
+
+\subsection{Configuration}
+Configuration of the index through the configuration file:
+
+The indexes on the map can also be configured through the hazelcast configuration file. 
+
+\begin{lstlisting}[language=xml]
+<hazelcast>
+   ...
+<map name="customers">
+   ...
+   <indexes>
+      <index ordered="false">name</index>
+      <index ordered="true">age</index>
+   </indexes>
+</map>
+</hazelcast>
+\end{lstlisting}
+
+Apart from solving the issue with programmatic index creation, other advantages of using the configuration file is that map configuration it isn't spread over the Java code and makes configuring and tuning the system a lot easier.
+
+TODO: Give example of performance difference of using a map with and without index.
 
 \section{Concurrency Control}
 The Hazelcast map itself is threadsafe just like the ConcurrentHashMap or the Collections.synchronizedMap, but in some cased your thread safety requirements are bigger than what hazelcast provides out of the box. Luckily Hazelcast provides multiple concurrency control solutions;  it can either be pessimistic using locks or optimistic using compare and swap operations. Todo: what about transactions?
@@ -299,58 +355,7 @@ public class RacyUpdateMember {
         public int field;
     }
 }
-\end{lstlisting}[language=java]
-
-\section{Indices}
-
-To speed up queries, just like in databases, Hazelcast indexes to be created on fields. In this case we could create a index on the name field. Using an index prevents from iterating over all possible values (in database terms this is called a full table scan), but directly jump to the interesting ones. There are 2 types of indexes:
-\begin{enumerate}
-\item Ordered: e.g. a numeric field
-\item Unordered: e.g. a name field.
-\end{enumerate}
-A single table can have multiple indexes. To retrieve the index field of an Object, first a getter will be tried and if that doesn't exist, direct field access will be used.
-
-We can create an index in 3 ways; programmatic, configuration and using Spring.
-
-[todo: can we call accessors]
-[todo: can we do '.' in the index name to indicate traversal]
-
-\subsection{Programmatic configuration of the index}
-
-An index can be added programmatically by calling the IMap.addIndex method like this:
-
-\begin{verbatim}
-class CustomerService{
-    private final IMap<String,Customer> customerMap = Hazelcast.getMap("customers");
-
-    public CustomerService(){
-       customerMap.addIndex("name",true);
-    }
-\end{verbatim}
-
-Adding the index should be done before an item is placed in the map. Sometimes by design adding an index to map may be impossible before any value is added. For example if a map has MapLoader that loads entries during map creation, then adding indexes to map becomes meaningless. To solve this problem, Hazelcast introduces defining IMap indexes in configuration.
-
-\subsection{Configuration}
-Configuration of the index through the configuration file:
-
-The indexes on the map can also be configured through the hazelcast configuration file. 
-
-\begin{verbatim}
-<hazelcast>
-   ...
-<map name="customers">
-   ...
-   <indexes>
-      <index ordered="false">name</index>
-      <index ordered="true">age</index>
-   </indexes>
-</map>
-</hazelcast>
-\end{verbatim}
-
-Apart from solving the issue with programmatic index creation, other advantages of using the configuration file is that map configuration it isn't spread over the Java code and makes configuring and tuning the system a lot easier.
-
-TODO: Give example of performance difference of using a map with and without index.
+\end{lstlisting}
 
 \subsection{Pessimistic Locking}
 The classic way to solve the race problem is to use a lock. In Hazelcast there are various ways to lock, but for this example we'll use the locking functionality provided by the map using the map.lock/map.unlock methods.
