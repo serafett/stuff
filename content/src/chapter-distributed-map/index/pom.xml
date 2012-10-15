@@ -3,11 +3,11 @@
     <modelVersion>4.0.0</modelVersion>
     <packaging>jar</packaging>
 
-    <artifactId>example7</artifactId>
-    <name>Chapter DistributedMap - Example 7</name>
+    <artifactId>index</artifactId>
+    <name>Chapter DistributedMap - Index</name>
 
     <description>
-        Example 7 : Programmatic Index
+        Chapter DistributedMap : Index
     </description>
 
     <parent>
