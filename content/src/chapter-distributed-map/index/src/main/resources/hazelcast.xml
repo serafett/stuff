@@ -1,7 +1,7 @@
 <hazelcast>
     <map name="persons">
         <indexes>
-            <index ordered="false">address.street</index>
+            <index ordered="false">name</index>
         </indexes>
     </map>
 </hazelcast>
