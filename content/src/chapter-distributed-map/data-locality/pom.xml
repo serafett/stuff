@@ -4,10 +4,10 @@
     <packaging>jar</packaging>
 
     <artifactId>data-locality</artifactId>
-    <name>Chapter DistributedMap Advanced - Data Locality</name>
+    <name>Chapter DistributedMap - Data Locality</name>
 
     <description>
-        Chapter DistributedMap Advanced: Data Locality
+        Chapter DistributedMap : Data Locality
     </description>
 
     <parent>

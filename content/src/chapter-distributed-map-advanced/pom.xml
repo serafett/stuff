@@ -19,7 +19,6 @@
 
     <modules>
         <module>backups</module>
-        <module>data-locality</module>
         <module>near-cache</module>
         <module>mapstore</module>
         <module>high-availability</module>
