@@ -1,4 +1,10 @@
 <hazelcast>
+    <network>
+        <join>
+            <multicast enabled="true"/>
+        </join>
+    </network>
+
     <map name="persons">
         <indexes>
             <index ordered="false">name</index>

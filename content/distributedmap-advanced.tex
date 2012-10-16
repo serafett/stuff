@@ -5,16 +5,13 @@ TODO: This chapter will be completely rewritten.
 Listing of subjects in this chapter
 \begin{enumerate}
 \item High Availability
-\item Indices
 \item Data Locality
 \item Near Cache
 \item Persistence
-
 \item EntryListeners
 \end{enumerate}
 
 \section{High availability}
-
 By default all data that is written will automatically be written synchronously to another JVM. This prevents data from getting lost if a JVM crashes, because it will be available on another JVM. By customizing the Hazelcast configuration file:
 \begin{verbatim}
 <hazelcast> 

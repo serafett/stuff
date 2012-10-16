@@ -1,0 +1,9 @@
+<hazelcast>
+    <network>
+        <join><multicast enabled="true"/></join>
+    </network>
+
+    <map name="persons">
+        <backup-count>1</backup-count>
+    </map>
+</hazelcast>

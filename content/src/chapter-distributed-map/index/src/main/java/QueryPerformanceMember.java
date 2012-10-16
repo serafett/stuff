@@ -6,9 +6,9 @@ import com.hazelcast.query.Predicates;
 
 import java.util.Random;
 
-public class Main {
+public class QueryPerformanceMember {
     public final static int MAP_SIZE = 100000;
-    public final static int SEARCH_COUNT = 1000;
+    public final static int SEARCH_COUNT = 10000;
 
     private static final String[] names = new String[]{"Jacob", "Sophia", "Mason", "Isabella",
             "William", "Emma","Jayden", "Olivia", "Noah", "Ava", "Michael", "Emily",
@@ -16,7 +16,14 @@ public class Main {
 
     public static void main(String[] args) {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
-        IMap<String, Person> personMap = hzInstance.getMap("pesrsons");
+        boolean indexEnabled = true;
+
+        IMap<String, Person> personMap;
+        if(indexEnabled){
+            personMap = hzInstance.getMap("persons");
+        } else{
+            personMap = hzInstance.getMap("persons_");
+        }
 
         System.out.println("Generating testdata");
         Random random = new Random();
@@ -26,14 +33,20 @@ public class Main {
         }
         System.out.println("Generating testdata completed");
 
-        System.out.println("Starting benchmark");
+        System.out.println("Running benchmark");
         long startMs = System.currentTimeMillis();
         for(int k=0;k< SEARCH_COUNT;k++){
            Predicate predicate = Predicates.equal(Predicates.get("name"),names[random.nextInt(names.length)]);
            personMap.values(predicate);
         }
+        System.out.println("Running benchmark complete");
+
         long durationMs = System.currentTimeMillis()-startMs;
         double performance = (SEARCH_COUNT*1000d)/durationMs;
+        System.out.println("Index enabled: "+indexEnabled);
+        System.out.println("Distributed searches: "+(hzInstance.getCluster().getMembers().size()>1));
+        System.out.println("Total map size: "+personMap.size());
+        System.out.println("Total searches: "+SEARCH_COUNT);
         System.out.println("Total duration: "+durationMs+" ms");
         System.out.println("Performance: "+performance+" searches per second");
     }
