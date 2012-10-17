@@ -5,7 +5,7 @@
 
     <artifactId>chapter-cluster-configuration</artifactId>
     <name>Chapter Cluster Configuration</name>
-    <groupId>book.hazelcast</groupId>
+    <groupId>book.hazelcast.configuration</groupId>
     <description>
         All the code samples for the cluster configuration
     </description>

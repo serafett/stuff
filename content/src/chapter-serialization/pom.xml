@@ -5,7 +5,7 @@
 
     <artifactId>chapter-serialization</artifactId>
     <name>Chapter Serialization</name>
-    <groupId>book.hazelcast</groupId>
+    <groupId>book.hazelcast.serialization</groupId>
     <description>
         All the code samples for the serialization chapter
     </description>

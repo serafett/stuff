@@ -18,9 +18,7 @@
     </parent>
 
     <modules>
-        <module>backups</module>
         <module>near-cache</module>
-        <module>mapstore</module>
         <module>high-availability</module>
     </modules>
 

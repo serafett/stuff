@@ -11,11 +11,10 @@
     </description>
 
     <parent>
-        <groupId>book.hazelcast</groupId>
-        <artifactId>chapter-distributed-primitives</artifactId>
+        <groupId>book.hazelcast.topic</groupId>
+        <artifactId>chapter-distributed-topic</artifactId>
         <version>0.1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-
 
 </project>

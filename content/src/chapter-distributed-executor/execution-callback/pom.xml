@@ -7,11 +7,11 @@
     <name>Chapter Distributed Executor - Execution Callback</name>
 
     <description>
-        Chapter Distributed Collections - Execution Callback
+        Chapter Distributed Executor - Execution Callback
     </description>
 
     <parent>
-        <groupId>book.hazelcast</groupId>
+        <groupId>chapter-distributed-executor</groupId>
         <artifactId>chapter-distributed-executor</artifactId>
         <version>0.1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>

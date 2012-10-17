@@ -4,7 +4,7 @@ In this chapter, you'll learn how to use one of the most versatile data structur
 
 Internally Hazelcast divides the map in partitions (by default 271) and distributes the partitions evenly among the members in the cluster. Based on the key of the map entry the partition is determined, so each key belongs to a single partition. 
 
-Scaling up the cluster is simple; just add more members. When new members are found in the cluster, the oldest member decides which partitions need to be moved to the new members. It tries to choose the partitions that contain the least amount of data to prevent copying a lot of data. Hazelcast doesn't do any runtime rebalancing of partitions bases for example on partition size or usage. 
+Scaling up the cluster is simple; just add more members. When new members are found in the cluster, the oldest member decides which partitions need to be moved to the new members. It tries to choose the partitions that contain the least amount of data to prevent copying a lot of data. Hazelcast doesn't do any runtime rebalancing of partitions bases for example on partition size or usage currently.
 
 To scale down also is simple; just shutdown the HazelcastInstance. And the partitions will automatically be reassigned to other members. Of course a hard kill of the JVM is possible, but then you run a risk of loosing something.
 
@@ -298,7 +298,6 @@ It also is possible to call the 'IMap.addIndex(String name,boolean ordered)' met
 
 The performance impact of using one or more indices depends on a lot of factors; among them are the size of the  map, the chance of finding the element with a full table scan etc. Also adding one or more indices make mutations to the map more expensive since the index needs to be updated as well. Therefor you need to test in a production like environment, number and type of machines, size/quality of the dataset, which configuration is best for you. In the source code you can 2 very rudimentary benchmark frameworks, one for updating and one for searching, you can play with and can extend. 
 
-
 \section{MultiMap}
 In some cases you need to attach multiple values for a single key. Luckily Hazelcast provides out of the box functionality for that in the form of a MultiMap. The MultiMap doesn't implement the java.util.Map interface since the signatures of the method are different. The MultiMap does have support for most of the functionality provided by the IMap (so locking, listeners etc). But it doesn't support indexing.
 
@@ -340,7 +339,6 @@ Removing items; you can remove items from the MultiMap. This is using the equals
 The value collection is set based, so no duplicates and there is no ordering.Null value is not allowed (npe). But the MultiMap can also be configured to be list based: MultiMapConfig.setValueCollectionType(ValueCollectionType.LIST). 
 
 One thing worth knowing; if a value collection with K is stored on member1 because K is owned by that member1, and member2 does a map.get(K), then the whole collection will transported from member1 to member 2. So if that value collection is big, it could lead to performance problems. A solution would be to send the whole operation to member1, so send the logic to the data instead of the data to the logic.
-
 
 \section{Data locality}
 In some cases you want data that logically belongs to each other, is stored on the same partition to have locality of reference (an important feature for performance). This prevents going over the network, since the data is stored in the same partition.
@@ -397,7 +395,7 @@ public final class OrderKey implements PartitionAware, Serializable {
     }
 }
 \end{lstlisting}
-We don't need to add an equals/hashcode since the equals/hashcode of the byte content of this OrderKey is used.
+We don't need to add an equals/hashcode since the equals/hashcode based on the byte content of the OrderKey is used.
 
 And we can integrate it in our code and verify that the partition of the customer is the same as the partition of the order:
 \begin{lstlisting}[language=java]
@@ -440,7 +438,7 @@ Partition for order without OrderKey: 175
 \end{lstlisting}
 As you can see, the partition where the Customer is stored, is the same as the partition where the Order of that same customer is stored. 
 
-Being able to control what data is placed in the same partition, is a very powerful feature and needs to be taking into consideration from the beginning and therefor is a very important architectural concern. Once this is done correctly, it will be a lot easier to write a high performance and scalable system. 
+Being able to control what data is placed in the same partition, is a very powerful feature and needs to be taking into consideration from the beginning and therefor is a very important architectural concern. Once this is done correctly, it will be a lot easier to write a high performance and scalable system. And the technique of partitioning data in a single partition, can be combined with sending functionality to the data instead of the data to the functionality. So if you need to do some operation, send that operation to the right partition. For more information see "chapter: Executor and Routing" and "chapter: Distributed Services and routing".
 
 \section{High availability}
 By default all data that is written will automatically be written synchronously to another JVM. This prevents data from getting lost if a JVM crashes, because it will be available on another JVM. By customizing the Hazelcast configuration file:

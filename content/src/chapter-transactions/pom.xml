@@ -5,7 +5,7 @@
 
     <artifactId>chapter-transactions</artifactId>
     <name>Chapter Transactions</name>
-    <groupId>book.hazelcast</groupId>
+    <groupId>book.hazelcast.transactions</groupId>
     <description>
         All the code samples for the transactions chapter
     </description>

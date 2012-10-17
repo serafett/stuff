@@ -211,7 +211,6 @@ public class SomeTask implements
 \end{lstlisting}
 When this Task is processed (not when it is submitted), the Hazelcast executor checks if the task implements HazelcastInstanceAware. If so, it will inject the HazelcastInstance of the executor, by calling the 'setHazelcastInstance' method. The hzInstance field can be transient since it will never be send over the line. 
 
-
 \section{Routing}
 Till so far we didn't care about which member did the actual processing of the task; as long as any member picked it up. But in some cases you want to have control on which member is going to execute. Luckily Hazelcast provides different ways to route messages:
 \begin{enumerate}

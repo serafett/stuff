@@ -7,11 +7,11 @@
     <name>Chapter Distributed Executor - Routing to specific member</name>
 
     <description>
-        Chapter Distributed Collections - Routing to specific member
+        Chapter Distributed Executor - Routing to specific member
     </description>
 
     <parent>
-        <groupId>book.hazelcast</groupId>
+        <groupId>chapter-distributed-executor</groupId>
         <artifactId>chapter-distributed-executor</artifactId>
         <version>0.1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>

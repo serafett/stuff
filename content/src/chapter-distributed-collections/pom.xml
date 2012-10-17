@@ -4,8 +4,8 @@
     <packaging>pom</packaging>
 
     <artifactId>chapter-distributed-collections</artifactId>
+    <groupId>book.hazelcast.collections</groupId>
     <name>Chapter Distributed Collections</name>
-    <groupId>book.hazelcast</groupId>
     <description>
         All the code samples for the distributed collections chapter.
     </description>

@@ -25,6 +25,7 @@
         <module>index</module>
         <module>locking</module>
         <module>multimap</module>
+        <module>mapstore</module>
         <module>data-locality</module>
     </modules>
 
