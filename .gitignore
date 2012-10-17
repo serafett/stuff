@@ -10,3 +10,4 @@ target/
 .idea/
 .patch
 *.iml
+content/src/mydatabase*

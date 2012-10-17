@@ -9,6 +9,14 @@
     <description>
     </description>
 
+    <dependencies>
+        <dependency>
+            <groupId>org.hsqldb</groupId>
+            <artifactId>hsqldb</artifactId>
+            <version>2.2.9</version>
+        </dependency>
+    </dependencies>
+
     <parent>
         <groupId>book.hazelcast.distributed-map</groupId>
         <artifactId>chapter-distributed-map</artifactId>
