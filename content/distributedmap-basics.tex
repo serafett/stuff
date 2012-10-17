@@ -460,54 +460,98 @@ Persistence
 
 If the partitions in a map are backed up by another node, no data will be lost if a node fails. But sometimes you need more. And sometimes you need to integrate with existing system e.g. databases, to store and retrieve information from. If you only need to load information into the system, you can implement the com.hazelcast.core.MapLoader interface and if you also need to store you need to implement the com.hazelcast.core.MapStore interface (which extends the MapLoader interface).
 
-We are going to provide a very basic in memory version of the MapStore interface:
-
-\begin{verbatim}
-public class CustomerStore implements MapStore<String,Customer>{
-   private final Map<String,Customer> customers = new HashMap<String,Customer>();
-   public CustomerStore(){
-      store(new Customer("Homer"));
-      store(new Customer("Bart"));
-      store(new Customer("Marge"));
-   }
-   private void store(Customer customer){
-      customers.put(custer.getId(),customer);
-   }
-   public synchronized Customer load(String key){
-      return customers.get(key);
-   }
-   public synchronized Map<String,Customer>	loadAll(Collection<String> keys){
-      return new HashMap<String,Customer>(customers);
-   }
-   public synchronized void delete(String key){
-      customers.remove(key);
-   } 
-   public synchronized void deleteAll(Collection<String> keys){
-      for(String key: keys) customers.remove(key);
-   } 
-   public synchronized void store(String key, Customer value){
-      customers.put(key, value);
-   } 
-   public synchronized void storeAll(Map<K,V> map){
-      customers.putAll(map);
-   }   
+We are going to provide a very basic HSQLDB implementation of the MapStore.
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.MapStore;
+import java.sql.*;
+import java.util.*;
+import static java.lang.String.format;
+public class PersonMapStore implements MapStore<Long, Person> {
+    private final Connection con;
+    public PersonMapStore() {
+        try {
+            con = DriverManager.getConnection("jdbc:hsqldb:mydatabase", "SA", "");
+            con.createStatement().executeUpdate(
+                    "create table if not exists person (id bigint, name varchar(45))");
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    public void delete(Long key) {
+        try {
+            con.createStatement().executeUpdate(format("delete from person where id = %s", key));
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    public void store(Long key, Person value) {
+        try {
+            con.createStatement().executeUpdate(format("insert into person values(%s,'%s')", key, value.name));
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    public void storeAll(Map<Long, Person> map) {
+        for (Map.Entry<Long, Person> entry : map.entrySet())
+            store(entry.getKey(), entry.getValue());
+    }
+    public void deleteAll(Collection<Long> keys) {
+       for(Long key: keys) delete(key);
+    }
+    public Person load(Long key) {
+        try {
+            ResultSet resultSet = con.createStatement().executeQuery(
+                    format("select name from person where id =%s", key));
+            try {
+                if (!resultSet.next())return null;
+                String name = resultSet.getString(1);
+                return new Person(name);
+            } finally {
+                resultSet.close();
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    public Map<Long, Person> loadAll(Collection<Long> keys) {
+        Map<Long, Person> result = new HashMap<Long, Person>();
+        for (Long key : keys) result.put(key, load(key));
+        return result;
+    }
+    public Set<Long> loadAllKeys() {
+         try {
+            ResultSet resultSet = con.createStatement().executeQuery(
+                    "select id from person");
+            try {
+                Set<Long> keys = new HashSet<Long>();
+                while (resultSet.next())
+                    keys.add(resultSet.getLong(1));
+                return keys;
+            } finally {
+                resultSet.close();
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }
-\end{verbatim}
+\end{lstlisting}
 
+sql injection
 And it can be configured like this:
 
-\begin{verbatim}
+\begin{lstlisting}[language=xml]
 <hazelcast>
     ...
-    <map name="customers">
+    <map name="persons">
         ...
         <map-store enabled="true">
-           <class-name>com.hazelcast.examples.CustomerStore</class-name>
+           <class-name>PersonMapStore</class-name>
            <write-delay-seconds>0</write-delay-seconds>
         </map-store>
     </map>
 </hazelcast>
-\end{verbatim}
+\end{lstlisting}
 
 The write-delay-seconds defaults to 0 and this means that if a change is made in the map, a write through to the CustomerStore is going to happen. Although this example doesn't use a database, but if one would be used, the database would immediately be updated if the map is updated. If the write-delay-seconds is higher than zero, the entry will be marked as dirty and at some point in time it will be written to the database, this is called a write behind.
 

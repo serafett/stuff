@@ -7,6 +7,4 @@
             <class-name>PersonMapStore</class-name>
         </map-store>
     </map>
-
-
 </hazelcast>

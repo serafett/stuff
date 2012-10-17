@@ -9,7 +9,7 @@ public class Main {
         Map<Long,Person> personMap = hzInstance.getMap("personMap");
 
         long key = System.nanoTime();
-        Person p = new Person("John"+key);
+        Person p = new Person("Peter"+key);
         personMap.put(key,p);
 
         for(Map.Entry<Long,Person> entry: personMap.entrySet()){
