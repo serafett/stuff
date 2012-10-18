@@ -9,23 +9,20 @@ public class PersonMapStore implements MapStore<Long, Person> {
             con = DriverManager.getConnection("jdbc:hsqldb:mydatabase", "SA", "");
             con.createStatement().executeUpdate(
                     "create table if not exists person (id bigint, name varchar(45))");
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+        } catch (SQLException e) {throw new RuntimeException(e);}
     }
     public void delete(Long key) {
+        System.out.println("Delete:"+key);
         try {
-            con.createStatement().executeUpdate(format("delete from person where id = %s", key));
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+            con.createStatement().executeUpdate(
+                    format("delete from person where id = %s", key));
+        } catch (SQLException e) {throw new RuntimeException(e);}
     }
     public void store(Long key, Person value) {
         try {
-            con.createStatement().executeUpdate(format("insert into person values(%s,'%s')", key, value.name));
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+            con.createStatement().executeUpdate(
+                    format("insert into person values(%s,'%s')", key, value.name));
+        } catch (SQLException e) {throw new RuntimeException(e);}
     }
     public void storeAll(Map<Long, Person> map) {
         for (Map.Entry<Long, Person> entry : map.entrySet())
@@ -45,9 +42,7 @@ public class PersonMapStore implements MapStore<Long, Person> {
             } finally {
                 resultSet.close();
             }
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+        } catch (SQLException e) {throw new RuntimeException(e);}
     }
     public Map<Long, Person> loadAll(Collection<Long> keys) {
         Map<Long, Person> result = new HashMap<Long, Person>();
@@ -55,19 +50,6 @@ public class PersonMapStore implements MapStore<Long, Person> {
         return result;
     }
     public Set<Long> loadAllKeys() {
-         try {
-            ResultSet resultSet = con.createStatement().executeQuery(
-                    "select id from person");
-            try {
-                Set<Long> keys = new HashSet<Long>();
-                while (resultSet.next())
-                    keys.add(resultSet.getLong(1));
-                return keys;
-            } finally {
-                resultSet.close();
-            }
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+         return null;
     }
 }

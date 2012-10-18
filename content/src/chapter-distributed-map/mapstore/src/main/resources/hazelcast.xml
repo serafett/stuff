@@ -6,5 +6,6 @@
         <map-store enabled="true">
             <class-name>PersonMapStore</class-name>
         </map-store>
+        <time-to-live-seconds>2</time-to-live-seconds>
     </map>
 </hazelcast>
