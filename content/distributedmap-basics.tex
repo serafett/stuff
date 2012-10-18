@@ -534,7 +534,7 @@ To connect the PersonMapStore to the persons map, we can configure it like this 
     </map>
 </hazelcast>
 \end{lstlisting}
-
+Cloud789!
 \subsubsection{Pre-Populating the map}
 With the MapLoader it is possible to pre-populate the Map so that when it is created, the important entries are loaded in memory. This can be done by letting the 'loadAllKeys' method return the Set of all 'hot' keys that need to be loaded for the partitions owned by the member. This also makes parallel loading possible, since each member can load its own keys.  If the 'loadAll' method return null, as we did in the example, then the map will not be pre-populated. Also important to know is that Map is created lazily by Hazelcast, so only when one of the members calls the 'HazelcastInstance.getMap(name)' the map is actually created and the MapLoader called. If your application requires that Map up front without really needing the content, you could wrap the map in a lazy proxy that calls the getMap method only when really needed.
 
