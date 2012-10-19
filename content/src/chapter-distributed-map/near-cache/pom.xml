@@ -4,14 +4,14 @@
     <packaging>jar</packaging>
 
     <artifactId>near-cache</artifactId>
-    <name>Chapter DistributedMap Advanced - Near Cache</name>
+    <name>Chapter DistributedMap - Near Cache</name>
 
     <description>
     </description>
 
     <parent>
-        <groupId>book.hazelcast</groupId>
-        <artifactId>chapter-distributed-map-advanced</artifactId>
+        <groupId>book.hazelcast.distributed-map</groupId>
+        <artifactId>chapter-distributed-map</artifactId>
         <version>0.1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>

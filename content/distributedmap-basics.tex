@@ -1,5 +1,4 @@
-\chapter{Distributed Map Basics}
-
+\chapter{Distributed Map}
 In this chapter, you'll learn how to use one of the most versatile data structures in Hazelcast; the com.hazelcast.core.IMap. The IMap implements the java.util.concurrent.ConcurrentMap interface, and therefor it also implement the java.util.Map interface and is designed to be used in a distributed environment.
 
 Internally Hazelcast divides the map in partitions (by default 271) and distributes the partitions evenly among the members in the cluster. Based on the key of the map entry the partition is determined, so each key belongs to a single partition. 
@@ -298,47 +297,35 @@ It also is possible to call the 'IMap.addIndex(String name,boolean ordered)' met
 
 The performance impact of using one or more indices depends on a lot of factors; among them are the size of the  map, the chance of finding the element with a full table scan etc. Also adding one or more indices make mutations to the map more expensive since the index needs to be updated as well. Therefor you need to test in a production like environment, number and type of machines, size/quality of the dataset, which configuration is best for you. In the source code you can 2 very rudimentary benchmark frameworks, one for updating and one for searching, you can play with and can extend. 
 
-\section{MultiMap}
-In some cases you need to attach multiple values for a single key. Luckily Hazelcast provides out of the box functionality for that in the form of a MultiMap. The MultiMap doesn't implement the java.util.Map interface since the signatures of the method are different. The MultiMap does have support for most of the functionality provided by the IMap (so locking, listeners etc). But it doesn't support indexing.
+\section{Near Cache}
+Till so far all all the map entries are owned by a single member. But in some cases data needs to be available on all member, an example of such data is reference data. Hazelcast luckily supports a feature called the near cache that makes data available on all members instead of a single one.
 
-The reason why the MultiMap exists, apart from being easy to use is efficiency. If you would use the hazelcast map with an ordinary collection as value, then you need to deserialize the whole collection for every operation you do on that collection (e.g. adding a single element). With the MultiMap this isn't needed, so it is a lot more efficient.
+Imagine that we have web-shop where articles can be ordered and imagine that these articles are stored in a Hazelcast map. Some articles will be ordered more frequently than other, but the more machines the cluster gets, the higher the chance that we need to go to a remote machine to access the article we need. This means that latency is increased this is not always acceptable.
 
-To demonstrate the MultiMap where are going to create 2 member; in one member dummy data is created and in the other member it is read and written to the console.
-\begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
-public class PutMember {
-    public static void main(String[] args){
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
-        MultiMap<String,String> map = hzInstance.getMultiMap("map");
-        
-        map.put("Peter","England");
-        map.put("Peter","Holland");
-        map.put("Talip","Turkey");
-    }
-}
+Luckily Hazelcast provides another cool feature on the Hazelcast Map called the Near Cache. Items that are mostly read only, in this case the article, will automatically be copied to all members that use it. The Near Cache can be configured like this:
+\begin{lstlisting}[language=xml]
+<hazelcast>
+    <map name="articles">
+      <near-cache/>
+    </map>
+</hazelcast>
 \end{lstlisting}
 
-\begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
-import java.util.Collection;
-public class PrintMember {
-    public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
-        MultiMap<String,String> map = hzInstance.getMultiMap("map");
-        for(String key: map.keySet()){
-            Collection<String> values = map.get(key);
-            System.out.printf("%s -> %s\n",key,values);
-        }
-    }
-}
-\end{lstlisting}
-It is important to realize that map.get(key) returns a copy of the values at some moment in time. Changes to this collection will result in an a UnsupportedOperationException. So if you want to change the values, you need to do it through the map.remove methods.
+The following set of properties can be set on the near-cache:
+\begin{enumerate}
+\item max-size: the maximum size of the cache per member. As soon as the maximum size has been reached, the cache will start to evict entries based on the eviction policy. max-size should be between 0 and Integer.MAX\_SIZE, where 0 will be interpreted as Integer.MAX\_SIZE. The default is 0.
+\item eviction-policy: the policy used to evict members from the cache when the near cache is full. The following options are available:
+\begin{enumerate}
+ \item NONE: No items will be evicted, so the max-size is ignored. This is the default policy. If you want max-size to work you need to set an eviction-policy other than NONE. Of course, you still can combine it with time-to-live-seconds and  max-idle-seconds.
+ \item LRU: Least Recently Used
+ \item LFU: Least Frequently Used.
+\end{enumerate}
+\item time-to-live-seconds: the number of seconds a map entry is allowed to remain in the cache. Valid values are 0 to Integer.MAX\_SIZE, and 0 will be interpreted as infinite. The default is 0.
+\item max-idle-seconds: the maximum number of seconds a map entry is allowed to stay in the cache without being read. max-idle-seconds should be between 0 and Integer.MAX\_SIZE, where 0 will be interpreted as Integer.MAX\_SIZE. The default is 0. 
+\item invalidate-on-change: Should the cached entries get evicted if the entries are changed (updated or removed). Valid values are true of false and defaults to true.
+\end{enumerate}
 
-Removing items; you can remove items from the MultiMap. This is using the equals operator of the value. If the collection for a specific key is empty, this collection will not automatically be removed, so it can be that you need to clean up the MultiMap so that no empty value collections remains.
-
-The value collection is set based, so no duplicates and there is no ordering.Null value is not allowed (npe). But the MultiMap can also be configured to be list based: MultiMapConfig.setValueCollectionType(ValueCollectionType.LIST). 
-
-One thing worth knowing; if a value collection with K is stored on member1 because K is owned by that member1, and member2 does a map.get(K), then the whole collection will transported from member1 to member 2. So if that value collection is big, it could lead to performance problems. A solution would be to send the whole operation to member1, so send the logic to the data instead of the data to the logic.
+[todo: Are the near caches updates synchronously or asynchronously?]
 
 \section{Data locality}
 In some cases you want data that logically belongs to each other, is stored on the same partition to have locality of reference (an important feature for performance). This prevents going over the network, since the data is stored in the same partition.
@@ -441,23 +428,89 @@ As you can see, the partition where the Customer is stored, is the same as the p
 Being able to control what data is placed in the same partition, is a very powerful feature and needs to be taking into consideration from the beginning and therefor is a very important architectural concern. Once this is done correctly, it will be a lot easier to write a high performance and scalable system. And the technique of partitioning data in a single partition, can be combined with sending functionality to the data instead of the data to the functionality. So if you need to do some operation, send that operation to the right partition. For more information see "chapter: Executor and Routing" and "chapter: Distributed Services and routing".
 
 \section{High availability}
-By default all data that is written will automatically be written synchronously to another JVM. This prevents data from getting lost if a JVM crashes, because it will be available on another JVM. By customizing the Hazelcast configuration file:
-\begin{verbatim}
+In production a environment all kinds of things can go wrong. A machine could break down due to disk failure, the operating system crashes, it could get disconnected from the network. To prevent that the failure of a single member leads to failure of the cluster, Hazelcast synchronously backs up all map entries on another JVM, so if a member fails, the backup still contain the data. The backup-count can be configured like this:
+\begin{lstlisting}[language=xml]
 <hazelcast> 
-<map name="customers"> 
-<backup-count>1</backup-count>
+	<map name="persons"> 
+         <backup-count>1</backup-count>
  	</map> 
 </hazelcast>
-\end{verbatim}
+\end{lstlisting}
+The backup-count can be set to 0, if you favor performance over high availability, but you can also specify a higher value. The default is 1, so in a lot of cases you don't need to specify it.
 
-This configuration specifies that the customers map should have a single backup. This is also the default, so if you are fine with that, you do not need to specify it. But if you 
+By default the backup operations are synchronous; so you have the guarantee that the backup(s) are updated before continuing. But this guarantee comes at the cost of blocking and therefor the latency increases. In some cases having a low latency is more important, but working without a backup is not an option as long as not as the window for failure is small. That is why Hazelcast also supports asynchronous backups; so the backups are made at some point in time because the call doesn't need to block. This can be configured through the 'async-backup-count' property:
+\begin{lstlisting}[language=xml]
+<hazelcast> 
+	<map name="persons"> 
+         <async-backup-count>1<async-backup-count>
+ 	</map> 
+</hazelcast>
+\end{lstlisting}
+This property defaults to 0. 
 
-This configuration 
-Consistency
-todo explain default
-Explain asynchronous
+By default Hazelcast provides sequential consistency, meaning that when a map entry is read, always the most recent change will be seen. This is done by routing the get request to the member that owns the key. But sequential consistency comes at a price since remoting is involved when the key is owned by a different member. Hazelcast provides the option to reduce consistency by allowing to read from backup data instead and potentially see stale data. This feature only is available when there is at least 1 backup (doesn't matter if it a synchronous or asynchronous backup) and can be enabled by setting the read-backup-data property:
+\begin{lstlisting}[language=xml]
+<hazelcast>
+    <map name="persons">
+        <backup-count>0</backup-count>
+        <async-backup-count>1</async-backup-count>
+        <read-backup-data>true</read-backup-data>
+    </map>
+</hazelcast>
+\end{lstlisting}
+In this example you can see a person map with a single asynchronous backup and where read backup data is enabled. This property defaults to false.
 
-\section{Persistance}
+\section{Eviction}
+By default all the map entries that are put in the map, will stay there. You can choose to delete them manually, but you can also rely on an eviction policy that takes care of deleting items automatically. 
+
+
+The eviction 
+\begin{enumerate}
+\item max-size: Maximum size of the map. When max size is reached, map is evicted based on the policy defined. Any integer between 0 and Integer.MAX VALUE. 0 means Integer.MAX\_VALUE. Default is 0. There also is a policy
+   \begin{enumerate}
+   \item map\_size\_per\_jvm:
+   \item cluster\_wide\_map\_size:
+   \item partitions\_wide\_map\_size:
+   \item used\_heap\_size:
+   \item used\_heap\_percentage:
+   \end{enumerate}	
+\item eviction-policy:
+   \begin{enumerate}
+   \item NONE (no extra eviction, <time-to-live-seconds> may still apply),		 NONE is the default.
+          Regardless of the eviction policy used, <time-to-live-seconds> will still apply.
+   \item LRU  (Least Recently Used),
+   \item LFU  (Least Frequently Used).        
+   \end{enumerate}
+\item time-to-live-seconds: Maximum number of seconds for each entry to stay in the map. Entries that are older than time-to-live-seconds and not updated for time-to-live-seconds will get automatically evicted from the map. Any integer between 0 and Integer.MAX\_VALUE. 0 means infinite. Default is 0.
+\item max-idle-seconds:  Maximum number of seconds for each entry to stay idle in the map. Entries that are idle(not touched) for more than max-idle-seconds will get automatically evicted from the map. Entry is touched if get, put or containsKey is called. Any integer between 0 and Integer.MAX\_VALUE. 0 means infinite. Default is 0.
+\item eviction-percentage:  When max. size is reached, specified percentage of
+    the map will be evicted. Any integer between 0 and 100. If 25 is set for example, 25 \% [todo] of the entries will get evicted.
+\item eviction-delay-seconds:	 Specifies when eviction will be started. Default value is 3. So every 3 (+up to 5 for performance reasons) seconds eviction will be kicked of. Eviction is costly operation, setting this number too low, can decrease the performance.
+\end{enumerate}
+
+ This feature enables Hazelcast to be used as a distributed cache. If time-to-live-seconds is not 0 then entries older than time-to-live-seconds value will get evicted, regardless of the eviction policy set. Here is a sample configuration for eviction:
+
+There are 5 defined policies can be used in max-size configuration.
+
+\begin{lstlisting}[language=xml]
+cluster_wide_map_size: Cluster-wide total max map size (default policy).
+
+<max-size policy="cluster_wide_map_size">50000</max-size>
+map_size_per_jvm: Max map size per JVM.
+
+<max-size policy="map_size_per_jvm">5000</max-size>
+partitions_wide_map_size: Partitions (default 271) wide max map size.
+
+<max-size policy="partitions_wide_map_size">27100</max-size>
+used_heap_size: Max used heap size in MB (mega-bytes) per JVM.
+
+<max-size policy="used_heap_size">4096</max-size>
+used_heap_percentage: Max used heap size percentage per JVM.
+
+<max-size policy="used_heap_percentage">75</max-size>
+\end{lstlisting}
+
+\section{Persistence}
 In the previous section we talked about backups that protect against member failure, so if one member goes down, another member takes over. But it does not protect you against cluster failure, e.g. when a datacenter goes down. Another problem we have not talked about is that we are keeping all the entries in the map in memory, and this is not always desirable. Luckily Hazelcast provides a solution for these problems by allowing to load and store data externally, e.g. in a database. This can be done using:
 \begin{enumerate}
 \item com.hazelcast.core.MapLoader: useful for reading entries from an external datasource, but changes don't need to be written back.
@@ -522,9 +575,7 @@ public class PersonMapStore implements MapStore<Long, Person> {
     }
 }
 \end{lstlisting}
-As you can see the implementation is quite simple, but certainly can be improved, e.g. transactions, prevention against sql injection etc. 
-
-To connect the PersonMapStore to the persons map, we can configure it like this in the Hazelcast configuration file:
+As you can see the implementation is quite simple, but certainly can be improved, e.g. transactions, prevention against sql injection etc. To connect the PersonMapStore to the persons map, we can configure it like this in the Hazelcast configuration file:
 \begin{lstlisting}[language=xml]
 <hazelcast>
     <map name="persons">
@@ -534,7 +585,31 @@ To connect the PersonMapStore to the persons map, we can configure it like this 
     </map>
 </hazelcast>
 \end{lstlisting}
-Cloud789!
+
+In the following code fragment you can see a member that writes a person to the map exits the JVM. And you can see a member that loads the person and prints it. 
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.*;
+public class WriteMember {
+    public static void main(String[] args) throws InterruptedException {
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        IMap<Long, Person> personMap = hzInstance.getMap("personMap");
+        personMap.put(1L, new Person("Peter"));
+        System.exit(0);
+    }
+}
+
+import com.hazelcast.core.*;
+public class ReadMember {
+    public static void main(String[] args) throws InterruptedException {
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        IMap<Long, Person> personMap = hzInstance.getMap("personMap");
+        Person p = personMap.get(1L);
+        System.out.println(p);
+    }
+}
+\end{lstlisting}
+With the WriteMember you can see that the System.exit(0) is called at the end. This is done to release the HSQLDB so that it can be opened by the ReadMember. Calling System.exit is a safe way for Hazelcast to leave the cluster since due to a shutdown hook, and waits for all backup operations to complete.
+
 \subsubsection{Pre-Populating the map}
 With the MapLoader it is possible to pre-populate the Map so that when it is created, the important entries are loaded in memory. This can be done by letting the 'loadAllKeys' method return the Set of all 'hot' keys that need to be loaded for the partitions owned by the member. This also makes parallel loading possible, since each member can load its own keys.  If the 'loadAll' method return null, as we did in the example, then the map will not be pre-populated. Also important to know is that Map is created lazily by Hazelcast, so only when one of the members calls the 'HazelcastInstance.getMap(name)' the map is actually created and the MapLoader called. If your application requires that Map up front without really needing the content, you could wrap the map in a lazy proxy that calls the getMap method only when really needed.
 
@@ -591,9 +666,9 @@ public class RacyUpdateMember {
 \subsection{Pessimistic Locking}
 The classic way to solve the race problem is to use a lock. In Hazelcast there are various ways to lock, but for this example we'll use the locking functionality provided by the map using the map.lock/map.unlock methods.
 
-Todo: are these reentrant?
-todo: are these fair?
-also the regular locking rules apply, don't lock too long, don't lock too much.
+[Todo: are these reentrant?]
+[todo: are these fair?]
+[also the regular locking rules apply, don't lock too long, don't lock too much.]
 
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
@@ -675,6 +750,48 @@ Aba problem; it can be that the following thing happens. And explain how it can 
 
 \subsection{Pessimistic vs Optimistic}
 TODO: When to choose one, when to choose the other. Normally optimistic performs better if there is not that much contention. What is the reason to do so in Hazelcast? Is it better performing?
+
+\section{MultiMap}
+In some cases you need to attach multiple values for a single key. Luckily Hazelcast provides out of the box functionality for that in the form of a MultiMap. The MultiMap doesn't implement the java.util.Map interface since the signatures of the method are different. The MultiMap does have support for most of the functionality provided by the IMap (so locking, listeners etc). But it doesn't support indexing.
+
+The reason why the MultiMap exists, apart from being easy to use is efficiency. If you would use the hazelcast map with an ordinary collection as value, then you need to deserialize the whole collection for every operation you do on that collection (e.g. adding a single element). With the MultiMap this isn't needed, so it is a lot more efficient.
+
+To demonstrate the MultiMap where are going to create 2 member; in one member dummy data is created and in the other member it is read and written to the console.
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.*;
+public class PutMember {
+    public static void main(String[] args){
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        MultiMap<String,String> map = hzInstance.getMultiMap("map");
+        
+        map.put("Peter","England");
+        map.put("Peter","Holland");
+        map.put("Talip","Turkey");
+    }
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.*;
+import java.util.Collection;
+public class PrintMember {
+    public static void main(String[] args) {
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        MultiMap<String,String> map = hzInstance.getMultiMap("map");
+        for(String key: map.keySet()){
+            Collection<String> values = map.get(key);
+            System.out.printf("%s -> %s\n",key,values);
+        }
+    }
+}
+\end{lstlisting}
+It is important to realize that map.get(key) returns a copy of the values at some moment in time. Changes to this collection will result in an a UnsupportedOperationException. So if you want to change the values, you need to do it through the map.remove methods.
+
+Removing items; you can remove items from the MultiMap. This is using the equals operator of the value. If the collection for a specific key is empty, this collection will not automatically be removed, so it can be that you need to clean up the MultiMap so that no empty value collections remains.
+
+The value collection is set based, so no duplicates and there is no ordering.Null value is not allowed (npe). But the MultiMap can also be configured to be list based: MultiMapConfig.setValueCollectionType(ValueCollectionType.LIST). 
+
+One thing worth knowing; if a value collection with K is stored on member1 because K is owned by that member1, and member2 does a map.get(K), then the whole collection will transported from member1 to member 2. So if that value collection is big, it could lead to performance problems. A solution would be to send the whole operation to member1, so send the logic to the data instead of the data to the logic.
 
 \section{Gotcha's}
 When Map.entrySet(), Map.keySet() or Map.values() is called, a snapshot of the current state of the map is returned. Changes that are made in the map, so not reflect into changes these maps. Also when changes are made on these collections, an UnsupportedOperationException is thrown.

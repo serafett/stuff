@@ -18,7 +18,6 @@
     </parent>
 
     <modules>
-        <module>near-cache</module>
         <module>high-availability</module>
     </modules>
 

@@ -1,12 +1,14 @@
 \chapter{Hazelcast Clients}
 
-Till so far our examples showed members that were full participants in the cluster; so they will known about others and they will take their share in the load. But in some cases you only want to connect to the cluster to read/write data or execute operations, but you don't want to have a member of the cluster; in other words you want to have a client.
+Till so far our examples showed members that were full participants in the cluster; so they will known about others and they will take their share in the load. But in some cases you only want to connect to the cluster to read/write data or execute operations, but you don't want to be a member of the cluster; in other words you want to have a client.
 
 Hazelcast provides 2 client solutions:
 \begin{enumerate}
 \item native client
 \item lite member
 \end{enumerate}
+These clients are safe to be shared between threads, so you don't need to pool them.
+
 We are going to write a native and lite member client implementation in the following 2 sections. Both are going to put a message on a queue and it will be taken by the following full member:
 \begin{lstlisting}[language=java]
 import com.hazelcast.config.Config;
@@ -92,6 +94,8 @@ As you can see the cluster contains 2 members and the 'this' member shows that i
 
 \section{Lite member vs Native client}
 The lite member is a member of the cluster, it has a socket connection to all other members and knows where data is so it will be able to access it faster. On the downside there will be a lot more clustering overhead and "be on the same data center even on the same RAC". Native Clients can be anywhere in the LAN or WAN. It scales much better and overhead is quite less. So if your clients are less than Hazelcast nodes then LiteMember can be an option; otherwise definitely try Native Client. As a rule of thumb: Try Native client first, if it doesn't perform well enough for you, then consider LiteMember.
+
+[todo: remark about sharing client instance or creating new clients ]
 
 \section{What is next}
 In this short chapter we explained the different ways to connect to a Hazelcast cluster using a client.

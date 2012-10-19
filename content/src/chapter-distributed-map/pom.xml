@@ -27,6 +27,7 @@
         <module>multimap</module>
         <module>mapstore</module>
         <module>data-locality</module>
+        <module>near-cache</module>
     </modules>
 
 </project>
