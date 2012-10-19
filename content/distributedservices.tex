@@ -32,7 +32,7 @@ A client of the EmployeeService can get hold of an instance using the ProxyProvi
   ProxyProvider proxyProvider = new ProxyProviderImpl(hzInstance);
   EmployeeService employeeService = proxyProvider.getProxy(EmployeeService.class);
 \end{lstlisting}
-The proxyProvider returns an proxy that implements the EmployeeService interface that routes requests to the right member based on the routing information we declared in the interface. Internally the Hazelcast Executor is used for this. Because the client can work with a simple interface, the complexities of remote calls are not intrusive in the code; although remoting still exists behind the scenes.
+The proxyProvider returns an proxy that implements the EmployeeService interface that routes requests to the right member based on the routing information we declared in the interface. Internally the Hazelcast Executor is used for this. Because the client can work with a simple interface, the complexities of remote calls are not intrusive in the code; although remoting still exists behind the scenes. The proxy also takes care of retrying in case of a member failure. 
 
 So finish the client example; imagine that we have a client that creates an employee and then gets it and prints it. The code would look something like this:
 \begin{lstlisting}[language=java]
@@ -58,11 +58,6 @@ public class Client {
 \end{lstlisting}
 If you want to use Sprint on the client side to wire up the EmployeeService, I would suggest creating some FactoryBean that has access to a HazelcastInstance and creates a proxy using the ProxyProvider.
 
-
-timeout
-The proxy also takes care of failover
-DTO
-exception are sum of client + remote side stacktrace
 tip: create a separate module where the interace is defined.. and share them between client/server
 
 And on the Server it can be implemented like this:
@@ -84,8 +79,44 @@ public class EmployeeServiceImpl implements EmployeeService {
         return customerMap.get(id);
     }
 }
-
 \end{lstlisting}
+
+Apart from having the EmployeeServiceImpl, we also need to wire it up. This can be done using the SliceServer. Each SliceServer services a slice (so a set of all services running on a member).
+\begin{lstlisting}[language=java]
+import com.hazelblast.server.*;
+import com.hazelblast.server.pojoslice.*;
+import com.hazelcast.core.*;
+public class Server {
+    public static void main(String[] args){
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        Pojo pojo = new Pojo(hzInstance);
+        Slice slice = new PojoSlice(pojo);
+        SliceServer sliceServer = new SliceServer(slice);
+        sliceServer.start();
+    }
+    public static class Pojo implements HazelcastInstanceProvider {
+        @Exposed
+        public final EmployeeService employeeService;
+        private final HazelcastInstance hzInstance;
+
+        public Pojo(HazelcastInstance hzInstance) {
+            this.hzInstance = hzInstance;
+            this.employeeService = new EmployeeServiceImpl(hzInstance);
+        }
+        public HazelcastInstance getHazelcastInstance() {
+            return hzInstance;
+        }
+    }
+}
+\end{lstlisting}[language=java]
+The PojoSlice receives a POJO where the services that are allowed to be exposed need to be annotated with the @Exposed annotation, this is to reduce security risks. The SliceServer can be embedded but can also be run standalone. The Slice implementation used here is the PojoSlice, but there also is a Spring Slice available so you can wire up your services to Spring. If you want you can create your own Slice implementation, e.g. using Guice.
+
+If you want you can add the sources of the API, the client and the server in a single module. But in a lot of cases this is unwanted because you don't want to expose the server implementations to the client. That is why it is a good idea separate:
+\begin{enumerate}
+\item API module: containing the service interfaces and the POJO's.
+\item The Server Module: containing the actual implementation of the services
+\end{enumerate}
+The API module can then be shared with clients without them needing to rely on the server sources.
 
 \section{Distributing non distributable objects}
 
