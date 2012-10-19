@@ -7,8 +7,16 @@
     <name>Chapter Distributed Services - Basic Service - API</name>
     <groupId>book.hazelcast.basic-service</groupId>
     <description>
-
+         Contains the API shared between client and server
     </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.hazelblast</groupId>
+            <artifactId>hazelblast</artifactId>
+            <version>${hazelblast.version}</version>
+        </dependency>
+    </dependencies>
 
     <parent>
         <groupId>book.hazelcast.basic-service</groupId>

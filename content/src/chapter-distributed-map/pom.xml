@@ -28,6 +28,7 @@
         <module>mapstore</module>
         <module>data-locality</module>
         <module>near-cache</module>
+        <module>eviction</module>
     </modules>
 
 </project>

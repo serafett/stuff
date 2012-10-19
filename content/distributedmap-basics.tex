@@ -297,35 +297,8 @@ It also is possible to call the 'IMap.addIndex(String name,boolean ordered)' met
 
 The performance impact of using one or more indices depends on a lot of factors; among them are the size of the  map, the chance of finding the element with a full table scan etc. Also adding one or more indices make mutations to the map more expensive since the index needs to be updated as well. Therefor you need to test in a production like environment, number and type of machines, size/quality of the dataset, which configuration is best for you. In the source code you can 2 very rudimentary benchmark frameworks, one for updating and one for searching, you can play with and can extend. 
 
-\section{Near Cache}
-Till so far all all the map entries are owned by a single member. But in some cases data needs to be available on all member, an example of such data is reference data. Hazelcast luckily supports a feature called the near cache that makes data available on all members instead of a single one.
-
-Imagine that we have web-shop where articles can be ordered and imagine that these articles are stored in a Hazelcast map. Some articles will be ordered more frequently than other, but the more machines the cluster gets, the higher the chance that we need to go to a remote machine to access the article we need. This means that latency is increased this is not always acceptable.
-
-Luckily Hazelcast provides another cool feature on the Hazelcast Map called the Near Cache. Items that are mostly read only, in this case the article, will automatically be copied to all members that use it. The Near Cache can be configured like this:
-\begin{lstlisting}[language=xml]
-<hazelcast>
-    <map name="articles">
-      <near-cache/>
-    </map>
-</hazelcast>
-\end{lstlisting}
-
-The following set of properties can be set on the near-cache:
-\begin{enumerate}
-\item max-size: the maximum size of the cache per member. As soon as the maximum size has been reached, the cache will start to evict entries based on the eviction policy. max-size should be between 0 and Integer.MAX\_SIZE, where 0 will be interpreted as Integer.MAX\_SIZE. The default is 0.
-\item eviction-policy: the policy used to evict members from the cache when the near cache is full. The following options are available:
-\begin{enumerate}
- \item NONE: No items will be evicted, so the max-size is ignored. This is the default policy. If you want max-size to work you need to set an eviction-policy other than NONE. Of course, you still can combine it with time-to-live-seconds and  max-idle-seconds.
- \item LRU: Least Recently Used
- \item LFU: Least Frequently Used.
-\end{enumerate}
-\item time-to-live-seconds: the number of seconds a map entry is allowed to remain in the cache. Valid values are 0 to Integer.MAX\_SIZE, and 0 will be interpreted as infinite. The default is 0.
-\item max-idle-seconds: the maximum number of seconds a map entry is allowed to stay in the cache without being read. max-idle-seconds should be between 0 and Integer.MAX\_SIZE, where 0 will be interpreted as Integer.MAX\_SIZE. The default is 0. 
-\item invalidate-on-change: Should the cached entries get evicted if the entries are changed (updated or removed). Valid values are true of false and defaults to true.
-\end{enumerate}
-
 [todo: Are the near caches updates synchronously or asynchronously?]
+[todo: on the map roughly the same properties can be found.. are they ignored? Can you enter both?]
 
 \section{Data locality}
 In some cases you want data that logically belongs to each other, is stored on the same partition to have locality of reference (an important feature for performance). This prevents going over the network, since the data is stored in the same partition.
@@ -462,25 +435,24 @@ In this example you can see a person map with a single asynchronous backup and w
 
 \section{Eviction}
 By default all the map entries that are put in the map, will stay there. You can choose to delete them manually, but you can also rely on an eviction policy that takes care of deleting items automatically. 
+[This feature enables Hazelcast to be used as a distributed cache. If time-to-live-seconds is not 0 then entries older than time-to-live-seconds value will get evicted, regardless of the eviction policy set.]
 
-
-The eviction 
+The eviction configuration can be done using the following parameters:
 \begin{enumerate}
-\item max-size: Maximum size of the map. When max size is reached, map is evicted based on the policy defined. Any integer between 0 and Integer.MAX VALUE. 0 means Integer.MAX\_VALUE. Default is 0. There also is a policy
+\item max-size: Maximum size of the map. When max size is reached, map is evicted based on the policy defined. Any integer between 0 and Integer.MAX VALUE. 0 means Integer.MAX\_VALUE. Default is 0. There also is a policy attribute, that determines how the max-size is going to interpreted:
    \begin{enumerate}
-   \item map\_size\_per\_jvm:
-   \item cluster\_wide\_map\_size:
-   \item partitions\_wide\_map\_size:
-   \item used\_heap\_size:
-   \item used\_heap\_percentage:
+   		\item map\_size\_per\_jvm: Cluster-wide total max map size (default policy).
+   		\item cluster\_wide\_map\_size:Max map size per JVM.
+   		\item partitions\_wide\_map\_size: Partitions (default 271) wide max map size.
+   		\item used\_heap\_size:Max used heap size in MB (mega-bytes) per JVM.
+   		\item used\_heap\_percentage:Max used heap size percentage per JVM.
    \end{enumerate}	
 \item eviction-policy:
    \begin{enumerate}
-   \item NONE (no extra eviction, <time-to-live-seconds> may still apply),		 NONE is the default.
-          Regardless of the eviction policy used, <time-to-live-seconds> will still apply.
-   \item LRU  (Least Recently Used),
-   \item LFU  (Least Frequently Used).        
-   \end{enumerate}
+   	 	\item NONE: No items will be evicted, so the max-size is ignored. This is the default policy. If you want max-size to work you need to set an eviction-policy other than NONE. Of course, you still can combine it with time-to-live-seconds and  max-idle-seconds.
+	 	\item LRU: Least Recently Used
+	 	\item LFU: Least Frequently Used.
+	\end{enumerate}
 \item time-to-live-seconds: Maximum number of seconds for each entry to stay in the map. Entries that are older than time-to-live-seconds and not updated for time-to-live-seconds will get automatically evicted from the map. Any integer between 0 and Integer.MAX\_VALUE. 0 means infinite. Default is 0.
 \item max-idle-seconds:  Maximum number of seconds for each entry to stay idle in the map. Entries that are idle(not touched) for more than max-idle-seconds will get automatically evicted from the map. Entry is touched if get, put or containsKey is called. Any integer between 0 and Integer.MAX\_VALUE. 0 means infinite. Default is 0.
 \item eviction-percentage:  When max. size is reached, specified percentage of
@@ -488,27 +460,48 @@ The eviction
 \item eviction-delay-seconds:	 Specifies when eviction will be started. Default value is 3. So every 3 (+up to 5 for performance reasons) seconds eviction will be kicked of. Eviction is costly operation, setting this number too low, can decrease the performance.
 \end{enumerate}
 
- This feature enables Hazelcast to be used as a distributed cache. If time-to-live-seconds is not 0 then entries older than time-to-live-seconds value will get evicted, regardless of the eviction policy set. Here is a sample configuration for eviction:
-
-There are 5 defined policies can be used in max-size configuration.
-
+An example configuration:
 \begin{lstlisting}[language=xml]
-cluster_wide_map_size: Cluster-wide total max map size (default policy).
-
-<max-size policy="cluster_wide_map_size">50000</max-size>
-map_size_per_jvm: Max map size per JVM.
-
-<max-size policy="map_size_per_jvm">5000</max-size>
-partitions_wide_map_size: Partitions (default 271) wide max map size.
-
-<max-size policy="partitions_wide_map_size">27100</max-size>
-used_heap_size: Max used heap size in MB (mega-bytes) per JVM.
-
-<max-size policy="used_heap_size">4096</max-size>
-used_heap_percentage: Max used heap size percentage per JVM.
-
-<max-size policy="used_heap_percentage">75</max-size>
+<hazelcast>
+    <map name="articles">
+        <max-size policy="map_size_per_jvm">10000</max-size>
+        <eviction-policy>LRU</eviction-policy>
+        <max-idle-seconds>60</max-idle-seconds>
+    </map>
+</hazelcast>
 \end{lstlisting}
+We have now configured an articles Map that will start to evict map entries from the cache from a member, as soon as the map size within that member exceeds 10000. It will then start to remove map entries that are least recently used. Also when map entries are not used for more than 60 seconds, they will be evicted as well.
+
+\section{Near Cache}
+Till so far all all the map entries are owned by a single member. But in some cases data needs to be available on all member, an example of such data is reference data. Hazelcast luckily supports a feature called the near cache that makes data available on all members instead of a single one.
+
+Imagine that we have web-shop where articles can be ordered and imagine that these articles are stored in a Hazelcast map. Some articles will be ordered more frequently than other, but the more machines the cluster gets, the higher the chance that we need to go to a remote machine to access the article we need. This means that latency is increased this is not always acceptable.
+
+Luckily Hazelcast provides another cool feature on the Hazelcast Map called the Near Cache. Items that are mostly read only, in this case the article, will automatically be copied to all members that use it. The Near Cache can be configured like this:
+\begin{lstlisting}[language=xml]
+<hazelcast>
+    <map name="articles">
+      <near-cache/>
+    </map>
+</hazelcast>
+\end{lstlisting}
+
+The following set of properties can be set on the near-cache:
+\begin{enumerate}
+\item max-size: the maximum size of the cache per member. As soon as the maximum size has been reached, the cache will start to evict entries based on the eviction policy. max-size should be between 0 and Integer.MAX\_SIZE, where 0 will be interpreted as Integer.MAX\_SIZE. The default is 0.
+\item eviction-policy: the policy used to evict members from the cache when the near cache is full. The following options are available:
+\begin{enumerate}
+ \item NONE: No items will be evicted, so the max-size is ignored. This is the default policy. If you want max-size to work you need to set an eviction-policy other than NONE. Of course, you still can combine it with time-to-live-seconds and  max-idle-seconds.
+ \item LRU: Least Recently Used
+ \item LFU: Least Frequently Used.
+\end{enumerate}
+\item time-to-live-seconds: the number of seconds a map entry is allowed to remain in the cache. Valid values are 0 to Integer.MAX\_SIZE, and 0 will be interpreted as infinite. The default is 0.
+\item max-idle-seconds: the maximum number of seconds a map entry is allowed to stay in the cache without being read. max-idle-seconds should be between 0 and Integer.MAX\_SIZE, where 0 will be interpreted as Integer.MAX\_SIZE. The default is 0. 
+\item invalidate-on-change: Should the cached entries get evicted if the entries are changed (updated or removed). Valid values are true of false and defaults to true.
+\end{enumerate}
+
+[todo: example of near cache]
+[todo: the properties on near cache are roughly the same as on the map, what happens when you also configure on the map]
 
 \section{Persistence}
 In the previous section we talked about backups that protect against member failure, so if one member goes down, another member takes over. But it does not protect you against cluster failure, e.g. when a datacenter goes down. Another problem we have not talked about is that we are keeping all the entries in the map in memory, and this is not always desirable. Luckily Hazelcast provides a solution for these problems by allowing to load and store data externally, e.g. in a database. This can be done using:

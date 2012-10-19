@@ -113,9 +113,7 @@ Hazelcast also provided control in the capacity, but instead of having a fixed c
 
 To give our queue a capacity of 10 per member, we add the following to our hazelcast.xml file:
 \begin{lstlisting}
-<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config hazelcast-config-2.3.xsd"
-           xmlns="http://www.hazelcast.com/schema/config"
-           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<hazelcast>
     <network>
         <join>
             <multicast enabled="true"/>

@@ -11,8 +11,8 @@
     </description>
 
     <parent>
-        <groupId>book.hazelcast</groupId>
-        <artifactId>book-hazelcast</artifactId>
+        <groupId>book.hazelcast.distributed-services</groupId>
+        <artifactId>chapter-distributed-services</artifactId>
         <version>0.1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>

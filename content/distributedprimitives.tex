@@ -183,9 +183,7 @@ public class SemaphoreMember {
 \end{lstlisting}
 We want to limit the concurrent access to the resource by allowing for at most 3 thread. We do this by configuring the initial-permits for the semaphore though the Hazelcast config file:
 \begin{lstlisting}[language=xml]
-<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config hazelcast-config-2.3.xsd"
-           xmlns="http://www.hazelcast.com/schema/config"
-           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<hazelcast>
     <network>
         <join>
             <multicast enabled="true"/>

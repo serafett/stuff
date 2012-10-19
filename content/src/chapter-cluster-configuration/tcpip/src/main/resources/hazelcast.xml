@@ -1,13 +1,11 @@
-<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config hazelcast-config-2.3.xsd"
+<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config
+                               http://www.hazelcast.com/schema/config/hazelcast-config-2.4.xsd"
            xmlns="http://www.hazelcast.com/schema/config"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <network>
         <join>
-
             <multicast enabled="false"/>
-
             <tcp-ip enabled="true">
-
                 <interface>192.168.1.100</interface>
             </tcp-ip>
         </join>

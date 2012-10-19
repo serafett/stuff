@@ -1,6 +1,8 @@
-<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config hazelcast-config-2.3.xsd"
+<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config
+                               http://www.hazelcast.com/schema/config/hazelcast-config-2.4.xsd"
            xmlns="http://www.hazelcast.com/schema/config"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
     <network>
         <join>
             <multicast enabled="true"/>
@@ -8,7 +10,8 @@
     </network>
 
     <executor-service name="executor">
-        <max-pool-size>1</max-pool-size>
         <core-pool-size>1</core-pool-size>
+        <max-pool-size>1</max-pool-size>
+        <keep-alive-seconds>10</keep-alive-seconds>
     </executor-service>
 </hazelcast>

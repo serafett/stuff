@@ -76,10 +76,7 @@ public class MasterMember {
 \end{lstlisting}
 First we retrieve the executor from the HazelcastInstance and then we slowly submit 1000 echo tasks. By default Hazelcast configures the executor to have 40 threads in the pool per member. For our example we only want a single thread per executor per member, so we configure it in the hazelcast.xml like this:
 \begin{lstlisting}[language=xml]
-<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config
-            hazelcast-config-2.0.xsd"
-           xmlns="http://www.hazelcast.com/schema/config"
-           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<hazelcast>
     <executor-service name="executor">
         <max-pool-size>1</max-pool-size>
         <core-pool-size>1</core-pool-size>
@@ -120,10 +117,7 @@ When you scale up you need to look carefully at the JVM if it can handle the add
 
 Scaling up the ExecutorService in Hazelcast is very simple, just increment the maxPoolSize and corePoolSize. Since we know that having 5 threads is going to give maximum performance, lets set them to 5.
 \begin{lstlisting}[language=xml]
-<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config
-            hazelcast-config-2.0.xsd"
-           xmlns="http://www.hazelcast.com/schema/config"
-           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<hazelcast>
     <network>
         <join><multicast enabled="true"/></join>
     </network>
@@ -157,7 +151,7 @@ As you can see, the tasks are being processed as quickly as they are being produ
 
 If you take a closer look at the previous hazelcast configuration, you saw that we configured the max-pool-size and the core-pool-size to be 5. The core-pool-size is the minimal size of the thread pool, even if there is nothing to do. But in some cases you want to have a thread pool with a dynamic size since threads (even if they are not running) consume memory. So if you want a pool that increases size when there is a lot of work to do and decreases size when there is not much work to do, you can configure the max-pool-size to be bigger than the core-pool-size. Example:
 \begin{lstlisting}[language=xml]
-<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config
+<hazelcast>
      ...  
     <executor-service name="executor">
         <core-pool-size>1</core-pool-size> 
