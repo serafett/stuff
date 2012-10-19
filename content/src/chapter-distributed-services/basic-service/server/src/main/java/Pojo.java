@@ -5,12 +5,12 @@ import com.hazelcast.core.HazelcastInstance;
 public class Pojo implements HazelcastInstanceProvider {
 
     @Exposed
-    public final CustomerService customerService;
+    public final EmployeeService employeeService;
     private final HazelcastInstance hzInstance;
 
     public Pojo(HazelcastInstance hzInstance) {
         this.hzInstance = hzInstance;
-        this.customerService = new CustomerServiceImpl(hzInstance);
+        this.employeeService = new EmployeeServiceImpl(hzInstance);
     }
 
     @Override

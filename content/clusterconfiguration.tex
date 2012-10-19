@@ -63,7 +63,7 @@ A very minimalistic multicast configuration is the following:
 \end{lstlisting}
 
 If you start one node, you will see output like this:
-\begin{verbatim}
+\begin{lstlisting}
 Sep 5, 2012 6:39:31 PM com.hazelcast.impl.AddressPicker
 INFO: Prefer IPv4 stack is true.
 Sep 5, 2012 6:39:31 PM com.hazelcast.impl.AddressPicker
@@ -83,11 +83,11 @@ Members [1] {
 
 Sep 5, 2012 6:39:34 PM com.hazelcast.impl.LifecycleServiceImpl
 INFO: [10.37.129.2]:5701 [dev] Address[10.37.129.2]:5701 is STARTED
-\end{verbatim}	
+\end{lstlisting}	
 
 As you can see the node is started and currently the cluster only has a single member. If you start another node on the same machine, on the console of the first node the following will be added to the output:
 
-\begin{verbatim}
+\begin{lstlisting}
 Sep 5, 2012 6:39:38 PM com.hazelcast.nio.SocketAcceptor
 INFO: [10.37.129.2]:5701 [dev] 5701 is accepting socket connection from /10.37.129.2:64916
 Sep 5, 2012 6:39:38 PM com.hazelcast.nio.ConnectionManager
@@ -99,10 +99,10 @@ Members [2] {
     Member [10.37.129.2]:5701 this
     Member [10.37.129.2]:5702
 }
-\end{verbatim}	
+\end{lstlisting}	
 As you can see, the first node can see the second node. And if we look at the end of logging for the second node, we'll find something similar.
 
-\begin{verbatim}
+\begin{lstlisting}
 Members [2] {
     Member [10.37.129.2]:5701
     Member [10.37.129.2]:5702 this
@@ -110,7 +110,7 @@ Members [2] {
 
 Sep 5, 2012 6:39:45 PM com.hazelcast.impl.LifecycleServiceImpl
 INFO: [10.37.129.2]:5702 [dev] Address[10.37.129.2]:5702 is STARTED
-\end{verbatim}		
+\end{lstlisting}		
 
 After this point, we now have a 2 node Hazelcast cluster running on a single machine. Try creating another few nodes. And you can of course also try to connect multiple nodes over a network;
 
@@ -242,7 +242,7 @@ todo: password is optional, it defaults to 'drowssap'
 \end{verbatim}
 You can also set the groupName with Config API. JVM can host multiple Hazelcast instances (nodes). Each node can only participate in one group and it only joins to its own group, does not mess with others. Following code creates 3 separate Hazelcast nodes, h1 belongs to app1 cluster, while h2 and h3 are belong to app2 cluster.
 
-\begin{verbatim}
+\begin{lstlisting}
 Config configApp1 = new Config();
 configApp1.getGroupConfig().setName("app1");
 
@@ -252,7 +252,7 @@ configApp2.getGroupConfig().setName("app2");
 HazelcastInstance h1 = Hazelcast.newHazelcastInstance(configApp1);
 HazelcastInstance h2 = Hazelcast.newHazelcastInstance(configApp2);
 HazelcastInstance h3 = Hazelcast.newHazelcastInstance(configApp2);
-\end{verbatim}
+\end{lstlisting}
 
 \section{Specifying network interfaces}
 
@@ -284,16 +284,16 @@ When you enable partition grouping, Hazelcast presents two choices to configure 
 
 First one is to group nodes automatically using IP addresses of nodes, so nodes sharing same network interface will be grouped together.
 
-\begin{verbatim}
+\begin{lstlisting}
 <partition-group enabled="true" group-type="HOST_AWARE" />
 Config config = ...;
 PartitionGroupConfig partitionGroupConfig = config.getPartitionGroupConfig();
 partitionGroupConfig.setEnabled(true).setGroupType(MemberGroupType.HOST_AWARE);
-\end{verbatim}
+\end{lstlisting}
 
 Second one is custom grouping using Hazelcast's interface matching configuration. This way, you can add different and multiple interfaces to a group. You can also use wildcards in interface addresses.
 
-\begin{verbatim}
+\begin{lstlisting}
 <partition-group enabled="true" group-type="CUSTOM">
     <member-group>
         <interface>10.10.0.*</interface>
@@ -320,7 +320,7 @@ memberGroupConfig2.addInterface("10.10.10.10-100")
 
 partitionGroupConfig.addMemberGroupConfig(memberGroupConfig);
 partitionGroupConfig.addMemberGroupConfig(memberGroupConfig2);
-\end{verbatim}
+\end{lstlisting}
 
 \section{Network Partitioning (Split-Brain Syndrome)}
 
