@@ -11,12 +11,12 @@ public class Server {
     }
     public static class Pojo implements HazelcastInstanceProvider {
         @Exposed
-        public final EmployeeService employeeService;
+        public final PersonService personService;
         private final HazelcastInstance hzInstance;
 
         public Pojo(HazelcastInstance hzInstance) {
             this.hzInstance = hzInstance;
-            this.employeeService = new EmployeeServiceImpl(hzInstance);
+            this.personService = new PersonServiceImpl(hzInstance);
         }
         public HazelcastInstance getHazelcastInstance() {
             return hzInstance;

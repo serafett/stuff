@@ -5,15 +5,14 @@ import com.hazelcast.core.*;
 import java.util.UUID;
 public class Client {
     public static void main(String[] args) {
-        Config config = new Config();
-        config.setLiteMember(true);
+        Config config = new Config().setLiteMember(true);
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(config);
         ProxyProvider proxyProvider = new ProxyProviderImpl(hzInstance);
-        EmployeeService employeeService = proxyProvider.getProxy(EmployeeService.class);
+        PersonService personService = proxyProvider.getProxy(PersonService.class);
         String id = UUID.randomUUID().toString();
-        employeeService.create(id,"foo");
-        Employee e = employeeService.get(id);
-        System.out.println("Created: "+e);
+        personService.create(id, "foo");
+        Person p = personService.get(id);
+        System.out.println("Created: "+p);
         System.exit(0);
     }
 }

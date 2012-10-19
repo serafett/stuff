@@ -1,40 +1,52 @@
 \chapter{Distributed Services}
-Although Hazelcast is an excellent datagrid, one of the things I found missing was the ability to have 
-\begin{enumerate}
-\item: transparent remote interface
-\item: the ability 
-\end{enumerate}
+Although Hazelcast is an excellent datagrid, one of the things I found missing was the ability to have transparently remote interfaces, similar as with RMI. So you can call an interface, which acts as a proxy and forwards the call to the right machine. That is why I started the Hazelblast project: https://github.com/pveentjer/Hazelblast that takes care of this.
 
-That is why project was started Hazelcast.
-
-Image we have an EmployeeService where we can create new employees and retrieve them based on an id. So the interface would look something like:
+Image we have an PersonService where we can create new persons and retrieve them based on an id. So the interface would look something like:
 \begin{lstlisting}[language=java]
-public interface EmployeeService {
+public interface PersonService {
     void create(String id, String name);
     Employee get(String id);
 }
+
+import java.io.Serializable;
+public class Person implements Serializable {
+    public final String name;
+    public final String id;
+    public Person(String id, String name) {
+        this.id = id;
+        this.name = name;
+    }
+    public String toString() {
+        return String.format("Person(id=%s,name=%s)",id,name);
+    }
+}
 \end{lstlisting}
-One of the main features of Hazelblast is that clients can call interfaces to distributed services; where the actual service implementation is living on a different JVM. To make the EmployeeService a distributed service, we do the following: 
+
+To allow the PersonService to be used in Hazelblast as a remote service, we need to do some modifications:
 \begin{lstlisting}[language=java]
 import com.hazelblast.client.annotations.*;
 @DistributedService
-public interface EmployeeService {
+public interface PersonService {
     @Partitioned
     void create(@PartitionKey String id, String name);
     @Partitioned
-    Employee get(@PartitionKey String id);
+    Person get(@PartitionKey String id);
 }
 \end{lstlisting}
-As you can see the changes are small, but very important. First we added the @DistributedService annotation, to indicate that this is a distributed service. And you can also see that we @Partitioned annotation to the methods. This is to indicate that routing is done based on partitioning. Another thing we can see is that the @PartitionKey is added to the 'id' arguments. This is needed to indicate to the routing, that partitioning is done based on this particular id. This is very useful, since on the server side we are going to store employees based on their id, so we immediately send to request to the right machine. 
+As you can see the changes are small, but very important. First we added the @DistributedService annotation, to indicates that PersonService is a distributed service. You can also see that we @Partitioned annotation to the methods. This is to indicate that routing is done based on partitioning. And the last change is that the @PartitionKey is added to the 'id' arguments of the partitioned method. This is needed to indicate to the routing, that partitioning is done based on id. This is very important, since on the server side we are going to store persons based on their id, so we want to send the request to the right member. 
 
-A client of the EmployeeService can get hold of an instance using the ProxyProvider:
+In some cases you don't want to route on the partition key argument itself but you want to route on a specific field. For example you want to route on the id of the Person object. This is possibly by either letting the Person implement HazelcastInstanceAware and returning real partition key, or by specifying the 'property' on the @PartitionKey. When this property is specified, first an accessor method is tried and if that doesn't exist than direct field access is done.
+
+A client of the PersonService can get hold of an instance using the ProxyProvider:
 \begin{lstlisting}[language=java]
   ProxyProvider proxyProvider = new ProxyProviderImpl(hzInstance);
-  EmployeeService employeeService = proxyProvider.getProxy(EmployeeService.class);
+  PersonService personService = proxyProvider.getProxy(PersonService.class);
 \end{lstlisting}
-The proxyProvider returns an proxy that implements the EmployeeService interface that routes requests to the right member based on the routing information we declared in the interface. Internally the Hazelcast Executor is used for this. Because the client can work with a simple interface, the complexities of remote calls are not intrusive in the code; although remoting still exists behind the scenes. The proxy also takes care of retrying in case of a member failure. 
+The proxyProvider returns an proxy that implements the EmployeeService interface that routes requests to the right member based on the routing information we declared in the interface and internally relies on the Hazelcast Executor. 
 
-So finish the client example; imagine that we have a client that creates an employee and then gets it and prints it. The code would look something like this:
+Because the client can work with a simple interface, the complexities of remote calls are not intrusive in the code; although remoting still exists behind the scenes. So watch out for doing a lot of small calls because you don't want to have a chatty application. The proxy takes care of retrying in case of a member failure and is threadsafe, so can safely be shared between threads. 
+
+To complete the client side of the example; imagine that we have a client that creates an employee and then gets it and prints it. The code would look something like this:
 \begin{lstlisting}[language=java]
 import com.hazelblast.client.ProxyProvider;
 import com.hazelblast.client.impl.ProxyProviderImpl;
@@ -43,45 +55,41 @@ import com.hazelcast.core.*;
 import java.util.UUID;
 public class Client {
     public static void main(String[] args) {
-        Config config = new Config();
-        config.setLiteMember(true);
+        Config config = new Config().setLiteMember(true);
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(config);
         ProxyProvider proxyProvider = new ProxyProviderImpl(hzInstance);
-        EmployeeService employeeService = proxyProvider.getProxy(EmployeeService.class);
+        PersonService personService = proxyProvider.getProxy(PersonService.class);
         String id = UUID.randomUUID().toString();
-        employeeService.create(id,"foo");
-        Employee e = employeeService.get(id);
-        System.out.println("Created: "+e);
+        personService.create(id, "foo");
+        Person p = personService.get(id);
+        System.out.println("Created: "+p);
         System.exit(0);
     }
 }
 \end{lstlisting}
-If you want to use Sprint on the client side to wire up the EmployeeService, I would suggest creating some FactoryBean that has access to a HazelcastInstance and creates a proxy using the ProxyProvider.
+If you want to use Spring on the client side to wire up the PersonService, I would suggest creating some FactoryBean that has access to a HazelcastInstance and ProxyProvider.
 
-tip: create a separate module where the interace is defined.. and share them between client/server
-
-And on the Server it can be implemented like this:
+After creating the interface and the client, we still need to implement the PersonService for the server side. Luckily this is very straight forward:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.HazelcastInstance;
 import java.util.Map;
-public class EmployeeServiceImpl implements EmployeeService {
-    private final Map<String, Employee> customerMap;
-    public EmployeeServiceImpl(HazelcastInstance hzInstance) {
-        this.customerMap =hzInstance.getMap("customers");
+public class PersonServiceImpl implements PersonService {
+    private final Map<String, Person> personMap;
+    public PersonServiceImpl(HazelcastInstance hzInstance) {
+        this.personMap =hzInstance.getMap("persons");
     }
     public void create(String id, String name) {
-        Employee e = new Employee(id, name);
-        customerMap.put(e.id, e);
-        System.out.printf("Employee %s with id %s and name %s created\n",
-                name, e.id, name);
+        Person e = new Person(id, name);
+        personMap.put(e.id, e);
     }
-    public Employee get(String id) {
-        return customerMap.get(id);
+    public Person get(String id) {
+        return personMap.get(id);
     }
 }
 \end{lstlisting}
+The person are stored in the employeeMap with the id as key. 
 
-Apart from having the EmployeeServiceImpl, we also need to wire it up. This can be done using the SliceServer. Each SliceServer services a slice (so a set of all services running on a member).
+Apart from having the PersonServiceImpl, we also need to wire it up on the server. This can be done using the SliceServer. Each SliceServer services a slice (so a set of all services running on a member).
 \begin{lstlisting}[language=java]
 import com.hazelblast.server.*;
 import com.hazelblast.server.pojoslice.*;
@@ -96,12 +104,12 @@ public class Server {
     }
     public static class Pojo implements HazelcastInstanceProvider {
         @Exposed
-        public final EmployeeService employeeService;
+        public final PersonService personService;
         private final HazelcastInstance hzInstance;
 
         public Pojo(HazelcastInstance hzInstance) {
             this.hzInstance = hzInstance;
-            this.employeeService = new EmployeeServiceImpl(hzInstance);
+            this.personService = new PersonServiceImpl(hzInstance);
         }
         public HazelcastInstance getHazelcastInstance() {
             return hzInstance;
@@ -121,7 +129,7 @@ The API module can then be shared with clients without them needing to rely on t
 \section{Distributing non distributable objects}
 
 \section{Load Balancing}
-In the EmployeeExample we rely on partitioning the route a request to the correct machine. But sometimes you don't care where a request is routed to, as long as it is routed. For these situation the @LoadBalanced annotation can be used. For example, we have some kind of Echo Service, where an echo is send to an arbitrary element in the cluster:
+In the PersonService we rely on partitioning the route a request to the correct machine. But sometimes you don't care where a request is routed to, as long as it is send to some machine. For these situations there is a different routing mechanism available that relies on load balancing. To use it, add the @LoadBalanced annotation. For example, we have some kind of Echo Service, where an message is send to an arbitrary member in the cluster:
 \begin{lstlisting}[language=java]
 import com.hazelblast.client.annotations.*;
 @DistributedService
@@ -130,15 +138,15 @@ public interface EchoService {
     void echo(String text);
 }
 \end{lstlisting}
-By default a RoundRobinLoadBalancer implementation is used, but you can create your own. You could for example create one that loadbalances based on heap/cpu load of the members. 
+By default a RoundRobinLoadBalancer implementation is used, but you can create your own by specifying the loadBalancer property on the @LoadBalanced annotation. You could for example create one that loadbalances based on heap/cpu load of the members. 
 
 In the future other routing mechanisms are going to be added; the most important one is the @ForkJoin that forks a request to all partitions and merges the results.
 
 \section{DTO}
-The Person object that is returned by the EmployeeService is a very basic object that is used for client/server communication, and also used internally in the EmployeeServiceImpl. In practice your objects are going to be a lot more complex. That prevent a tight coupling between the client and the server, we don't want the client to know about implementation details on the server, it is best to create Data Transfer Objects. In a lot of cases the will look a lot like the domain objects used inside of the service implementation, but they are designed to be exposed and go over the line. 
+The Person object that is returned by the PersonService is a very basic object that is used for client/server communication, and also used internally in the PersonServiceImpl. In practice your objects are going to be a lot more complex. That prevent a tight coupling between the client and the server, we don't want the client to know about implementation details on the server, and therefor we don't want to expose our domain objects to the clients. Therefor it is best to create a Data Transfer Object (DTO). In a lot of cases they will look a lot like the domain objects, but they are designed to be exposed and go over the line. 
 
 \section{Timeout}
-By default all remote method are called with a timeout of 60 seconds. When the timeout happens, a DistributedMethodTimeoutException is thrown. The timeout can be configured using the timeout argument on the @LoadBalanced or @Partitioned annotation. By default also task on the server is interrupted, although it depends on that task if the Thread will listen to its interrupt status. Turning off this interrupt behavior, can be done using the 'interruptOnTimeout' attribute on the @LoadBalanced and @Partitioned annotation.
+By default all remote method are called with a timeout of 60 seconds. When the timeout happens, a DistributedMethodTimeoutException is thrown. The timeout can be configured using the timeout argument on the @LoadBalanced or @Partitioned annotation. By default task executing the remote method invocation will be interrupted, although it depends on that task of course it is responsive to the interrupt status. If you do not want this task to be interrupted, you can set the 'interruptOnTimeout' attribute on the @LoadBalanced and @Partitioned annotation.
 
 \section{Exceptions}
 With an interface that implements the @DistributedService you are not forced to have the methods throw certain exceptions. That would bring back nasty memories from RMI. So you can declare any exception, checked or unchecked, on your methods. 

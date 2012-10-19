@@ -1,8 +1,8 @@
 import com.hazelblast.client.annotations.*;
 @DistributedService
-public interface EmployeeService {
+public interface PersonService {
     @Partitioned
     void create(@PartitionKey String id, String name);
     @Partitioned
-    Employee get(@PartitionKey String id);
+    Person get(@PartitionKey String id);
 }
