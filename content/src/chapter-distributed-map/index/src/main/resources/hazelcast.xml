@@ -10,4 +10,5 @@
             <index ordered="false">name</index>
         </indexes>
     </map>
+
 </hazelcast>

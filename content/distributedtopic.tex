@@ -1,7 +1,7 @@
 \chapter{Distributed Topic}
-In the previous chapter we talked about the BlockingQueue, which can be used to create point to point message solutions. In such a solution each message will be processed by a single consumer. An alternative approach is the publish/subscribe mechanism, where a single message can be processed by multiple subscribers.
+In the 'Distributed Collections' chapter we talked about the IQueue, which can be used to create point to point message solutions. In such a solution each message will be processed by a single consumer. An alternative approach is the publish/subscribe mechanism, where a single message can be processed by an arbitrary number of subscribed consumers.
 
-Hazelcast provides a publish/subscribe mechanism in the form of the com.hazelcast.core.ITopic. It is a distributed mechanism for publishing messages to multiple subscribers. Any number of members can publish messages to a topic and any number of members can receive messages on the topics they are subscribed to. And luckily the message can be an ordinary POJO, although it must be serializable. 
+Hazelcast provides a publish/subscribe mechanism in the form of the com.hazelcast.core.ITopic. It is a distributed mechanism for publishing messages to multiple subscribers. Any number of members can publish messages to a topic and any number of members can receive messages from the topics they are subscribed to. The message can be an ordinary POJO, although it must be serializable since it needs to go over the network.
 
 I'll show how the distributed topic works based on a very simple example; there is a single topic that is shared between a publisher and a subscriber. The publisher publishes the current date on the topic:
 \begin{lstlisting}[language=java]
@@ -16,7 +16,7 @@ public class PublisherMember {
     }
 }
 \end{lstlisting}
-And the subscriber acquires the same topic and adds a MessageListener so that is is subscribed to the topic:
+And the subscriber acquires the same topic and adds a MessageListener to subscribe itself to the topic:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
 import java.util.*;
@@ -34,20 +34,30 @@ public class SubscribedMember {
     }
 }
 \end{lstlisting}
-We first start up the subscriber, and we'll see: "Subscribed" in the console. After we start the publisher, and it has published the message "Published", the subscriber will output something like:
+We first start up the subscriber, and we'll see: "Subscribed" in the console. Then we start the publisher, and after it has published the message "Published", the subscriber will output something like:
 \begin{lstlisting}
-Received: Sat Sep 30 13:05:24 EEST 2012
+Received: Sat Oct 30 13:05:24 EEST 2012
 \end{lstlisting}
-To make it a bit more interesting, you can up multiple subscribed members. If you run the publisher again, all subscribers will receiving the same published message.
+To make it a bit more interesting, you can start multiple subscribers. If you run the publisher again, all subscribers will receiving the same published message.
 
-TODO:globalOrderingEnabled
+In the 'SubscribedMember' example we programmatically subscribe to a topic. But you can move this responsibility to the  Hazelcast configuration file:
+\begin{lstlisting}[language=xml]
+<hazelcast>
+    ...
+    <topic name="topic">
+        <message-listeners>
+            <message-listener>MessageListenerImpl</message-listener>
+        </message-listeners>
+    </topic>
+</hazelcast>
+\end{lstlisting}
 
 \section{Scaling up the MessageListener}
-When a message is send to a topic, it is immediately send to each member that has registered itself as message-listener. On each member there is a single 'event' ThreadPoolExecutor (by default 16 threads, but can be configured through setting the Hazelcast property 'hazelcast.executor.event.thread.count'). Each worker-thread will have its own work-queue and when a message is send, it is wrapped in a runnable and send to the correct work-queue using a hash based on the topic and the member that published the message.
+When a message is published to a topic, it is immediately send to each subscribed member. On each member there is a single 'event' ThreadPoolExecutor that calls the MessageListener(s). By default this ThreadPoolExecutor contains 16 threads, but can be configured by setting the Hazelcast property 'hazelcast.executor.event.thread.count'. Each worker-thread will have its own work-queue and when a message is send, it is wrapped in a runnable and send to the correct work-queue using a hash based on the topic name and the member that published the message.
 
-This guarantees that messages are delivered in order because all messages from the same source are processed by the same thread. The ordering guarantee ensures that message listeners will receive the messages in the order they are published. If cluster member M publishes messages m1, m2, m3...mn to a topic T, then Hazelcast makes sure that all of the subscribers of topic T will receive and process m1, m2, m3...mn in order. 
+This guarantees that messages published by some member on some topic are delivered in order because they are processed by the same thread. The ordering guarantee ensures that message listeners will receive the messages in the order they are published. If cluster member M publishes messages m1, m2, m3...mn to a topic T, then Hazelcast makes sure that all of the subscribers of topic T will receive m1, m2, m3...mn in order. 
 
-In practice it could be you don't need this strict ordering and then it will become a bottleneck. If message ordering isn't important you can offload the processing to another executor with more than one thread, e.g.:
+In practice it could be you don't need this strict ordering and it could become a bottleneck. If message ordering isn't important you can offload the processing to an ordinary executor that is configured with multiple threads e.g.:
 \begin{lstlisting}[language=java]
     private final static Executor executor = Executors.newFixedThreadPool(10);       
     private static class MessageListenerImpl implements MessageListener<Date> {
@@ -61,13 +71,19 @@ In practice it could be you don't need this strict ordering and then it will bec
         }
     } 
 \end{lstlisting}
-This can greatly boost the processing capacity since messages can now be processed in parallel.
+This can greatly boost the processing capacity since messages from some member to some topic can now be processed in parallel.
 
 \section{Gotcha's}
 
-\emph{No processing guarantee} is provided on the messages. If a member that hosts one or more messagelisteners fails, all unprocessed messages for these message listener will be lost.
-
 \emph{Not transactional}. The ITopic is not transactional, so be careful when it is used inside a transaction.
 
+\emph{No garbage collection} for the topics. So as long as the topics are not destroyed, they will be managed by Hazelcast and this can eventually lead to memory issues. One way to solve it is by periodically iterating over all topics, retrieving the local statistics and checking if there is a difference in the number of messages processed compared to the previous check. If there is, publish a a new timestamp (see Cluster.getClusterTime) in a Hazelcast map (where the topic name can be the key). If there is no change, retrieve the timestamp from the map and if the difference is too big, the topic can be destroyed.
+
+\emph{No durable subscriptions} are possible; so a subscriber will not receives the messages that have been send while it was offline.
+
+\emph{No metadata} is available on the message like timestamp or an address to reply to. But this can be solved since the message object is an ordinary POJO and this metadata can be added.
+
+\emph{Unexpected contention}. The executor that executes the MessageListeners uses a queue per worker thread, but it can happen that unrelated topic end up in the same queue. If the thread for that queue is busy with processing messages for other topics, message will not be processed even though there are processing threads available. Perhaps in the future the normal ThreadPoolExecutor will be replaced by the ForkJoinPool to solve this problem.
+
 \section{What is next}
-In this chapter we have seen the ITopic. From a high level there is some overlap with JMS, but the provided functionality is much more limited. On the other side, the ITopic is extremely easy to use and doesn't require message brokers to be running.
+In this chapter we have seen the ITopic. From a high level there is some overlap with JMS, but the provided functionality is limited. On the other side, the ITopic is extremely easy to use, scalable and doesn't require message brokers to be running.
