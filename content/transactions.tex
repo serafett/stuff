@@ -6,7 +6,7 @@ Till so far the examples didn't contain any transactions, but transactions can m
 \item Isolation: the transaction should behave as if it was the only transaction running. Normally there are all kinds of isolation levels that allow certain anomalies to happen.
 \item Durability: makes sure that if a system crashes after a transaction commits, that nothing gets lost. 
 \end{enumerate}
-Hazelcast provides a transaction api if we need it. The Hazelcast transaction work with the Hazelcast Queue, Map, MultiMap, Set and List. A transaction is bound to the current thread using a ThreadLocal and can be retrieved by calling HazelcastInstance.getTransaction(). If a transaction is not bound to the current thread, a new unstarted transaction is returned and otherwise the existing transaction is returned. The transaction needs to be started with the begin() method, is aborted using the rollback() method and is committed using the commit() method. When the transaction is committed, rolled back or timed out, it will be unbound from its owning thread.
+Hazelcast provides a transaction api that can be enabled when we need it. The Hazelcast transaction work with the Hazelcast Queue, Map, MultiMap, Set and List. A transaction is bound to the current thread using a ThreadLocal and can be retrieved by calling HazelcastInstance.getTransaction(). If a transaction is not bound to the current thread, a new unstarted transaction is returned and otherwise the existing transaction is returned. The transaction needs to be started with the begin() method, is aborted using the rollback() method and is committed using the commit() method. When the transaction is committed, rolled back or timed out, it will be unbound from its owning thread.
 
 Underneath you can find an example of the transaction api in practice:
 \begin{lstlisting}[language=java]
@@ -32,29 +32,30 @@ public class PutWithTransaction {
 As you can see using a transaction is quite simple.
 
 \section{Transaction Isolation}
-The Hazelcast transaction provides a READ-COMMITTED [latex problem] isolation level [verify that it is actually repeatable read isolation level], so you will always see data that has been committed and therefor no dirty read is possible. 
+The Hazelcast transaction provides a READ\_COMMITTED isolation level [verify that it is actually repeatable read isolation level and not READ\_COMMITTED], so you will always see data that has been committed and therefor no dirty read is possible. 
 
-The Hazelcast transaction supports RYW consistency, meaning that when a transaction makes an update and later reads that data, it will see its own updates. Of course other transactions are not able to see these uncommitted changes, else they would suffer from dirty reads.
+The Hazelcast transaction supports Read Your Writes (RYW) consistency, meaning that when a transaction makes an update and later reads that data, it will see its own updates. Of course other transactions are not able to see these uncommitted changes, else they would suffer from dirty reads.
 
 \section{Locking}
-It is important to understand how the locking within Hazelcast transaction work; if a transaction is used and a key is read or written, the map will automatically lock the entry for that key. Other threads that use a transaction are not able to use the map entry for that key since they also automatically acquire the lock when they do a read/write. If within a transaction a lock can't be acquired, this operation will timeout after 30 seconds and throws an OperationTimeoutException. This timeout provides protection against deadlocks to a certain extend.
+It is important to understand how the locking within Hazelcast transactions work; if a transaction is used and a key is read or written, the map will automatically lock the entry for that key. Other transactions are not able to use that map entry since they also automatically acquire the lock when they do a read/write. If within a transaction a lock can't be acquired, the operation will timeout after 30 seconds and throws an OperationTimeoutException. This timeout provides protection against deadlocks to a certain extend.
 
-If you want more control on lock timeouts, you could acquire the locks manually with a custom timeout before using the key. Because more locking is going on, especially if transactions are used, one thing you need to look out for is contention. Threads that don't use a transaction, are still able to read locked keys but are not able to acquire the lock, and therefor are not able to do a write. Another thing you need to look out for is manual unlocking of keys when transactions are used, because it leads to the commit failing with an IllegalStateException. 
+Threads that don't use a transaction, are still able to read locked keys but are not able to acquire the lock, and therefor are not able to do a write. Another thing you need to look out for is manual unlocking of keys when transactions are used, because it leads to the commit failing with an IllegalStateException. 
 
 When an change is made in a transaction, it is deferred till the commit. When the transaction is committed, the changes are applied and all locks are released. When a transaction is aborted, the locks are released and the changes are discarded.
 
-\emph{nested transactions} can be created by checking the transaction status immediately after the getTransaction() method is called. If it has status Transaction.TXN-STATUS-NO-TXN [latex], so a fresh transaction, then call begin() and eventually call commit() or rollback() on the transaction. A TransactionTemplate can help to reduce boiler plate code and an example can be found in the examples sources of this book. Also important to know is that because transactions can't be suspended, it isn't possible to support all transaction propagation levels like REQUIRES-NEW. 
+\section{Good to know}
 
-\section{Gotcha's}
+Nested transactions can be created by checking the transaction status immediately after the getTransaction() method is called. If it has status Transaction.TXN\_STATUS\_NO\_TXN, so a fresh transaction, then call begin() and eventually call commit() or rollback() on the transaction. A TransactionTemplate can help to reduce boiler plate code and an example can be found in the examples sources of this book. Also important to know is that because transactions can't be suspended, it isn't possible to support all transaction propagation levels like REQUIRES-NEW. 
+
 Hazelcast transactions can't be configured as readonly. Perhaps this will be added in the future.
 
 Hazelcast has no support for distributed transactions although the transactions themselves are distributed since they touch multiple members spanning multiple JVM's.
 
-TODO: Verify: Transaction is hazelcast are not perfect; if during transaction commit one of the participating nodes goes down, then the system could end up in an inconsistent state. So best effort. But this is the same safety you get when you rely on a distributed transaction that makes use of a 2 phase commit since there some of the cohorts could have started with the commit while others have not.
+[TODO: Verify] Transaction is hazelcast are not perfect; if during transaction commit one of the participating nodes goes down, then the system could end up in an inconsistent state. So best effort. But this is the same safety you get when you rely on a distributed transaction that makes use of a 2 phase commit since there some of the cohorts could have started with the commit while others have not.
 
 When transactions are used, some of the operations can throw a OperationTimeoutException [need to verify if this is the only exception, or perhaps jump to a higher exception like HazelcastException] if a resource can't be acquired within a certain timeout that need to be dealt with. These exceptions are not part of the API, e.g the Map.get.
 
-TODO: Verify: A transaction that doesn't cause data to leave the member, can be optimized. Is there any synchronous remoting going on? So from a performance point of view it is best if you can partition all data in such a way that all data used in the transaction is local. [todo] reference to 
+[TODO: Verify] A transaction that doesn't cause data to leave the member, can be optimized. Is there any synchronous remoting going on? So from a performance point of view it is best if you can partition all data in such a way that all data used in the transaction is local. 
 
 \section{What is next}
 In this chapter we saw how to use transactions. You can also use Hazelcast transactions in JEE application using the JEE integration; see "J2EE Integration" in the Hazelcast manual for more information.
