@@ -1,6 +1,6 @@
 \chapter{Distributed Primitives}
 
-If you have programmed in Java you have probably worked with concurrency primitives like the synchronized statement (the intrinsic lock) or perhaps even the new concurrency library that was introduced in Java 5 under java.util.concurrent like the Executor, Lock and AtomicReference. And with every new release of Java all kinds of new functionality is added like the Fork/Join framework in Java 7.
+If you have programmed in Java you have probably worked with concurrency primitives like the synchronized statement (the intrinsic lock) or perhaps even the concurrency library that was introduced in Java 5 under java.util.concurrent like the Executor, Lock and AtomicReference. And with every new release of Java all kinds of new functionality is added, like the Fork/Join framework in Java 7.
 
 This concurrency functionality is useful if you want to write a Java application that use multiple threads. The focus of this functionality however is to provide concurrency abstractions to be used in a single JVM, although you can always connect multiple JVM's together either using raw sockets or a more higher level remoting library (RMI, Servlets etc)
 
@@ -18,9 +18,7 @@ In this chapter the following distributed primitives will be explained:
 \item IdGenerator
 \end{enumerate}
 \section{AtomicNumber}
-The AtomicNumber is the distributed version of the java.util.concurrent.atomic.AtomicLong, so if you have used it before, working with the AtomicNumber should feel very similar. The main difference is the way it is created.
-
-The AtomicNumber exposes most of the operations the AtomicLong provides like get, set, getAndSet, compareAndSet and incrementAndGet, there is of course a big difference in performance since remote calls are involved.
+The AtomicNumber is the distributed version of the java.util.concurrent.atomic.AtomicLong, so if you have used that before, working with the AtomicNumber should feel very similar. The main difference is the way it is created. The AtomicNumber exposes most of the operations the AtomicLong provides like get, set, getAndSet, compareAndSet and incrementAndGet, there is of course a big difference in performance since remote calls are involved.
 
 We'll demonstrate the AtomicNumber by creating an instance and incrementing it one million times:
 \begin{lstlisting}[language=java]
@@ -50,21 +48,21 @@ If you run multiple instances of this member, then the total count should be equ
 
 The AtomicNumbers is very useful in lock free algorithms, although you need to take care that uncontrolled repeating can lead to live-locking; the system is appears to do something since no progress is made, but in reality it is only burning cpu cycles and network resources. In most cases it is best to limit the number of retries and throw an exception when it is exceeded.
 
-If the AtomicNumber is a contention point in your system, there are a few ways of dealing with it depending on your requirements. One of the options it to create a stripe (essentially an array) of AtomicNumbers to reduce pressure; but this approach can't always be applied. Another options is to keep changes locally and only publish them to the AtomicNumber once and a while. There are a few downsides here; you could loose information if a member goes down and is that the newest value is not always immediately visible to the outside world. 
+If the AtomicNumber is a contention point in your system, there are a few ways of dealing with it depending on your requirements. One of the options it to create a stripe (essentially an array) of AtomicNumbers to reduce pressure; but this approach can't always be applied. Another options is to keep changes locally and only publish them to the AtomicNumber once and a while. There are a few downsides here; you could loose information if a member goes down and is that the newest value is not always immediately visible to the outside world. If you want to generate unique id's, you can should a look at the IdGenerator.
 
 Hazelcast only provides support for the long, but you can always simulate for other types:
 \begin{enumerate}
 \item boolean: 0 for true and 1 for false.
-\item double: a 64 bit double can be encoded into 64 bits, which can be stored in a long 
-      which is also 64 bits.
+\item double: a 64 bit double can be encoded into 64 bits, which can be stored in a long since is also 64 bits.
 \end{enumerate}
+There is no support for an Atomic reference, but if you need it you can build it on top of a Hazelcast map. The name of the reference could be the key and the value could be the reference. The Hazelcast IMap implements the ConcurrentMap interface, so you can lift on operations like replace(K key, V oldValue, V newValue) . 
 
 \section{Distributed Lock}
-A lock (also called a mutex) is a synchronization primitive that makes it possible that only a single thread is able to access to a critical section of code; if multiple threads at the same moment would access that critical section concurrently, you would get race problems. 
+A lock is a synchronization primitive that makes it possible that only a single thread is able to access to a critical section of code; if multiple threads at the same moment would access that critical section concurrently, you would get race problems. 
 
-Hazelcast provides a distributed lock implementation and makes it possible to create a critical section within a cluster of JVM's; so only a single thread from one of the JVM's in the cluster is allowed to acquire that lock. Other threads that want to acquire the lock, no matter if they are on the same JVM's or not, will not be able to acquire it and depending on the locking method they called, they either block or fail. The com.hazelcast.core.ILock; extends the java.util.concurrent.locks.Lock interface, so using the lock is quite simple.
+Hazelcast provides a distributed lock implementation and makes it possible to create a critical section within a cluster of JVM's; so only a single thread from one of the JVM's in the cluster is allowed to acquire that lock. Other threads that want to acquire the lock, no matter if they are on the same JVM's or not, will not be able to acquire it and depending on the locking method they called, they either block or fail. The com.hazelcast.core.ILock extends the java.util.concurrent.locks.Lock interface, so using the lock is quite simple.
 
-To show you how a race problem can be solved with a Hazelcast lock, I have created a small example containing a race problem.
+To show you how a race problem can be solved with a Hazelcast lock, I have created a small example containing a race problem:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
 public class RacyMember {
@@ -99,7 +97,7 @@ Datarace detected!
 Datarace detected!
 ...
 \end{lstlisting}
-The reason this race problem is occurring is that the writing and the reading of the 2 numbers is not placed in a critical section. With the Hazelcast distributed lock we can easily solve this problem:
+The reason this race problem is occurring is that the writing and the reading of the 2 numbers is not an atomic operations and should be placed in a critical section. With the Hazelcast distributed lock we can easily solve this problem:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
 public class RaceFreeMember {
@@ -134,7 +132,7 @@ When this code is executed; you will not see "Datarace detected!". This is becau
 
 A few things worth knowing about the Hazelcast lock and locking in general:
 \begin{enumerate}
-\item No Condition support: With the java.util.concurrent.locks.Lock it also is possible to create a java.util.concurrent.locks.Condition object to wait for a certain condition to happen; e.g. a custom made queue just received an element. Unfortunately the Condition functionality is not supported by Hazelcast at the moment.
+\item Condition is not supported. With the java.util.concurrent.locks.Lock it is possible to create a java.util.concurrent.locks.Condition object to wait for a certain condition to happen; e.g. a custom made queue just received an element. Unfortunately the Condition is not supported by Hazelcast at the moment.
 \item It is reentrant, so you can acquire it multiple times in a single thread without causing a deadlock, of course you need to release it as many times as you have acquired it, to make it available to other threads.
 \item Just like with the other Lock implementations, it should always be acquired outside of a try/finally block. Else it can happen that the lock acquire failed, but an unlock is still executed. 
 \item Fairness: TODO
@@ -146,6 +144,7 @@ A few things worth knowing about the Hazelcast lock and locking in general:
 \item there are no configuration options available for the lock
 \item it isn't possible to partition a lock; so to have it close to your other partitioned data.
 \end{enumerate}
+
 \section{ISemaphore}
 The semaphore is a classic synchronization aid that can be used to control the number of threads doing a certain activity concurrently, e.g. using a resource. Conceptually each semaphore has a number of permits, where each permit represents a single thread allowed to execute that activity concurrently. As soon as a thread want to start with the activity, it takes a permit (or waits until one becomes available) and once finished with the activity, the permit is returned.
 
