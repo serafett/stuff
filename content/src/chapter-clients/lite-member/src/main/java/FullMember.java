@@ -4,6 +4,6 @@ public class FullMember {
     public static void main(String[] args)throws Exception{
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
         BlockingQueue<String> queue = hzInstance.getQueue("queue");
-        System.out.println(queue.take());
+        for(;;)System.out.println(queue.take());
     }
 }

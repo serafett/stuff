@@ -10,7 +10,7 @@
     </network>
 
     <semaphore name="semaphore">
-        <initial-permits>0</initial-permits>
+        <initial-permits>3</initial-permits>
      </semaphore>
 
 </hazelcast>

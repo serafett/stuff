@@ -152,11 +152,11 @@ If you initialize the semaphore with a single permit, it looks a lot like a lock
 
 Hazelcast provides a distributed version of the java.util.concurrent.Semaphore named the com.hazelcast.core.ISemaphore. When a permit is acquired on the ISemaphore the following can happen:
 \begin{enumerate}
-\item a permit is available; the number of permits in the semaphore is decreased by one and the calling thread can continue. After that thread is finished with the activity, it should release the permit.
-\item no permit is available; the calling thread will block until a permit comes available, a timeout happens, the thread is interrupted or when the semaphore is destroyed an InstanceDestroyedException will be thrown.
+\item a permit is available. The number of permits in the semaphore is decreased by one and the calling thread can continue. 
+\item no permit is available. The calling thread will block until a permit comes available, a timeout happens, the thread is interrupted or when the semaphore is destroyed an InstanceDestroyedException will be thrown.
 \end{enumerate}
 
-I'll explain the semaphore with an example. To simulate a shared resource we have an AtomicNumber initialized with the value 0. We are going to use this resources 1000 times; a thread starts to use that resource it increments it and once completed it decrements it.
+I'll explain the semaphore with an example. To simulate a shared resource we have an AtomicNumber initialized with the value 0. This resource is going to used 1000 times, When a thread starts to use that resource it increments it and once completed it decrements it.
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
 public class SemaphoreMember {
@@ -180,20 +180,18 @@ public class SemaphoreMember {
     }
 }
 \end{lstlisting}
-We want to limit the concurrent access to the resource by allowing for at most 3 thread. We do this by configuring the initial-permits for the semaphore though the Hazelcast config file:
+We want to limit the concurrent access to the resource by allowing for at most 3 thread. This can be done by configuring the initial-permits for the semaphore in the Hazelcast config file:
 \begin{lstlisting}[language=xml]
 <hazelcast>
     <network>
-        <join>
-            <multicast enabled="true"/>
-        </join>
+        <join><multicast enabled="true"/></join>
     </network>
     <semaphore name="semaphore">
         <initial-permits>3</initial-permits>
     </semaphore>
 </hazelcast>
 \end{lstlisting}
-When we start the SemaphoreMember 5 times you will see output like this:
+When you start the SemaphoreMember 5 times you will see output like this:
 \begin{lstlisting}
 At iteration: 0
 Active Threads: 1
@@ -206,25 +204,24 @@ Active Threads: 3
 At iteration: 4
 Active Threads: 3
 \end{lstlisting}
-As you can see the maximum number of concurrent threads of that resource always is equal or smaller than 3. As an experiment you can remove the semaphore acquire/release statements and see for yourself that there is no longer control on the number of concurrent usages of the resources.
+As you can see the maximum number of concurrent threads using that resource always is equal or smaller than 3. As an experiment you can remove the semaphore acquire/release statements and see for yourself that there is no longer control on the number of concurrent usages of the resources.
 
 A few things worth knowing about the ISemaphore:
 \begin{enumerate}
-\item fairness: the Semaphore acquire methods are fair and this is not configurable. So under contention, the longest waiting thread for a permit will acquire it before all other threads. This is done to prevent starvation (threads not being able to acquire a permit) at the expense of reduced throughput.
-\item attach permits: one of the features added to the ISemaphore to make it more reliable in a distributed environment where failover is important, is the addition of attached permits. Normally when a permit is acquired, and the member that acquired the permit goes down, the permit is not released. The consequence is that the permit is lost and the maximum number of concurrent threads for a specific activity is reduced. It can even lead to a deadlock situation when the number of available permits reaches 0. With the attached permits, the permit is attached to a member, and when it goes down, the permit is automatically releases (similar as with the Hazelcast Lock).
+\item fairness: the Semaphore acquire methods are fair and this is not configurable. So under contention, the longest waiting thread for a permit will acquire it before all other threads. This is done to prevent starvation, at the expense of reduced throughput.
+\item attach permits: one of the features added to the ISemaphore to make it more reliable in a distributed environment where failover is important, is the addition of attached permits. Normally when a permit is acquired, and the member that acquired the permit goes down, the permit is not released. The consequence is that the permit is lost and the maximum number of concurrent threads for a specific activity is reduced. It can even lead to a deadlock situation when the number of available permits reaches 0. With the attached permits, the permit is attached to a member, and when it goes down, the permit is automatically released (similar as with the Hazelcast Lock).
 \item the acquire() method doesn't timeout, unlike the Hazelcast Lock.lock() method. To prevent running into a deadlock, using one of timed acquire methods is a good solution.
+\item the semaphore supports wildcard configuration (since Hazelcast 3), you can declare a family of semaphores in the Hazelcast config. 
 \end{enumerate}
 
 [TODO: Semaphore factory.]
-[TODO: Dynamic Semaphore creation.]
 
 \section{ICountDownLatch}
-The CountDownLatch was introduced in Java 1.5 and is a synchronization aid that makes it possible for threads to wait until a set of operations being performed in another thread  complete. Very simplistically; a CountDownLatch could be seen as a gate containing a counter; behind this gate threads can wait till the counter reaches zero. In my experience CountDownLatches often are used when you have some kind of processing operation, and you one or more threads that wait till this operation is completed so they can do their logic.
+The java.util.concurrent.CountDownLatch was introduced in Java 1.5 and is a synchronization aid that makes it possible for threads to wait until a set of operations, being performed in another thread, complete. Very simplistically; a CountDownLatch could be seen as a gate containing a counter; behind this gate threads can wait till the counter reaches zero. In my experience CountDownLatches often are used when you have some kind of processing operation, and one or more threads need to wait till this operation completes so they can execute their logic. In Hazelcast there also is a CountDownLatch; the org.hazelcast.core.ICountDownLatch.
 
-In Hazelcast there also is a CountDownLatch; the org.hazelcast.core.ICountDownLatch. The following example is made up by 2 parts; 1 part is the 'Leader'. It will create a latch and do a 'countdown' to release it:
-
-And we start a single leader, 
+The explain the ICountDownLatch, image that is a leader process that undertakes some action and eventually completes. And imagine that there are one or more follower processes that need to do something after the leader has completed. We can implement the behavior of the Leader and the Follower using the ICountDownLatch like this:
 \begin{lstlisting}[language=java]
+import com.hazelcast.core.*;
 public class Leader{
     public static void main(String[] args)throws Exception{
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
@@ -234,19 +231,14 @@ public class Leader{
         latch.setCount(1); 
         //do some sleeping to simulate doing something    
         Thread.sleep(5000);
-        //now we do a countdown which notifies all followers
+        //now we do a countdown to indicate we are ready
         latch.countDown();
         System.out.println("Leader finished");
         //we need to clean up the latch
         latch.destroy();
     }
 }
-\end{lstlisting}
 
-[TODO: What happens when the latch is destroyed before all the followers are notified?]
-
-And we also need followers; so Java applications that are going to wait for the latch to notify them:
-\begin{lstlisting}[language=java]
 public class Follower{
     public static void main(String[] args)throws Exception{
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null); 
@@ -257,32 +249,19 @@ public class Follower{
     }
 }
 \end{lstlisting}
-We can spawn as many of these waiters as you want, and all will be displaying:
+First we start a leader and then one or more followers. The followers need to wait till the leader completes, so their output will show:
 \begin{lstlisting}
 Waiting
 \end{lstlisting}
+Then we start 
+
 Once the leader counts down to zero, all followers will be notified and show the following output:
 \begin{lstlisting}
 Waiting
 Complete!
 \end{lstlisting}
-This example show a CountdownLatch with only a single 'step'. But if the process has n steps, initialize the CountdownLatch with n. In the following example a process that is made up of 2 steps is shown:
-\begin{lstlisting}[language=java]
-public class MultiStepLeader{
-    public static void main(String[] args)throws Exception{
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
-        ICountDownLatch latch = hzInstance.getCountDownLatch("countDownLatch");
-        latch.setCount(2);
-        Thread.sleep(60000); 
-        latch.countDown();
-        System.out.println("Leader completed first step");      
-        Thread.sleep(60000); 
-        latch.countDown();
-        System.out.println("Leader completed both steps");
-        latch.destroy();
-    }
-}
-\end{lstlisting}
+This example show a CountdownLatch with only a single 'step'. But if the process has n steps, initialize the CountdownLatch with n instead of 1.
+
 Although the ICountdownLatch is a very useful synchronization aid, it probably isn't one you will use on a daily basis.
 
 In practice you will probably not have all the countdown latches needed created up front. A way to deal with this is to let the 'Leader' create a ICountDownLatch when it starts with its steps, and send the id of this ICountdownLatch to all the followers. The followers can then retrieve the CountdownLatch by calling Hazelcast.getCountdownLatch(..).
@@ -293,7 +272,7 @@ Important: unlike Java's implementation, Hazelcast's ICountDownLatch count can b
 The Hazelcast member that successfully invokes setCount(int) becomes the owner of the countdown and is responsible for staying connected to the cluster until the count reaches zero. If the owner  becomes disconnected prior to count reaching zero all awaiting threads will be notified. This provides a safety mechanism in the distributed environment.
 
 \section{IdGenerator}
-In the previous section we introduced the AtomicNumber and one of the things it can be used for is to generated unique id's within a cluster. Although it will work, it probably isn't the most scalable solution since all member will content on incrementing the value. If you are only interested in id's and not in the order the id's are generated and don't care when there is a risk of skipping id's, you can have a look at the com.hazelcast.core.IdGenerator.
+In the beginning of this chapter we introduced the AtomicNumber and one of the things it can be used for is to generated unique id's within a cluster. Although it will work, it probably isn't the most scalable solution since all member will content on incrementing the value. If you are only interested in id's you can have a look at the com.hazelcast.core.IdGenerator.
 
 Underneath is a small example of the id generator:
 \begin{lstlisting}[language=java]
@@ -307,18 +286,18 @@ public class IdGeneratorMember {
     }
 }
 \end{lstlisting}
-If you start this multiple times, you will see in the console that there will not be any duplicate id's
+If you start this multiple times, you will see in the console that there will not be any duplicate id's.
 
-The way the IdGenerator works is that each member claims a segment of id's to generate, e.g. 0..999999. This is done behind the scenes by incrementing a shared AtomicNumber. After it has claimed its segment, it can increment a local counter (so there is no network traffic). Only when the id's in its segments are used, then a new segment needs to be claimed and this is done by increasing the shared AtomicNumber. This means that members can generate id's much quicker (local increment vs a distributed one). And it will also scale a lot better because of reduced contention; instead of incrementing that AtomicNumber on every new id, only when all the id's in the segment are used, the AtomicNumber will be incremented.
+The way the IdGenerator works is that each member claims a segment of 1 million id's to generate. This is done behind the scenes by using an AtomicNumber and claiming a segment is done by incrementing that AtomicNumber by a million. After the claiming the segment, the IdGenerator can increment a local counter. Once all id's in the segment are used, it needs to claim a new segment. The consequence of this approach is that only 1 in a million times you need to do network traffic; so 999.999 out of 1.000.000 the id generation can be done in memory and is extremely fast. Another consequence is that this approach scales a lot better than an AtomicNumber because there is a lot less contention on the AtomicNumber (1 out of 1.000.000 instead of 1 out of 1).
 
-Of course there are some downsides you need to be aware of:
+Of course there are some issues you need to be aware of:
 \begin{enumerate}
-\item the generated id's probably will be out of order
-\item if a member goes down without fully using its range, there might be gaps.
+\item the generated id's over multiple members will be out of order
+\item if a member goes down without fully using its segment, there might be gaps.
 \end{enumerate}
-But for id generation, these limitations in most cases are not an issue. Apart from the IdGenerator, there are other options for creating cluster wide unique id's. One of them is the java.util.UUID, although it will take up more space than a long. 
+For id generation these issues in most cases are not relevant. Apart from the IdGenerator, there are other options for creating cluster wide unique id's. One of them is the java.util.UUID, although it will take up more space than a long but it doesn't rely on access to a Hazelcast cluster.
 
-\emph{If the cluster restarts} then id generation will start from 0.
+Another important issue you need to know about is that if the cluster restarts, then id generation is reset and starts from 0 because the IdGenerator doesn't write to storage, e.g a database. If you need this, you can create your own id generator based on the same implementation mechanism the IdGenerator uses, but you also store the updates to the AtomicNumber in some storage.
 
 \section{What is next?}
 In this chapter we went over the various synchronization primitives that are directly exposes by Hazelcast. You can always build higher synchronization primitives on top of these lower ones.

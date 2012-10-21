@@ -1,25 +1,24 @@
 \chapter{Hazelcast Clients}
 
-Till so far our examples showed members that were full participants in the cluster; so they will known about others and they will take their share in the load. But in some cases you only want to connect to the cluster to read/write data or execute operations, but you don't want to be a member of the cluster; in other words you want to have a client.
+Till so far our examples showed members that were full participants in the cluster; so they will known about others and they will take their share in the load. But in some cases you only want to connect to the cluster to read/write data or execute operations, but you don't want to be a member of the cluster; in other words you want to be a client.
 
 Hazelcast provides 2 client solutions:
 \begin{enumerate}
 \item native client
 \item lite member
 \end{enumerate}
-These clients are safe to be shared between threads, so you don't need to pool them.
+Clients are thread-safe and you don't need to pool them.
 
-We are going to write a native and lite member client implementation in the following 2 sections. Both are going to put a message on a queue and it will be taken by the following full member:
+We are going to write a native and lite member client implementation in the following 2 sections. Both are going to put a message on a queue and the message will be taken by the following full member:
 \begin{lstlisting}[language=java]
 import com.hazelcast.config.Config;
 import com.hazelcast.core.*;
 import java.util.concurrent.BlockingQueue;
 public class FullMember {
     public static void main(String[] args)throws Exception{
-        Config config = new Config();
-        HazelcastInstance hazelcastInstance = Hazelcast.newHazelcastInstance(config);
+        HazelcastInstance hazelcastInstance = Hazelcast.newHazelcastInstance(null);
         BlockingQueue<String> queue = hazelcastInstance.getQueue("queue");
-        System.out.println(queue.take());       
+        for(;;) System.out.println(queue.take());
     }
 }
 \end{lstlisting}
@@ -31,12 +30,11 @@ import com.hazelcast.core.HazelcastInstance;
 import java.util.concurrent.BlockingQueue;
 public class NativeClient {
     public static void main(String[] args) throws Exception {
-        ClientConfig clientConfig = new ClientConfig();
-        clientConfig.addAddress("127.0.0.1");
+        ClientConfig clientConfig = new ClientConfig().addAddress("127.0.0.1");
         HazelcastInstance client = HazelcastClient.newHazelcastClient(clientConfig);
         BlockingQueue<String> queue = client.getQueue("queue");
         queue.put("Hello");
-        System.out.println("Message send by lite member!");
+        System.out.println("Message send by native member!");
     }
 }
 \end{lstlisting}
@@ -46,19 +44,19 @@ First start the full member and then start the native client, and we can see tha
  
 \emph{Failover} is automatically provided by the native client by configuring multiple member addresses, if one member fails, the native client will automatically switch to another member.
 
-There can be hundreds, even thousands of clients connected to the cluster. But by default there are 40 threads, configurable using the hazelcast.executor.client.thread.count property, on each member that will handle all the requests. 
+There can be hundreds, even thousands of clients connected to the cluster. But by default there are 40 threads on each member that will handle all the client request. This is configurable using the hazelcast.executor.client.thread.count property
 
 In the native client example, we did a minimal configuration of the ClientConfig and relied on defaults, but there is a lot that can be configured:
 \begin{enumerate}
 \item addresses: the known addresses of the cluster. They don't need to include all addresses, only enough to make sure that some will always be online.
-\item connection timeout: the amount of time in milliseconds the native client waits for one of the members, configured with the addresses property, of the cluster to come online before giving up.
+\item connection timeout: the amount of time in milliseconds the native client waits for one of the members, configured with the addresses property, of the cluster to come online before giving up. Defaults to 5 minutes.
 \item credentials: can be used to configure username/password to connect to the cluster. See UsernamePasswordCredentials.
 \item group config: configures the group name and the password to access the group.
-\item initial connection attempt limit:TODO
-\item reconnect attempt limit:TODO
-\item reconnect timeout:TODO
-\item shuffle:TODO
-\item update automatic:TODO
+\item initial connection attempt limit:the  number of connection attempts the client makes the initial connection to the cluster. Defaults to 1.
+\item reconnect attempt limit: the number of reconnection attempts the client makes when a connection fails. Defaults to 1.
+\item reconnect timeout: [todo]. Defaults to 5000 ms.
+\item shuffle:[TODO]. Defaults to false.
+\item update automatic:[TODO] Defaults to true.
 \end{enumerate}
 
 \section{Lite Member}
@@ -77,8 +75,6 @@ public class LiteMember {
     }
 }
 \end{lstlisting}
-As you can see there is not a big difference compared to creating a full member. There only difference is the call 'setLiteMember(true)'. 
-
 Lets first start the full member and then start the lite member. In the logging we can see that the members have found each other and in case of the lite member, we'll see something like this:
 \begin{verbatim}
 Members [2] {
@@ -88,14 +84,12 @@ Members [2] {
 \end{verbatim}	
 As you can see the cluster contains 2 members and the 'this' member shows that it is the lite member. If you look in the console of the full member, it will show something similar and it shows that the message send by the lite member has been received.
 
-\emph{same configuration:} A lite member, just like all other member in a cluster, needs to have the same configuration, with the only difference that the lite member field is set. 
+\emph{same configuration:} A lite member, just like all other member in a cluster, needs to have the same configuration, with the only difference that the lite member field is set. [todo: how to correctly load a client since you also want to use the same mechanism as with the full member]
 
 \emph{executors:} the lite member will execute tasks from the Hazelcast distributed executor. This is explained in TODO: reference to last chapter of the executors.
 
 \section{Lite member vs Native client}
 The lite member is a member of the cluster, it has a socket connection to all other members and knows where data is so it will be able to access it faster. On the downside there will be a lot more clustering overhead and "be on the same data center even on the same RAC". Native Clients can be anywhere in the LAN or WAN. It scales much better and overhead is quite less. So if your clients are less than Hazelcast nodes then LiteMember can be an option; otherwise definitely try Native Client. As a rule of thumb: Try Native client first, if it doesn't perform well enough for you, then consider LiteMember.
 
-[todo: remark about sharing client instance or creating new clients ]
-
 \section{What is next}
-In this short chapter we explained the different ways to connect to a Hazelcast cluster using a client.
+In this short chapter we explained the different ways to connect to a Hazelcast cluster using a client. [todo]
