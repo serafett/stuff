@@ -1,15 +1,14 @@
 \chapter{Hazelcast Clients}
+Till so far the examples showed members that were full participants in the cluster; so they will known about others and they will take their share in the load. But in some cases you only want to connect to the cluster to read/write data or execute operations, but you don't want to have a member of the cluster; in other words you want to have a client.
 
-Till so far our examples showed members that were full participants in the cluster; so they will known about others and they will take their share in the load. But in some cases you only want to connect to the cluster to read/write data or execute operations, but you don't want to be a member of the cluster; in other words you want to be a client.
-
-Hazelcast provides 2 client solutions:
+Hazelcast provides multiple client solutions and in this chapter the following 2 implementations are explained:
 \begin{enumerate}
 \item native client
 \item lite member
 \end{enumerate}
-Clients are thread-safe and you don't need to pool them.
+The clients are thread-safe and you don't need to pool them.
 
-We are going to write a native and lite member client implementation in the following 2 sections. Both are going to put a message on a queue and the message will be taken by the following full member:
+We are going to implement a native and lite member client implementation in this chapter. Both are going to put a message on a queue and the message will be taken by the following full member:
 \begin{lstlisting}[language=java]
 import com.hazelcast.config.Config;
 import com.hazelcast.core.*;
@@ -22,8 +21,9 @@ public class FullMember {
     }
 }
 \end{lstlisting}
+
 \section{Native client}
-With the native client one can connect to the cluster purely as a client and not have any of the responsibilities a normal cluster member has. When an Hazelcast operation is performed by a client, it is forwarded to a cluster member where it will be processed. A native client needs to have the hazelcast-client.jar on the classpath, the normal Hazelcast jar is not needed. Underneath you can see the native client example:
+With the native client one can connect to the cluster purely as a client and not have any of the responsibilities a normal cluster member has. When a Hazelcast operation is performed by a native client, it is forwarded to a cluster member where it will be processed. A native client only needs to have the hazelcast-client.jar on the classpath (+/- 150 kB depending on the version), the normal Hazelcast jar is not needed. Underneath you can see the native client example:
 \begin{lstlisting}[language=java]
 import com.hazelcast.client.*;
 import com.hazelcast.core.HazelcastInstance;
@@ -60,7 +60,9 @@ In the native client example, we did a minimal configuration of the ClientConfig
 \end{enumerate}
 
 \section{Lite Member}
-Although the native client is a very simple mechanism to access the cluster, it has some drawbacks. The most important one is performance, since it knows nothing about the cluster and always needs to go through one of the configured members. That is why another client solution is available: the lite member. In the example underneath you can see see how the lite member works:
+Although the native client is a very simple mechanism to access the cluster, it has some drawbacks. The most important one is performance, since it knows nothing about the cluster and always needs to go through one of the configured members. That is why another client solution is available: the lite member. If you use a lite member, you need to have the normal Hazelcast jar in your classpath, not the hazelcast-client.jar.
+
+In the example underneath you can see see how the lite member works:
 \begin{lstlisting}[language=java]
 import com.hazelcast.config.Config;
 import com.hazelcast.core.*;
@@ -92,4 +94,4 @@ As you can see the cluster contains 2 members and the 'this' member shows that i
 The lite member is a member of the cluster, it has a socket connection to all other members and knows where data is so it will be able to access it faster. On the downside there will be a lot more clustering overhead and "be on the same data center even on the same RAC". Native Clients can be anywhere in the LAN or WAN. It scales much better and overhead is quite less. So if your clients are less than Hazelcast nodes then LiteMember can be an option; otherwise definitely try Native Client. As a rule of thumb: Try Native client first, if it doesn't perform well enough for you, then consider LiteMember.
 
 \section{What is next}
-In this short chapter we explained the different ways to connect to a Hazelcast cluster using a client. [todo]
+In this short chapter we explained a few different ways to connect to a Hazelcast cluster using a client. But there are more client solutions available: like the C\# client (Hazelcast Enterprise Edition), the Memcache Client and the Rest Client. For more information check the Client chapter of the Hazelcast reference manual.

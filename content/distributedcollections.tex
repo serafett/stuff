@@ -1,18 +1,22 @@
 \chapter{Distributed Collections}
-Hazelcast provides a set of collections that implement interfaces from the Java collection framework and therefor make it easy to integration distributed collections without too many code changes. This chapter will example distributed collections like:
+Hazelcast provides a set of collections that implement interfaces from the Java collection framework and therefor make it easy to integration distributed collections in your system without too many code changes. A few advantages of using distributed collections:
+\begin{enumerate}
+\item scalable: you can grow beyond the capacity of a single JVM. You can scale up by adding more members to the cluster, and scale down by removing them.
+\item high availability: when one member fails, another member(s) take over because backups of the data are available. over without elements from the collecting getting lost. As a result no data gets lost.
+\end{enumerate}
+
+This chapter explains the following distributed collections:
 \begin{enumerate}
 \item BlockingQueue
 \item Set
 \item List
 \end{enumerate}
-The distributed map functionality provided by Hazelcast is so extensive that 2 separate chapters have been dedicated to it. 
-
-One of the cool thing about distributed collections in Hazelcast is that when a member fails that manages a part of a distributed collection, another member will immediately take over without any elements in the collection getting lost.
+The distributed Hazelcast map is so extensive, that a separate chapter is dedicated to it. 
 
 \section{Distributed Queue}
-A BlockingQueue is one of the working horses for concurrent system because it allows producers and consumers of messages (POJO's) to work different speeds. The Hazelcast java.util.concurrent.BlockingQueue implementation not only allows threads from the same member to interact with that queue, but since the queue is distributed, it also allows different members to interact with it concurrently.
+A BlockingQueue is one of the work horses for concurrent system because it allows producers and consumers of messages (POJO's) to work different speeds. The Hazelcast com.hazelcast.core.IQueue, which extends the java.util.concurrent.BlockingQueue, not only allows threads from the same member to interact with that queue, but since the queue is distributed, it also allows different members to interact it. So you can add items in one member and remove them in another.
 
-As an example we'll create a producer/consumer implementation that is connected by a distributed BlockingQueue. The producer is going to put a 1000 messages on the queue (an integer) every second:
+As an example we'll create a producer/consumer implementation that is connected by a distributed queue. The producer is going to put a total of 100 messages (an Integer) on the queue with a rate of 1 message/second.
 \begin{lstlisting}[language=java]
 import com.hazelcast.
 import java.util.concurrent.BlockingQueue;
@@ -20,7 +24,7 @@ public class ProducerMember {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
         BlockingQueue<Integer> queue = hzInstance.getQueue("queue");
-        for (int k = 1; k < 1000; k++) {
+        for (int k = 1; k < 100; k++) {
             queue.put(k);
             System.out.println("Producing: " + k);
             Thread.sleep(1000);
@@ -30,9 +34,9 @@ public class ProducerMember {
     }
 }
 \end{lstlisting}
-To make sure that the consumers are going to terminate when the producer is finished, the producer will put a -1 on the queue to indicate that it is ready and when a consumer reads this message, it will terminate. Such a special control message also is called a poison pill.
+To make sure that the consumers are going to terminate when the producer is finished, the producer will put a -1 on the queue to indicate that it is ready. When a consumer reads this message, also called a poison pill, it terminates. 
 
-The consumer will take the message from the queue, print it and waits 5 seconds before retrying and stops when it receives the poison pill:
+The consumer will take the message from the queue, print it and waits 5 seconds before consuming the next message and stops when it receives the poison pill:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
 import java.util.concurrent.BlockingQueue;
@@ -71,7 +75,7 @@ Consumed 3
 \end{lstlisting}
 As you can see, the items produced on the queue by the producer are being consumed from that same queue by the consumer. 
 
-Because messages are produced 5 times faster than they are consumed, with a single member the queue will keep growing. To improve scalability, you can start more consumers. If we start another consumer, we'll see that one consumer takes care of on half of the messages and the other consumer takes care of the other half.
+Because messages are produced 5 times faster than they are consumed, with a single member the queue will keep growing. To improve throughput, you can start more consumers. If we start another one, we'll see each consumer takes care of half the messages.
 
 Consumer 1:
 \begin{lstlisting}
@@ -87,7 +91,7 @@ Consumed 23
 Consumed 25
 ....
 \end{lstlisting}
-And when you kill one of the consumers, the remaining consumer will process all elements again:
+When you kill one of the consumers, the remaining consumer will process all elements again:
 
 Consumer 1:
 \begin{lstlisting}
@@ -100,24 +104,22 @@ Consumed 46
 \end{lstlisting}
 
 TODO: Needs to be verified.
-One thing to take care of that if there are many producers/consumers interacting with the queue, is that the queue eventually will become a bottleneck and this is caused by contention. One way of solving this problem is to introduce a stripe (essentially a list) of BlockingQueues. But if you do, the ordering of messages send to different queues will not be guaranteed anymore. In a lot of cases a strict ordering isn't required and a stripe can be a simple solution to deal with scalability.
+One thing to take care of that if there are many producers/consumers interacting with the queue, is that the queue eventually will become a bottleneck and this is caused by contention. One way of solving this problem is to introduce a stripe (essentially a list) of BlockingQueues. But if you do, the ordering of messages send to different queues will not be guaranteed anymore. In a lot of cases a strict ordering isn't required and a stripe can be a simple solution to improve scalability.
 
-\emph{Important}: Realize that although the Hazelcast distributed queue preserves ordering of the messages (so the messages are taken from the queue in the same order they were put on the queue), if there are multiple consumers, the processing order is not guaranteed. The queue will not provide any ordering guarantees on messages after they are taken.
+\emph{Important}: Realize that although the Hazelcast distributed queue preserves ordering of the messages (so the messages are taken from the queue in the same order they were put on the queue), if there are multiple consumers, the processing order is not guaranteed because the queue will not provide any ordering guarantees on messages after they are taken.
 
 \subsection{BlockingQueue Capacity}
 In the previous example we created a basic producer/consumer solution based on a distributed queue. Because the production of messages is separated from the consumption of messages, the speed of production is not influenced by the speed of consumption. If producing messages goes quicker than the consumption, then the queue will increase in size. If there is no bound on the capacity of the queue, machines can run out of memory and you will get an OutOfMemoryError. 
 
 With the traditional BlockingQueue implementations like the LinkedBlockingQueue, a capacity can be set. When this is set and the maximum capacity is reached, placement of new items either fail or block, depending on type of the put operation. This prevents the queue from growing beyond a healthy capacity and the JVM from failing.
 
-Hazelcast also provided control in the capacity, but instead of having a fixed capacity for the whole cluster, Hazelcast provides a scalable capacity by setting the queue capacity per member. So if the capacity per member is 1000 and there are 5 members's, the total capacity is 5000. So capacity depends on the size of the cluster.
+Hazelcast also provided capacity control, but instead of having a fixed capacity for the whole cluster, Hazelcast provides a scalable capacity by setting the queue capacity per member using the queue property 'max-size-per-jvm'. So if the capacity per member is 1000 and there are 5 members's, the total capacity is 5000. So capacity depends on the size of the cluster.
 
 To give our queue a capacity of 10 per member, we add the following to our hazelcast.xml file:
 \begin{lstlisting}
 <hazelcast>
     <network>
-        <join>
-            <multicast enabled="true"/>
-        </join>
+        <join><multicast enabled="true"/></join>
    </network>
     <queue name="queue">
         <max-size-per-jvm>10</max-size-per-jvm>
@@ -130,12 +132,8 @@ But since the producer produces 5 times as fast as the consume, the queue will r
 
 Since Hazelcast 1.9.3, distributed queues are backed by distributed maps. So all the configuration options available to a map, for example storage, are indirectly available for the queue. The value in the map will be the value placed on the queue, and the key of the map (of type Long) will be a global unique id. By default the name to backing map will be the name of the queue prefixed with 'q:', example:
 \begin{lstlisting}
-    <queue name="queue">
-        ...
-    </queue>
-    <map name="q:queue">
-       ...
-    </map>
+    <queue name="queue">...</queue>
+    <map name="q:queue">...</map>
 \end{lstlisting}
 
 This naming convention can be overridden by setting the backingMapRef on the queue explicitly, e.g:
@@ -144,15 +142,14 @@ This naming convention can be overridden by setting the backingMapRef on the que
        <backingMapRef>somemap</backingMapRef>
        ... 
     </queue>
-    <map name="somemap">
-        ...
-    </map>
+    <map name="somemap">...</map>
 \end{lstlisting}
 See the Distributed Map chapters for the options available.
 TODO: The map can't be retrieved by that name; so either a bug or I'm doing something wrong.
-TODO: Is there support to overflow to disk?
 
 \emph{max-size-per-jvm can be violated}. Imagine that there is a queue that is distributed over 2 members and each member contains the maximum number of 1 million queue items. If one member fails, the other member will gain all the queue items stored on the failing member, which leads to a total of 2 million. This is needed to provide failover so that no messages are lost. 
+
+Another reason for violation is that the name is confusing, The property is called 'max-size-per-jvm', but it actually is max size per member. If you only have 1 member per JVM, than you can ignore this. But if you have multiple members per JVM, then the total size per JVM will be membercount * 'max-size-per-jvm'.
 
 \section{Distributed List}
 After the distributed queue, we have the list. As you most likely know, a list is a data-structure where the ordering and occurrence of the elements matters. The distributed List in Hazelcast probably is not a structure you will on a day to day basis, but when you need it, is fine to have. The Hazelcast com.hazelcast.core.IList implements the java.util.List.
@@ -179,8 +176,7 @@ public class ReadMember {
     public static void main(String[] args) {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
         List<String> list = hzInstance.getList("list");
-        for (String s : list) 
-            System.out.println(s);
+        for (String s : list) System.out.println(s);
         System.out.println("Reading finished!");
     }
 }
@@ -198,9 +194,9 @@ As you can see, the data written to the list by the write member is visible in t
 The distributed list also is backed up by the distributed queue and the queue is backed up by a map. The key will be of type Long and the value will by them item placed in the list. To find the map behind the list, prefix the list name with 'c:q:l:'. But no guarantees are given that the map can be accessed this way way in the future, so please beware. The list has no other configuration options.
 
 \section{Distributed Set}
-A Set is a collection where every element only occurs ones and where the order of the element doesn't matter. The Hazelcast com.hazelcast.core.ISet implements the java.util.Set.
+A Set is a collection where every element only occurs ones and where the order of the element doesn't matter. The Hazelcast com.hazelcast.core.ISet implements the java.util.Set and is distributed just like the queue.
 
-We'll demonstrate the set by writing a collection of items in a set on one member, and on another member we are going to print all the elements from that set:
+We'll demonstrate the set by adding items in a Set on one member, and on another member we are going to print all the elements from that Set:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
 import java.util.Set;
@@ -216,20 +212,16 @@ public class WriteMember {
     }
 }
 
-import com.hazelcast.
-import java.util.Set;
 public class ReadMember {
     public static void main(String[] args) {
          HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
          Set<String> set = hzInstance.getSet("set");
-         for(String s: set)
-             System.out.println(s);
+         for(String s: set) System.out.println(s);
          System.out.println("Reading finished!");
      }
 }
-
 \end{lstlisting}
-If you first start the write member and after that has completed, you start the read member; the read member will output the following:
+If you first start the WriteMember and waiting for completion, you start the ReadMember; it will output the following:
 \begin{lstlisting}
 Paris
 Tokyo
@@ -237,14 +229,14 @@ London
 New York
 Reading finished!	
 \end{lstlisting}
-As you can see, the data written to the set by the write member is visible in the read member. As you also can see the order is not maintained since order is not defined by the set.
+As you can see, the data added by the WriteMember is visible in the ReadMember. As you also can see, the order is not maintained since order is not defined by the Set.
 
 TODO: Reference to equal/hash of Map.
 
-In Hazelcast the distributed set is implemented based on the distributed map functionality. Unfortunately it isn't very easy to retrieve the backing map. So if you want a set that has the features of the Map it probably is best create a set yourself that is backed by the Hazelcast map. You also can't use the keySet from the distributed map because this will return a new non distributed collection. 
+In Hazelcast the distributed Set is implemented based on the distributed Map functionality. Unfortunately it isn't very easy to retrieve the backing Map. So if you want a distributed Set that has the features of the distributed Map, then it probably is best create a Set implementation yourself that is backed by the Hazelcast Map. You can't use the keySet from the distributed Map because this will return a non distributable Set that contains a snapshot of the keys.
 
 \section{Collection Item Listeners}
-The Hazelcast distributed List, Set or Queue implement the com.hazelcast.core.ICollection interface. The nice thing is that Hazelcast enriches the existing collections api with the ability to listen to changes in the collections using the com.hazelcast.core.ItemListener. The ItemListener receives the com.hazelcast.core.ItemListener which not only (potentially) contains the item, but also the member where the changed happened and the type of event (add or remove).
+The Hazelcast distributed List, Set or Queue implement the com.hazelcast.core.ICollection interface. The nice thing is that Hazelcast enriches the existing collections api with the ability to listen to changes in the collections using the com.hazelcast.core.ItemListener. The ItemListener receives the ItemEvent which not only (potentially) contains the item, but also the member where the changed happened and the type of event (add or remove).
 
 The following example shows an ItemListener that listens to all changes made in a queue, but to listen to changes in a Set or List are similar since all the collections implement the ICollection interface.
 \begin{lstlisting}[language=java]
@@ -266,7 +258,7 @@ public class ItemListenerMember {
     }
 }
 \end{lstlisting}
-We registered the ItemListenerImpl with the addItemListener method using the value 'true'. This is done to make sure that our ItemListenerImpl will get the value that has been added/removed. The reason why this configuration option is available, is that in some cases you only want to be notified that a change happened, but you're not interested in the actual change.
+We registered the ItemListenerImpl with the addItemListener method using the value 'true'. This is done to make sure that our ItemListenerImpl will get the value that has been added/removed. The reason why this configuration option is available, is that in some cases you only want to be notified that a change happened, but you're not interested in the actual change and don't want to pay for sending the value over the line.
 
 To see that the ItemListener really is working, we'll create a member that makes a change in the queue:
 \begin{lstlisting}[language=java]
@@ -283,7 +275,7 @@ public class CollectionChangeMember{
     }
 }
 \end{lstlisting}
-First start up the itemlistener-member and wait till it displays "ItemListener started". After that start the collection-change-member and you will see the following output in the itemlistener-member:
+First start up the ItemListenerMember and wait till it displays "ItemListener started". After that start the CollectionChangeMember and you will see the following output in the ItemListenerMember:
 \begin{lstlisting}
 item added:foo
 item added:bar
