@@ -1,7 +1,7 @@
 \chapter{Distributed Executor Service}
 Java 5 was perhaps the most fundamental upgrade since Java was released. On a language level we got generics, static imports, enumerations, varargs, enhanced for loop and annotations. Although less known, Java 5 also got fundamental fixes for the Java Memory Model (JSR-133) and last but certainly not least; we got a whole new concurrency library (JSR-166) found in java.util.concurrent.
 
-The concurrency library contains a lot of goodies; some parts you probably don't use on a regular based, but other parts you perhaps do. One of the features that was added is the java.util.concurrent.Executor. The idea is that you wrap a piece of functionality in a Runnable (if you don't need to return a value) or a in a Callable (if you need to return a value) and hand it over to the Executor. In case of the ThreadPoolExecutor, these tasks are stored in a queue (the work queue) and inside the ThreadPoolExecutor there is a pool of worker threads that take work from this queue to process it. These worker threaded are pooled to reduce overhead for thread creation  and also to control the number of threads running concurrently.
+The concurrency library contains a lot of goodies; some parts you probably don't use on a regular based, but other parts you perhaps do. One of the features that was added is the java.util.concurrent.Executor. The idea is that you wrap functionality in a Runnable (if you don't need to return a value) or a in a Callable (if you need to return a value) and hand it over to the Executor. In case of the ThreadPoolExecutor, these tasks are stored in a queue (the work queue) and there is a pool of worker threads that take work from this queue to process it.
 
 A very basic example of the executor:
 \begin{lstlisting}[language=java]
@@ -9,35 +9,27 @@ class EchoTest{
    private final ExecutorService = Executors.newSingleThreadExecutor();
    public void echoAsynchronously(final String msg){
       executor.execute(new Runnable(){
-         public void run(){
-            System.out.println(msg)
-         }
+         public void run() { System.out.println(msg); }
       });	
    }
 }
 \end{lstlisting}
-So while a worker thread is processing echo task, the thread that submitted the task is free to work asynchronously. Although when you make use of the submit method in combination with a Future, the submitting thread can synchronize on completion of the worker thread, example:
+So while a worker thread is processing the task, the thread that submitted the task is free to work asynchronously. Although when you make use of the submit method in combination with a Future, the submitting thread can synchronize on completion of the worker thread, example:
 \begin{lstlisting}[language=java]
 class EchoTest{
    private final ExecutorService = Executors.newSingleThreadExecutor();
    public void echoAndWait(final String msg) throws Exception{
       Futurue future = executor.submit(new Runnable(){
-         public void run(){
-            System.out.println(msg)
-         }
+         public void run() { System.out.println(msg); }
       });	
       //wait for completion of the echo operation
 	  future.get();
    }
 }
 \end{lstlisting}
-Although it is a bit ridiculous to do a println in another thread, I hope you get the picture.
+There is virtually no limit in what you can do in a task; you could execute complex database operations, intensive cpu or IO operations, render images etc. The problem in a distributed system however is that the default implementation of the Executor, the ThreadPoolExecutor, is designed to run within a single JVM. So the thread responsible for producing the task will be running in the same JVM as the worker thread that is processing that task. In a distributed system you want that a task submitted in one JVM, can be processed in another. In some cases you don't care which JVM processes it, in other cases you want to have it run one (or more) specific JVM.
 
-There is virtually no limit in what you can place in such a task; you could execute complex database operations, intensive cpu or IO operations, render images etc. The problem in a distributed system however is that the default implementation of the Executor (the ThreadPoolExecutor) is designed to run within a single JVM. So the thread responsible for producing the task will be running in the same JVM as the thread that is processing that task. In a distributed system you want to have more freedom; a tasks should be able to processed on a different JVM than where it was produced. In some cases you don't care which JVM processes it, in other cases you want to have it run one (or more) specific JVM.
-
-Luckily Hazelcast makes this possible by providing an ExecutorService implementation that is designed to be used in a distributed environment where tasks will be send to one or more members depending on the configuration used.
-
-Lets start with a very simple example of ExecutorService in Hazelcast. We begin with a basic task that will do some waiting and echo a message:
+Luckily Hazelcast makes this possible by providing an ExecutorService implementation that is designed to be used in a distributed environment; tasks will be send to one or more members depending on the configuration used. Lets start with a very simple example of ExecutorService in Hazelcast. We begin with a basic task that will do some waiting and echo a message:
 \begin{lstlisting}[language=java]
 import java.io.Serializable;
 public class EchoTask implements Runnable, Serializable {
@@ -46,16 +38,13 @@ public class EchoTask implements Runnable, Serializable {
         this.msg = msg;
     }
     public void run() {
-        try {
-            Thread.sleep(5000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        try { Thread.sleep(5000);} 
+        catch (InterruptedException e) {}
         System.out.println("echo:" + msg);
     }
 }
 \end{lstlisting}
-This EchoTask implements the Runnable interface so that it can be submitted to the Executor. But it also implements the Serializable interface because it needs to be serialized to be put on the work queue.
+This EchoTask implements the Runnable interface so that it can be submitted to the Executor. But it also implements the Serializable interface because it could be that it send to a different JVM.
 
 The next part is the MasterMember that is responsible for submitting (and executing) 1000 echo messages:
 \begin{lstlisting}[language=java]
@@ -229,7 +218,7 @@ public class MasterMember {
         ExecutorService executorService = hzInstance.getExecutorService();
         Set<Member> members = hzInstance.getCluster().getMembers();
         int k=0;
-        for(Member member:members){
+        for(Member member: members){
             EchoTask task = new EchoTask("echo-"+k);
             DistributedTask distributedTask = new DistributedTask(task, member);
             executorService.execute(distributedTask);
@@ -311,8 +300,7 @@ First we start a few slave members and then we the master member and you will ge
 key is local:true
 key is local:true
 key is local:true
-key is local:true
-key is local:true
+...
 \end{lstlisting}
 As you can see, the tasks are executed on the same member as where the data is living. So with Hazelcast it is very easy to group data and functions operating on this data. This  and this is extremely important for since it provides locality of reference and this allows us to create very efficient systems because you don't need to go over the network that much.
 
@@ -490,9 +478,8 @@ public class MasterMember {
         ExecutionCallback<Long> executionCallback = new ExecutionCallback<Long>() {
             public void done(Future<Long> future) {
                 try {
-                    if (!future.isCancelled()) {
+                    if (!future.isCancelled()) 
                         System.out.println("Fibonacci calculation result = " + future.get());
-                    }
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -522,9 +509,10 @@ In this chapter we explored the distributed execution of tasks using the Hazelca
 
 \emph{No work queue capacity control:} with the normal ThreadPoolExecutor you can limit the amount of unprocessed work on the work queue and you also can control what happens with surplus of work. With the Hazelcast distributed Executor there is no control. So it could be that you swamp a system with unprocessed work. And this can lead to an java.lang.OutOfMemoryError.
 
-\emph{No processing guarantee.} Each member will create one or more local ThreadPoolExecutors that do the real work. When a message is send from one member to be executed on another, it will be put on the workqueue of that ThreadPoolExecutor. If something would happen with that member, all unprocessed work will be lost. A project that might be interesting to investigate is: https://github.com/jclawson/hazelcast-work.
+\emph{No high availability for the workqueue}. Each member will create one or more local ThreadPoolExecutors with ordinary workqueues, that do the real work. When a task is submitted, it will be put on the workqueue of that ThreadPoolExecutor. If something would happen with that member, all unprocessed work will be lost. A project that might be interesting to investigate is: https://github.com/jclawson/hazelcast-work.
 
-TODO: Finding back context
+\emph{Destroying Executors}: todo: executors can't be destroyed by calling shutdown because it only disables the local proxy, and the ExecutorService returned by Hazelcast doesn't implement the Instance interface, so no destroy can be called.  
 
-TODO: Load balancer
-
+[TODO: Finding back context]
+[TODO: Load balancer]
+[TODO: Default Executor]
