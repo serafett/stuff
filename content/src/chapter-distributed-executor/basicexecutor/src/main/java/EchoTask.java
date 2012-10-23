@@ -5,8 +5,7 @@ public class EchoTask implements Runnable, Serializable {
         this.msg = msg;
     }
     public void run() {
-        try {
-            Thread.sleep(5000);
+        try {Thread.sleep(5000);
         } catch (InterruptedException e){}
         System.out.println("Echo:" + msg);
     }
