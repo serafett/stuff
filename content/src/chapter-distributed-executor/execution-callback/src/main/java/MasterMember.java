@@ -9,7 +9,7 @@ public class MasterMember {
             public void done(Future<Long> future) {
                 try {
                     if (!future.isCancelled()) {
-                        System.out.println("Fibonacci calculation result = " + future.get());
+                        System.out.println("Result: " + future.get());
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -18,6 +18,6 @@ public class MasterMember {
         };
         task.setExecutionCallback(executionCallback);
         es.execute(task);
-        System.out.println("Finished");
+        System.out.println("Fibonacci task submitted");
     }
 }

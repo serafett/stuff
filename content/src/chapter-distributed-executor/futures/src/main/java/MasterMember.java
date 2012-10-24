@@ -13,11 +13,10 @@ public class MasterMember {
         Future<Long> future = executorService.submit(new FibonacciCallable(n));
         try {
             long result = future.get(10, TimeUnit.SECONDS);
-            System.out.println("result: "+result);
+            System.out.println("Result: "+result);
         } catch (TimeoutException ex) {
             System.out.println("A timeout happened, the future is cancelled");
             future.cancel(true);
         }
-        System.out.println("Finished");
     }
 }
