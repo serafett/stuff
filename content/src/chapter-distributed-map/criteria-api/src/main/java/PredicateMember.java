@@ -6,6 +6,7 @@ import com.hazelcast.query.Expression;
 import com.hazelcast.query.Predicate;
 import com.hazelcast.query.PredicateBuilder;
 import com.hazelcast.query.Predicates;
+import com.hazelcast.query.SqlPredicate;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -28,12 +29,14 @@ public class PredicateMember {
     }
 
     public void run() {
-        personMap.put("1", new Person("peter", true, 36));
+        personMap.put("1", new Person("peter", false, 36));
         //personMap.put("2", new Customer("talip", true, 36));
         //personMap.put("3", new Customer(null, true, 36));
 
+
+
         Expression expr = get("age");
-        Predicate predicate = between(expr, 36, 36);
+        Predicate predicate = new SqlPredicate("NOT male");// between(expr, 36, 36);
 
         System.out.println("name.size=5:");
         for (Person c : personMap.values(predicate)) {

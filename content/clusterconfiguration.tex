@@ -5,7 +5,6 @@ TODO: IPV6
 To configure the cluster options, we are going to make use of the following minimalistic Hazelcast node.
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.Hazelcast;
-
 public class Node {
     public static void main(String[] args) {
         Hazelcast.newHazelcastInstance(null);
@@ -23,7 +22,6 @@ Hazelcast network configuration can be done through the hazelcast.xml config fil
     ...
 </hazelcast>
 \end{lstlisting}
-
 
 network.port:
 this is the port the Hazelcast uses for internal communication. If that port already is taken, e.g because another Hazelcast instance is running on that JVM, Hazelcast will automatically try to find another port. This is done by incrementing the port number
@@ -55,9 +53,7 @@ A very minimalistic multicast configuration is the following:
 \begin{lstlisting}[language=xml]
 <hazelcast>
     <network>
-        <join>
-            <multicast enabled="true"/>
-        </join>
+        <join><multicast enabled="true"/></join>
     </network>
 </hazelcast>
 \end{lstlisting}
@@ -86,7 +82,6 @@ INFO: [10.37.129.2]:5701 [dev] Address[10.37.129.2]:5701 is STARTED
 \end{lstlisting}	
 
 As you can see the node is started and currently the cluster only has a single member. If you start another node on the same machine, on the console of the first node the following will be added to the output:
-
 \begin{lstlisting}
 Sep 5, 2012 6:39:38 PM com.hazelcast.nio.SocketAcceptor
 INFO: [10.37.129.2]:5701 [dev] 5701 is accepting socket connection from /10.37.129.2:64916
@@ -100,8 +95,7 @@ Members [2] {
     Member [10.37.129.2]:5702
 }
 \end{lstlisting}	
-As you can see, the first node can see the second node. And if we look at the end of logging for the second node, we'll find something similar.
-
+As you can see, the first node can see the second node. And if we look at the end of logging for the second node, we'll find something similar:
 \begin{lstlisting}
 Members [2] {
     Member [10.37.129.2]:5701
@@ -324,19 +318,8 @@ partitionGroupConfig.addMemberGroupConfig(memberGroupConfig2);
 
 \section{Network Partitioning (Split-Brain Syndrome)}
 
+[todo: comment about generating the hazelcast.xml to deal with limitations in the join mechanism. You could generate
+a hazelcast.xml based on database content containing the members.]
+
 \section{What is next}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi libero sem,
-interdum eget varius vel, faucibus placerat purus. Sed vulputate diam sit amet
-risus dapibus dignissim. Praesent lobortis eleifend augue. Cum sociis natoque
-penatibus et magnis dis parturient montes, nascetur ridiculus mus. Morbi libero
-turpis, viverra ac vulputate a, faucibus vel quam. Quisque interdum congue
-lacus, in tempus nisl tincidunt at. Curabitur sed eros eu enim vehicula
-fermentum quis nec justo. Vestibulum rutrum laoreet est, eget condimentum justo
-feugiat at. Cras ac sem ac magna ornare tempor non nec nisl. Maecenas feugiat
-fringilla nisl, vitae ullamcorper ante posuere a. Sed mollis lacinia interdum.
-Vivamus vel urna metus. Nulla eget tellus sem. Praesent volutpat suscipit nulla,
-nec dictum arcu iaculis id. Duis pharetra vestibulum sapien, quis pulvinar odio
-pharetra id. Cras at erat velit, vel tincidunt elit. Curabitur vehicula leo eu
-odio vulputate ac consequat nulla ultricies. Maecenas venenatis condimentum
-urna ut ultrices. Aliquam blandit fermentum eros, ac lacinia sem scelerisque
-at. Nullam vitae nisi at erat posuere cursus a non velit.
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. 

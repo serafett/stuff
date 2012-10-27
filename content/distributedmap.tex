@@ -1,33 +1,20 @@
 \chapter{Distributed Map}
-In this chapter, you'll learn how to use one of the most versatile data structures in Hazelcast; the com.hazelcast.core.IMap. The IMap implements the java.util.concurrent.ConcurrentMap interface, and therefor it also implement the java.util.Map interface and is designed to be used in a distributed environment.
+In this chapter, you'll learn how to use one of the most versatile data structures in Hazelcast; the com.hazelcast.core.IMap. The IMap extends the java.util.concurrent.ConcurrentMap interface, and therefor it also extends the java.util.Map but its implementation is designed to be used in a distributed environment. So changes made in one member are visible in another and when a member fails, backups will be restored an the cluster can continue as if nothing happened.
 
-Internally Hazelcast divides the map in partitions (by default 271) and distributes the partitions evenly among the members in the cluster. Based on the key of the map entry the partition is determined, so each key belongs to a single partition. 
+Internally Hazelcast divides the map in partitions (by default 271) and distributes the partitions evenly among the members in the cluster. The partition is determined based on the keyBased, so each key belongs to a single partition. 
 
-Scaling up the cluster is simple; just add more members. When new members are found in the cluster, the oldest member decides which partitions need to be moved to the new members. It tries to choose the partitions that contain the least amount of data to prevent copying a lot of data. Hazelcast doesn't do any runtime rebalancing of partitions bases for example on partition size or usage currently.
+Scaling up is simple; just add more members and they will take their share of the load. The oldest member decides which partitions need to be moved to the new members and chooses partitions that contain the least amount of data to reduce network traffic. Hazelcast doesn't do any runtime rebalancing of partitions e.g. based on partition size or usage. 
 
-To scale down also is simple; just shutdown the HazelcastInstance. And the partitions will automatically be reassigned to other members. Of course a hard kill of the JVM is possible, but then you run a risk of loosing something.
+Scaling down also is simple; just shutdown the HazelcastInstances to release their share of the load. And the partitions will automatically be reassigned to other members. Of course a hard kill of the JVM is possible, but then you run a risk of loosing something.
 
 [TODO: Give some idea about capacity in production.. number of entries... total size.
 
-The commercial offering of Hazelcast includes Elastic Memory where the map entries are not stored in the Java Heap. One of the reasons to use it is that gc times are drastically reduced. There is demonstration on youtube: http://www.youtube.com/watch?v=TOhbhKqJpvw  where 4 Terabyte of data from 1 billion entries is stored on 100 Amazon EC2 instances. Leading to 1.3 million of operations/second.
-
-[TODO: ConcurrentMap operations never throw java.util.ConcurrentModificationException. Add somewhere.]
-
-\begin{enumerate}
-\item Reading/Writing
-\item Custom Keys
-\item Query API
-\item Indices
-\item Data Locality
-\item High Availability
-\item Concurrency Control
-\item Gotcha's
-\end{enumerate}
+The commercial offering of Hazelcast includes Elastic Memory where the map entries are not stored in the Java Heap to drastically reduce gc times. On Youtube there is demo: http://www.youtube.com/watch?v=TOhbhKqJpvw where 4 Terabyte of data from 1 billion entries is stored on 100 Amazon EC2 instances, supporting to 1.3 million of operations/second.
 
 \section{Reading/Writing}
-The HazelcastMap implements the java.util.Map interface, so putting retrieving key/values is very simple since you can use familiar methods like get/put etc.
+The Hazelcast Map implements the ConcurrentMap/Map interface, so reading/writing key/values is very simple since you can use familiar methods like get/put etc. 
 
-I'll show this behavior using an example where 1 member fills a map with some entries:
+To demonstrate this basic behavior a distributed is created in a member and some entries are written to this map. In another member these entries are going to be read and printed:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
 import java.util.Map;
@@ -41,9 +28,7 @@ public class FillMapMember {
     }
 }
 \end{lstlisting}
-As you can see the Map can be retrieved using the hzInstance.getMap(mapName) and after the map is retrieved, some entries are stored in that map. 
-
-And reading out the entries we can do like this:
+As you can see the Map is retrieved using the hzInstance.getMap(mapName) and then some entries are stored in that map. Reading the entries can be done like this:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
 import java.util.Map;
@@ -51,30 +36,45 @@ public class PrintAllMember {
     public static void main(String[] args) {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
         Map<String, String> map = hzInstance.getMap("map");
-        for(Map.Entry<String,String> entry : map.entrySet()){
+        for(Map.Entry<String,String> entry : map.entrySet())
             System.out.println(entry.getKey()+" "+entry.getValue());
-        }
     }
 }
 \end{lstlisting}
-When we first start the FillMapMember and then PrintAllMember, we'll get output like this:
+If the FillMapMember is runs before the PrintAllMember, we'll get output like this:
 \begin{lstlisting}
 1 Tokyo
 2 Paris
 3 New York
 \end{lstlisting}
+As you can see, the map updates from the FillMapMember are visible in the PrintAllMember.
+
+Internally Hazelcast will serialize the key/values (see chapter Custom Serialization) to byte arrays and store this within the underlying storage mechanism. This means changes made to a key/value after they are stored in the map, will not reflect on the stored state. Therefor the following idiom is broken:
+\begin{lstlisting}[language=java]
+Employee e  = employees.get(123);
+e.setFired(true);
+\end{lstlisting}
+If you want this change to be stored in the map, you need to put the updated value back:
+\begin{lstlisting}[language=java]
+Employee e  = employees.get(123);
+e.setFired(true);
+employees.put(123,e);
+\end{lstlisting}
+
+There is an option that can be configured on the map configuration called 'cache-value' which can reduce serialization overhead if a value is read very frequently and the deserialization costs are high. When it is set, the value instance is cached after it is deserialized for the first time. So since the same instance is returned, changes to this instance will be visible in this member. But this feature should be used very wisely because you could run into race and JMM problems because the same instance will be shared between threads and changes to this instance will not be visible to other nodes. So make sure, that if you use mutable values that are not threadsafe, that this value is set to false. 
+
+[todo:is there a limit to the amount of values kept in memory?]
+[todo:can cache-value default to false?]
 
 \section{Hashcode and equals}
-In most cases, when you work with a Hazelcast map, you probably will make use of some basic type like a  Long, Integer or String as key. But in some cases you will need to create custom keys. But to do it correctly in Hazelcast, you need to understand how this mechanism in Hazelcast works. 
-
-When you store a key/value in a Hazelcast map, the actual objects are not stored in the map, because an object can't move from one JVM to another. Instead the keys and values are serialized to byte arrays and these will be stored in the Hazelcast map. To correctly make use of hash/equals in Hazelcast you need to know the following:
+In most cases you probably will make use of some basic type like a Long, Integer or String as key. But in some cases you will need to create custom keys. But to do it correctly in Hazelcast, you need to understand how this mechanism works because it works differently compared to traditional map implementations. When you store a key/value in a Hazelcast map, instead of storing the Object, the object are serialized to byte arrays and these are stored. To use the hash/equals in Hazelcast you need to know the following rules:
 \begin{enumerate}
-\item For keys the hash/equals is determined based on the content of the byte array, so equal keys need to result in equal byte arrays.
-\item For values the hash/equals of the object is used, and not the hash/equals of the byte array content. So the hash/equals for value work as normal.
+\item for keys: the hash/equals is determined based on the content of the byte array, so equal keys need to result in equal byte arrays.
+\item for values: the hash/equals is determined based on the deserialized object, and not the hash/equals of the byte array content. 
 \end{enumerate}
 As you can see the difference is subtile, but it is crucial to understand.
 
-Below is an example of a key implementation that is valid if you use it as key in a normal map implementation like the HashMap, but stops working when it is used as a key in a Hazelcast map:
+Below is an example of a key implementation that is valid for a map implementation like the HashMap, but invalid when it is used in a Hazelcast map:
 \begin{lstlisting}[language=java]
 public final class BrokenKey implements Serializable {
     private final String significant;
@@ -99,12 +99,12 @@ This BrokenKey has 2 fields; the significant field is used in the hash/equals im
 BrokenKey key1 = new BrokenKey("a","b");
 BrokenKey key2 = new BrokenKey("a","c");
 \end{lstlisting} 
-Then 'key1.equals(key2)' and 'key1.hashCode()==key2.hashCode()'. So it is a valid key for a normal map implementation. But because the byte array of key1 (which will contains 'a' and 'b') is different than the byte array of key2 (which will contain 'a' and 'c'), the hash code and equals will be different. And therefor this key is broken. Of course the problem can be solved by preventing the field to be part of the byte array, e.g. by making the field transient.
+then 'key1.equals(key2)' and 'key1.hashCode()==key2.hashCode()'. So if a value would be put with key1, it can be retrieved using key2. But because the byte array of key1 (which will contains 'a' and 'b') is different than the byte array of key2 (which will contain 'a' and 'c'), the hash code and equals be different. 
 
 [TODO:Note that the distributed Set and List stores its entries as the keys in a distributed Map. So the notes above apply to the objects you store in Set and List.]
 
 \section{Distributed Queries}
-Imagine that we have a Hazelcast map containing persons where the key is some id and the value is Person object and we want to retrieve all persons with a given name. We could create the following very naive implementation:
+Imagine that we have a Hazelcast IMap where the key is some id and the value is Person object and we want to retrieve all persons with a given name. We could create the following very naive implementation:
 \begin{lstlisting}[language=java]
    public Set<Person> getWithNameNaive(String name){
         Set<Person> result = new HashSet<Person>();
@@ -124,10 +124,12 @@ This is what you probably would write if the map would be an ordinary map. But w
 Luckily Hazelcast solves these problems by supporting predicates that are executed on top of a fork/join mechanism:
 \begin{enumerate}
 \item when the predicate is requested to be evaluated by the caller, it is forked to each member in the cluster
-\item each member will filter all map entries that are stored locally using the predicate. Before a predicate evaluates an map entry, the key/value of that entry are deserialized and passed to the predicate. 
-\item the caller joins on the completion by all members and merges the results into a single set
+\item each member will filter all local map entries using the predicate. Before a predicate evaluates a map entry, the key/value of that entry are deserialized and passed to the predicate. 
+\item the caller joins on the completion of all members and merges the results into a single set
 \end{enumerate}
-The fork/join approach is highly scalable because it parallelizable. By adding additional cluster members, the number of partitions per member is reduced and therefor the time a member needs to iterate over all its data, is reduced as well. Also the local filtering is parallelizable because a pool of 'partition threads' will evaluate segments of elements concurrently. And last but not least, the amount of network traffic is reduced drastically, since only filtered data are send instead of all data.
+The fork/join approach is highly scalable because it parallelizable. By adding additional cluster members, the number of partitions per member is reduced and therefor the time a member needs to iterate over all its data, is reduced as well. Also the local filtering is parallelizable because a pool of 'partition threads' will evaluate segments of elements concurrently. And last but not least, the amount of network traffic is reduced drastically, since only filtered data is send instead of all data.
+
+[todo: what about creating a map per 'index'. disadvantage,  ... multimap]
 
 Hazelcast provides 2 api's for distributed queries:
 \begin{enumerate}
@@ -159,7 +161,7 @@ public interface Expression<T> extends Serializable {
 \end{lstlisting}
 
 \subsubsection*{And, Or and Not predicates}
-Predicates can also be joined using the 'and' and 'or' predicate:
+Predicates can be joined using the 'and' and 'or' predicate:
 \begin{lstlisting}[language=java]
 import static com.hazelcast.query.Predicates.*;
    ...
@@ -220,7 +222,7 @@ The syntax we used so far to create Predicates is clear but can be simplified by
 As you can see, it can simplify things, especially if you have complex predicates. But it is a matter of taste which approach you prefer.
 
 \subsection*{Distributed SQL Query}
-In the previous section the Criteria API was explained where expression/predicate objects are manually created. The pain can be reduced a bit by making use of the PredicateBuilder, but it still isn't perfect. That is why a DSL implementation was added: the Distributed SQL Query where a SQL like language is used. But underwater the the Criteria API is used. 
+In the previous section the Criteria API was explained where expression/predicate objects are manually created. The pain can be reduced a bit by making use of the PredicateBuilder, but it still isn't perfect. That is why a DSL was added: the Distributed SQL Query, where a SQL like language is used. But underwater the Criteria API is used. 
 
 The 'get with name' function we already implemented using the Criteria API, can be implementing using the Distributed SQL Query like this:
 \begin{lstlisting}
@@ -229,47 +231,42 @@ public Set<Person> getWithName(String name){
     return (Set<Person>) personMap.values(predicate);
 }
 \end{lstlisting}
-As you can see, the SqlPredicate is a Predicate itself and therefor can be combined with the Criteria API. The language itself isn't case sensitive.
+As you can see, the SqlPredicate is a Predicate itself and therefor can be combined with the Criteria API. The language itself isn't case sensitive, but 'columns' used in the query are. Underneath you can see an overview of the DSL:
+\begin{enumerate}
+	\item logical operators
+	\begin{lstlisting}
+man and age>30
+man=false or age = 45 or name = 'Joe'
+man and (age >20 OR age < 30)
+not man
+	\end{lstlisting}
 
-\subsubsection*{AND/OR}
-<expression> AND <expression> AND <expression>...
-\begin{lstlisting}
-man AND age>30
-man=false OR age = 45 OR name = 'Joe'
-man AND (age >20 OR age < 30)
-\end{lstlisting}
-
-\subsubsection*{=, !=, <, <=, >, >=}
-<expression> = value
-\begin{lstlisting}
+	\item relational operators
+	\begin{lstlisting}
 age <= 30
 name ="Joe"
 age != 30
-\end{lstlisting}
+	\end{lstlisting}
 
-\subsubsection*{BETWEEN}
-<attribute> [NOT] BETWEEN <value1> AND <value2>
-\begin{lstlisting}
-age BETWEEN 20 AND 33
-age NOT BETWEEN 30 AND 40
-\end{lstlisting}
+	\item between
+	\begin{lstlisting}
+age between 20 and 33
+age not between 30 and 40
+	\end{lstlisting}
 
-\subsection{LIKE}
-<attribute> [NOT] LIKE 'expression'
-\% (percentage sign) is placeholder for many characters, \_ (underscore) is placeholder for only one character.
-\begin{lstlisting}
-name LIKE 'Jo%' (true for 'Joe', 'Josh', 'Joseph' etc.)
-name LIKE 'Jo_' (true for 'Joe'; false for 'Josh')
-name NOT LIKE 'Jo_' (true for 'Josh'; false for 'Joe')
-name LIKE 'J_s%' (true for 'Josh', 'Joseph'; false 'John', 'Joe')
-\end{lstlisting}
-
-\subsubsection{IN}
-<attribute> [NOT] IN (val1, val2, ...)
-\begin{lstlisting}
-age IN (20, 30, 40)
-age NOT IN (60, 70)
-\end{lstlisting}
+	\item like
+	\begin{lstlisting}
+name like 'Jo%' (true for 'Joe', 'Josh', 'Joseph' etc.)
+name like 'Jo_' (true for 'Joe'; false for 'Josh')
+name not like 'Jo_' (true for 'Josh'; false for 'Joe')
+name like 'J_s%' (true for 'Josh', 'Joseph'; false 'John', 'Joe')
+	\end{lstlisting}
+	\item in
+	\begin{lstlisting}
+age in (20, 30, 40)
+age not in (60, 70)
+	\end{lstlisting}
+\end{enumerate}
 
 \section{Indices}
 To speed up queries, just like in databases, the Hazelcast map implementation supports indexes. Using an index prevents from iterating over all values (in database terms this is called a full table scan), but directly jump to the interesting ones. There are 2 types of indexes:
@@ -277,9 +274,9 @@ To speed up queries, just like in databases, the Hazelcast map implementation su
 \item Ordered: e.g. a numeric field where you want to do searches like bigger than.
 \item Unordered: e.g. a name field.
 \end{enumerate}
-In the previous chapter we talked a Person class which has a name, age etc. The speed up searching on these fields, we can place an unordered index on name and ordered index on age. 
+In the previous chapter we talked a Person class which has a name, age etc. To speed up searching on these fields, we can place an unordered index on name and ordered index on age. 
 
-To retrieve the index field of an Object, first an accessor method will be tried and if that doesn't exist, direct field access will be used. With the index accessor method you are not limited to returning a field, you could have a synthetic accessor method where some value is calculated on the fly. The index field also supports object traversal, so you could create a index on the street of the address of a person using 'address.street' as index. There is no limitation on the depth of the traversal.Hazelcast doesn't care about the accessibility of the index field or an index accessor method, so you are not forced to make them public. An index field also is allowed to return null.
+To retrieve the index field of an Object, first an accessor method will be tried and if that doesn't exist, direct field access will be used. With the index accessor method you are not limited to returning a field, you could have a synthetic accessor method where some value is calculated on the fly. The index field also supports object traversal, so you could create an index on the street of the address of a person using 'address.street'. There is no limitation on the depth of the traversal. Hazelcast doesn't care about the accessibility of the index field or an index accessor method, so you are not forced to make them public. An index field also is allowed to return null.
 
 The indexes on the personMap can be configured through the hazelcast configuration file. 
 \begin{lstlisting}[language=xml]
@@ -293,17 +290,17 @@ The indexes on the personMap can be configured through the hazelcast configurati
    </map>
 </hazelcast>
 \end{lstlisting}
-It also is possible to call the 'IMap.addIndex(String name,boolean ordered)' method directly, but adding the index should be done before an item is placed in the map. Sometimes by design adding an index to map may be impossible before any value is added. For example if a map has MapLoader that loads entries during map creation, then adding indexes to map becomes meaningless. Another disadvantage of doing it in code is that it can become hard to figure out if a field has an index, because it could be spread over the code.
+It also is possible to call the 'IMap.addIndex(String name,boolean ordered)' method directly, but adding the index should be done before an item is placed in the map otherwise the index is ignored. Sometimes by design adding an index to a map may be impossible before any value is added. For example if a map has a MapLoader that loads entries during map creation. Another disadvantage of doing it in code is that it can become hard to figure out if a field has an index, because it could be spread over the code.
 
-The performance impact of using one or more indices depends on a lot of factors; among them are the size of the  map, the chance of finding the element with a full table scan etc. Also adding one or more indices make mutations to the map more expensive since the index needs to be updated as well. Therefor you need to test in a production like environment, number and type of machines, size/quality of the dataset, which configuration is best for you. In the source code you can 2 very rudimentary benchmark frameworks, one for updating and one for searching, you can play with and can extend. 
+The performance impact of using one or more indices depends on a lot of factors; among them are the size of the map, the chance of finding the element with a full table scan etc. Also adding one or more indices make mutations to the map more expensive since the index needs to be updated as well. Therefor you need to test in a production like environment and a representative size/quality of the dataset, which configuration is best for you. In the source code you can 2 very rudimentary index benchmarks, one for updating and one for searching. 
 
 [todo: Are the near caches updates synchronously or asynchronously?]
 [todo: on the map roughly the same properties can be found.. are they ignored? Can you enter both?]
 
 \section{Data locality}
-In some cases you want data that logically belongs to each other, is stored on the same partition to have locality of reference (an important feature for performance). This prevents going over the network, since the data is stored in the same partition.
+In some cases you want data to be stored in the same partition to have improved locality of reference; an important feature for performance. This prevents going over the network, since the data can be accessed locally since it is stored in the same partition.
 
-Imagine that you have a Customer:
+To explain data locality, imagine that you have a Customer:
 \begin{lstlisting}[language=java]
 import java.io.Serializable;
 public class Customer implements Serializable {
@@ -329,17 +326,18 @@ public final class Order implements Serializable {
 \end{lstlisting}
 And imagine that customers and orders are stored in a map like this:
 \begin{lstlisting}[language=java]
-    Customer customer = new Customer(100);
+    long customerId = 100;
+    long orderId = 200;
+    long articleId = 300;
+    Customer customer = new Customer(customerId);
     customerMap.put(customer.id, customer);
 
-    Order order = new Order(200,customer.id,300)
+    Order order = new Order(orderId,customer.id,articleId)
 	orderMap.put(order.id, order)
 \end{lstlisting}
 The problem with this approach is that it is very likely that the customer is going to be stored in a different partition than its orders because the customer is partitioned based on the customer id, and the orders are partitioned on the order id.
 
-This can be solved by making use of the PartitionAware interface. If a key for the IMap implements this interface, instead of using the hashcode of the object to determine the correct partition, the PartitionAware.getPartitionKey() method will be called and the result of this method will be used to determine the right partition. 
-
-In our case we introduce an intermediate object: the OrderKey that implements this PartitionAware interface and returns the customerId as the partitionKey:
+Luckily Hazelcast provides a way of storing the Customer and the Order in the same partition, using of the PartitionAware interface. If a key implements this interface, instead of using the key to determine the correct partition, the PartitionAware.getPartitionKey() will be used. In our case we introduce an intermediate object: the OrderKey that implements this PartitionAware interface and returns the customerId as the partitionKey:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.PartitionAware;
 import java.io.Serializable;
@@ -355,9 +353,7 @@ public final class OrderKey implements PartitionAware, Serializable {
     }
 }
 \end{lstlisting}
-We don't need to add an equals/hashcode since the equals/hashcode based on the byte content of the OrderKey is used.
-
-And we can integrate it in our code and verify that the partition of the customer is the same as the partition of the order:
+The equals/hashcode don't need to be implemented, since the equals/hash are determined based on the byte-array representation of the OrderKey. It can be integrate it in code and verified that the partition of the customer is the same as the partition of the order like this:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
 import com.hazelcast.partition.*;
@@ -390,7 +386,7 @@ public class Main {
     }
 }
 \end{lstlisting}
-The Output would look something like this:
+The Output looks something like this:
 \begin{lstlisting}
 Partition for customer: 124
 Partition for order with OrderKey: 124
@@ -398,25 +394,25 @@ Partition for order without OrderKey: 175
 \end{lstlisting}
 As you can see, the partition where the Customer is stored, is the same as the partition where the Order of that same customer is stored. 
 
-Being able to control what data is placed in the same partition, is a very powerful feature and needs to be taking into consideration from the beginning and therefor is a very important architectural concern. Once this is done correctly, it will be a lot easier to write a high performance and scalable system. And the technique of partitioning data in a single partition, can be combined with sending functionality to the data instead of the data to the functionality. So if you need to do some operation, send that operation to the right partition. For more information see "chapter: Executor and Routing" and "chapter: Distributed Services and routing".
+Being able to collocate data in the same partition, is a very powerful feature and needs to be taken into consideration from the beginning and therefor is a very important architectural concern. Once this is done correctly, it will be a lot easier to write a high performance and scalable system. The technique of collocating data in a single partition, can be combined with sending functionality to the data instead of the data to the functionality. So if you need to do some operation, send that operation to the right partition where all the data for that operation can be accessed locally. For more information see "chapter: Executor and Routing" and "chapter: Distributed Services and routing".
 
 \section{High availability}
-In production a environment all kinds of things can go wrong. A machine could break down due to disk failure, the operating system crashes, it could get disconnected from the network. To prevent that the failure of a single member leads to failure of the cluster, Hazelcast synchronously backs up all map entries on another JVM, so if a member fails, the backup still contain the data. The backup-count can be configured like this:
+In production a environment all kinds of things can go wrong. A machine could break down due to disk failure, the operating system crashes, it could get disconnected from the network. To prevent that the failure of a single member leads to failure of the cluster, by default Hazelcast synchronously backs up all map entries on another JVM, so if a member fails, the backup still contain the data. The backup-count can be configured using the 'backup-count' property:
 \begin{lstlisting}[language=xml]
 <hazelcast> 
-	<map name="persons"> 
+    <map name="persons"> 
          <backup-count>1</backup-count>
- 	</map> 
+    </map> 
 </hazelcast>
 \end{lstlisting}
-The backup-count can be set to 0, if you favor performance over high availability, but you can also specify a higher value. The default is 1, so in a lot of cases you don't need to specify it.
+The backup-count can be set to 0, if you favor performance over high availability, but you can also specify a higher value than 1 of you want to have more backups. The default is 1, so in a lot of cases you don't need to specify it.
 
-By default the backup operations are synchronous; so you have the guarantee that the backup(s) are updated before continuing. But this guarantee comes at the cost of blocking and therefor the latency increases. In some cases having a low latency is more important, but working without a backup is not an option as long as not as the window for failure is small. That is why Hazelcast also supports asynchronous backups; so the backups are made at some point in time because the call doesn't need to block. This can be configured through the 'async-backup-count' property:
+By default the backup operations are synchronous; so you have the guarantee that the backup(s) are updated before continuing. But this guarantee comes at the cost of blocking and therefor the latency increases. In some cases having a low latency is more important, but working without a backup is not an option as long as the window for failure is small. That is why Hazelcast also supports asynchronous backups; so the backups are made at some point in time. This can be configured through the 'async-backup-count' property:
 \begin{lstlisting}[language=xml]
 <hazelcast> 
-	<map name="persons"> 
+    <map name="persons"> 
          <async-backup-count>1<async-backup-count>
- 	</map> 
+    </map> 
 </hazelcast>
 \end{lstlisting}
 This property defaults to 0. 
@@ -485,7 +481,6 @@ Luckily Hazelcast provides another cool feature on the Hazelcast Map called the 
     </map>
 </hazelcast>
 \end{lstlisting}
-
 The following set of properties can be set on the near-cache:
 \begin{enumerate}
 \item max-size: the maximum size of the cache per member. As soon as the maximum size has been reached, the cache will start to evict entries based on the eviction policy. max-size should be between 0 and Integer.MAX\_SIZE, where 0 will be interpreted as Integer.MAX\_SIZE. The default is 0.
@@ -550,7 +545,7 @@ public class PersonMapStore implements MapStore<Long, Person> {
             ResultSet resultSet = con.createStatement().executeQuery(
                     format("select name from person where id =%s", key));
             try {
-                if (!resultSet.next())return null;
+                if (!resultSet.next()) return null;
                 String name = resultSet.getString(1);
                 return new Person(name);
             } finally {
@@ -583,7 +578,7 @@ In the following code fragment you can see a member that writes a person to the 
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
 public class WriteMember {
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws Exception {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
         IMap<Long, Person> personMap = hzInstance.getMap("personMap");
         personMap.put(1L, new Person("Peter"));
@@ -593,7 +588,7 @@ public class WriteMember {
 
 import com.hazelcast.core.*;
 public class ReadMember {
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws Exception {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
         IMap<Long, Person> personMap = hzInstance.getMap("personMap");
         Person p = personMap.get(1L);
@@ -647,7 +642,6 @@ public class RacyUpdateMember {
             value.field++;
             map.put(key, value);
         }
-
         System.out.println("Finished! Result = " + map.get(key).field);
     }
     static class Value implements Serializable {
@@ -756,7 +750,6 @@ public class PutMember {
     public static void main(String[] args){
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
         MultiMap<String,String> map = hzInstance.getMultiMap("map");
-        
         map.put("Peter","England");
         map.put("Peter","Holland");
         map.put("Talip","Turkey");
@@ -789,13 +782,6 @@ One thing worth knowing; if a value collection with K is stored on member1 becau
 \section{Gotcha's}
 When Map.entrySet(), Map.keySet() or Map.values() is called, a snapshot of the current state of the map is returned. Changes that are made in the map, so not reflect into changes these maps. Also when changes are made on these collections, an UnsupportedOperationException is thrown.
 
-Changes made on keys/values after they have been persisted, will not reflect in changes in the map. This is because not the key/value object themselves are stored, but their serialized version. So the following idiom is broken:
-\begin{lstlisting}[language=java]
-Employee e = employeeMap.get("123");
-e.fire();
-\end{lstlisting}
-If you want the changes in e to be published, you need to write e back to the map.
-
 TODO: What about cache where serialization for local object is 'skipped?
 
 \section{What is next}
@@ -803,3 +789,7 @@ In this chapter a lot of the basic operations on the Distributed Map were explai
 
 [todo: tell about garbage collection.. or the lack of it..]
 [todo: local entry listener]
+[todo: local entry set.. makes it easy to create a clustered solution where each member takes care of some parts of the tasks.. no central coordination needed]
+[TODO: ConcurrentMap operations never throw java.util.ConcurrentModificationException. Add somewhere.]
+
+

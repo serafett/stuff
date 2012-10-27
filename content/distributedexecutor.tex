@@ -432,7 +432,7 @@ Result: 55
 As you can see, the thread that submitted the tasks to be executed, was not blocked. You can also see that eventually the result of the Fibonacci calculation will be printed. 
 
 \section{What is next}
-In this chapter we explored the distributed execution of tasks using the Hazelcast ExecutorService. When you have worked with the ExecutorService before, you know that there are some gotcha's that can cause spending a lot of time on small things that are easy to solve. Hazelcast also introduces some gotcha's that are important to know up front.
+In this chapter we explored the distributed execution of tasks using the Hazelcast ExecutorService. When you have worked with the ExecutorService before, you know that there are some gotcha's that can cause spending a lot of time on small things that are easy to solve. Hazelcast also introduces some gotcha's and good to knows:
 
 \emph{Executors doesn't log exceptions:} when a task fails with an exception (or an error), this exception will not be logged by Hazelcast. This is in line with the ThreadPoolExecutorService from Java and it can be really annoying when you are spending a lot of time on why something doesn't work. It can easily be fixed; either add a try/catch in your runnable and log the exception. Or wrap the runnable/callable in a proxy that does the logging; the last option will keep your code a bit cleaner. 
 
