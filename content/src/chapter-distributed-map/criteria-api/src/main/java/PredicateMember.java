@@ -9,7 +9,9 @@ import com.hazelcast.query.Predicates;
 import com.hazelcast.query.SqlPredicate;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
 
 import static com.hazelcast.query.Predicates.and;
 import static com.hazelcast.query.Predicates.between;
@@ -23,28 +25,29 @@ public class PredicateMember {
     private HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
     private IMap<String, Person> personMap = hzInstance.getMap("personMap");
 
-
     public static void main(String[] args) {
         new PredicateMember().run();
     }
 
     public void run() {
-        personMap.put("1", new Person("peter", false, 36));
-        //personMap.put("2", new Customer("talip", true, 36));
-        //personMap.put("3", new Customer(null, true, 36));
+        personMap.put("1", new Person("Peter", true, 36));
+        personMap.put("2", new Person("John", true, 50));
+        personMap.put("3", new Person("Marry", false, 20));
+        personMap.put("4", new Person("Mike", true, 35));
+        personMap.put("5", new Person("Rob", true, 60));
+        personMap.put("6", new Person("Jane", false, 43));
 
+        Set s = hzInstance.getSet("foo");
+        Person p = new Person("Peter", true, 37);
+        s.add(p);
+        Person p1 = (Person) s.iterator().next();
+        Person p2 = (Person) s.iterator().next();
+        System.out.println(p1 == p2);
 
-
-        Expression expr = get("age");
-        Predicate predicate = new SqlPredicate("NOT male");// between(expr, 36, 36);
-
-        System.out.println("name.size=5:");
-        for (Person c : personMap.values(predicate)) {
-            System.out.println(c);
-        }
-
-        //Set<Customer> employees = getWithName("peter");
-        //System.out.println("Employees:" + employees);
+        //System.out.println("Results");
+        //for (Person c :getWithName("Peter")) {
+        //    System.out.println(c);
+        //}
     }
 
     public Set<Person> getWithNameNaive(String name){

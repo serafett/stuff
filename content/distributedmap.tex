@@ -21,10 +21,10 @@ import java.util.Map;
 public class FillMapMember {
     public static void main(String[] args) {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
-        Map<String, String> map = hzInstance.getMap("map");
-        map.put("1", "Tokyo");
-        map.put("2", "Paris");
-        map.put("3", "New York");
+        Map<String, String> employees = hzInstance.getMap("employees");
+        employees.put("1", "Tokyo");
+        employees.put("2", "Paris");
+        employees.put("3", "New York");
     }
 }
 \end{lstlisting}
@@ -35,8 +35,8 @@ import java.util.Map;
 public class PrintAllMember {
     public static void main(String[] args) {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
-        Map<String, String> map = hzInstance.getMap("map");
-        for(Map.Entry<String,String> entry : map.entrySet())
+        Map<String, String> employees = hzInstance.getMap("employees");
+        for(Map.Entry<String,String> entry : employees.entrySet())
             System.out.println(entry.getKey()+" "+entry.getValue());
     }
 }
@@ -49,7 +49,7 @@ If the FillMapMember is runs before the PrintAllMember, we'll get output like th
 \end{lstlisting}
 As you can see, the map updates from the FillMapMember are visible in the PrintAllMember.
 
-Internally Hazelcast will serialize the key/values (see chapter Custom Serialization) to byte arrays and store this within the underlying storage mechanism. This means changes made to a key/value after they are stored in the map, will not reflect on the stored state. Therefor the following idiom is broken:
+Internally Hazelcast will serialize the key/values (see chapter Custom Serialization) to byte arrays and store this in the underlying storage mechanism. This means changes made to a key/value after they are stored in the map, will not reflect on the stored state. Therefor the following idiom is broken:
 \begin{lstlisting}[language=java]
 Employee e  = employees.get(123);
 e.setFired(true);
@@ -61,10 +61,16 @@ e.setFired(true);
 employees.put(123,e);
 \end{lstlisting}
 
-There is an option that can be configured on the map configuration called 'cache-value' which can reduce serialization overhead if a value is read very frequently and the deserialization costs are high. When it is set, the value instance is cached after it is deserialized for the first time. So since the same instance is returned, changes to this instance will be visible in this member. But this feature should be used very wisely because you could run into race and JMM problems because the same instance will be shared between threads and changes to this instance will not be visible to other nodes. So make sure, that if you use mutable values that are not threadsafe, that this value is set to false. 
-
-[todo:is there a limit to the amount of values kept in memory?]
-[todo:can cache-value default to false?]
+\subsection*{cache-value}
+Apart from writing the update back to the map, there is another very important setting called 'cache-value'. When the value is read from a map, the value is deserialized since the map contains the serialized value. The problem is that this can lead to a lot of deserialization overhead if the value is read frequently. To reduce this overhead, if the member owns the key, the value instance can be cached. So multiple requests for some key that is owned by that member, will result in the same instance being returned instead of a copy. This works very fine if the value is an immutable object, but if the value is a mutable object, it can lead to unexpected sharing. This can cause all kinds of problems like race problems and JMM problems. By default 'cache-value' is set to true, so if you store mutable objects in your map, you need to explicitly set 'cache-value' to false, e.g:
+\begin{lstlisting}[language=xml]
+<hazelcast>
+    <map name="employees">
+       <cache-value>false</cache-value>
+    </map>
+</hazelcast>
+\end{lstlisting}
+This only need to be done with the map, the other data structures that are build on top of the map like the Queue do not cache the value. The cashed value is stored directly in local map entry, so the size of the cache will always be equal or smaller than the number of local map entries. This means that there will be extra memory usage, but it will not grow uncontrollable.
 
 \section{Hashcode and equals}
 In most cases you probably will make use of some basic type like a Long, Integer or String as key. But in some cases you will need to create custom keys. But to do it correctly in Hazelcast, you need to understand how this mechanism works because it works differently compared to traditional map implementations. When you store a key/value in a Hazelcast map, instead of storing the Object, the object are serialized to byte arrays and these are stored. To use the hash/equals in Hazelcast you need to know the following rules:
@@ -429,84 +435,15 @@ By default Hazelcast provides sequential consistency, meaning that when a map en
 \end{lstlisting}
 In this example you can see a person map with a single asynchronous backup and where read backup data is enabled. This property defaults to false.
 
-\section{Eviction}
-By default all the map entries that are put in the map, will stay there. You can choose to delete them manually, but you can also rely on an eviction policy that takes care of deleting items automatically. 
-[This feature enables Hazelcast to be used as a distributed cache. If time-to-live-seconds is not 0 then entries older than time-to-live-seconds value will get evicted, regardless of the eviction policy set.]
-
-The eviction configuration can be done using the following parameters:
-\begin{enumerate}
-\item max-size: Maximum size of the map. When max size is reached, map is evicted based on the policy defined. Any integer between 0 and Integer.MAX VALUE. 0 means Integer.MAX\_VALUE. Default is 0. There also is a policy attribute, that determines how the max-size is going to interpreted:
-   \begin{enumerate}
-   		\item map\_size\_per\_jvm: Cluster-wide total max map size (default policy).
-   		\item cluster\_wide\_map\_size:Max map size per JVM.
-   		\item partitions\_wide\_map\_size: Partitions (default 271) wide max map size.
-   		\item used\_heap\_size:Max used heap size in MB (mega-bytes) per JVM.
-   		\item used\_heap\_percentage:Max used heap size percentage per JVM.
-   \end{enumerate}	
-\item eviction-policy:
-   \begin{enumerate}
-   	 	\item NONE: No items will be evicted, so the max-size is ignored. This is the default policy. If you want max-size to work you need to set an eviction-policy other than NONE. Of course, you still can combine it with time-to-live-seconds and  max-idle-seconds.
-	 	\item LRU: Least Recently Used
-	 	\item LFU: Least Frequently Used.
-	\end{enumerate}
-\item time-to-live-seconds: Maximum number of seconds for each entry to stay in the map. Entries that are older than time-to-live-seconds and not updated for time-to-live-seconds will get automatically evicted from the map. Any integer between 0 and Integer.MAX\_VALUE. 0 means infinite. Default is 0.
-\item max-idle-seconds:  Maximum number of seconds for each entry to stay idle in the map. Entries that are idle(not touched) for more than max-idle-seconds will get automatically evicted from the map. Entry is touched if get, put or containsKey is called. Any integer between 0 and Integer.MAX\_VALUE. 0 means infinite. Default is 0.
-\item eviction-percentage:  When max. size is reached, specified percentage of
-    the map will be evicted. Any integer between 0 and 100. If 25 is set for example, 25 \% [todo] of the entries will get evicted.
-\item eviction-delay-seconds:	 Specifies when eviction will be started. Default value is 3. So every 3 (+up to 5 for performance reasons) seconds eviction will be kicked of. Eviction is costly operation, setting this number too low, can decrease the performance.
-\end{enumerate}
-
-An example configuration:
-\begin{lstlisting}[language=xml]
-<hazelcast>
-    <map name="articles">
-        <max-size policy="map_size_per_jvm">10000</max-size>
-        <eviction-policy>LRU</eviction-policy>
-        <max-idle-seconds>60</max-idle-seconds>
-    </map>
-</hazelcast>
-\end{lstlisting}
-We have now configured an articles Map that will start to evict map entries from the cache from a member, as soon as the map size within that member exceeds 10000. It will then start to remove map entries that are least recently used. Also when map entries are not used for more than 60 seconds, they will be evicted as well.
-
-\section{Near Cache}
-Till so far all all the map entries are owned by a single member. But in some cases data needs to be available on all member, an example of such data is reference data. Hazelcast luckily supports a feature called the near cache that makes data available on all members instead of a single one.
-
-Imagine that we have web-shop where articles can be ordered and imagine that these articles are stored in a Hazelcast map. Some articles will be ordered more frequently than other, but the more machines the cluster gets, the higher the chance that we need to go to a remote machine to access the article we need. This means that latency is increased this is not always acceptable.
-
-Luckily Hazelcast provides another cool feature on the Hazelcast Map called the Near Cache. Items that are mostly read only, in this case the article, will automatically be copied to all members that use it. The Near Cache can be configured like this:
-\begin{lstlisting}[language=xml]
-<hazelcast>
-    <map name="articles">
-      <near-cache/>
-    </map>
-</hazelcast>
-\end{lstlisting}
-The following set of properties can be set on the near-cache:
-\begin{enumerate}
-\item max-size: the maximum size of the cache per member. As soon as the maximum size has been reached, the cache will start to evict entries based on the eviction policy. max-size should be between 0 and Integer.MAX\_SIZE, where 0 will be interpreted as Integer.MAX\_SIZE. The default is 0.
-\item eviction-policy: the policy used to evict members from the cache when the near cache is full. The following options are available:
-\begin{enumerate}
- \item NONE: No items will be evicted, so the max-size is ignored. This is the default policy. If you want max-size to work you need to set an eviction-policy other than NONE. Of course, you still can combine it with time-to-live-seconds and  max-idle-seconds.
- \item LRU: Least Recently Used
- \item LFU: Least Frequently Used.
-\end{enumerate}
-\item time-to-live-seconds: the number of seconds a map entry is allowed to remain in the cache. Valid values are 0 to Integer.MAX\_SIZE, and 0 will be interpreted as infinite. The default is 0.
-\item max-idle-seconds: the maximum number of seconds a map entry is allowed to stay in the cache without being read. max-idle-seconds should be between 0 and Integer.MAX\_SIZE, where 0 will be interpreted as Integer.MAX\_SIZE. The default is 0. 
-\item invalidate-on-change: Should the cached entries get evicted if the entries are changed (updated or removed). Valid values are true of false and defaults to true.
-\end{enumerate}
-
-[todo: example of near cache]
-[todo: the properties on near cache are roughly the same as on the map, what happens when you also configure on the map]
-
 \section{Persistence}
-In the previous section we talked about backups that protect against member failure, so if one member goes down, another member takes over. But it does not protect you against cluster failure, e.g. when a datacenter goes down. Another problem we have not talked about is that we are keeping all the entries in the map in memory, and this is not always desirable. Luckily Hazelcast provides a solution for these problems by allowing to load and store data externally, e.g. in a database. This can be done using:
+In the previous section we talked about backups that protect against member failure, so if one member goes down, another member takes over. But it does not protect you against cluster failure, e.g. when a cluster is hosted in a single datacenter, and it goes down. Luckily Hazelcast provides a solutionby allowing to load and store data externally, e.g. in a database. This can be done using:
 \begin{enumerate}
 \item com.hazelcast.core.MapLoader: useful for reading entries from an external datasource, but changes don't need to be written back.
 \item com.hazelcast.core.MapStore: useful for reading and writing map entries from and to an external datasource. The MapStore interface extends the MapLoader interface.
 \end{enumerate}
 One word of caution: the MapLoader/MapStore should NOT call Map/Queue/MultiMap/List/Set operations, otherwise you might run into deadlocks.
 
-In the example below you can see an extremely basic HSQLDB implementation of the MapStore where we load/store a simple Person object with a name field:
+The following example shows an extremely basic HSQLDB implementation of the MapStore where we load/store a simple Person object with a name field:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.MapStore;
 import java.sql.*;
@@ -563,7 +500,7 @@ public class PersonMapStore implements MapStore<Long, Person> {
     }
 }
 \end{lstlisting}
-As you can see the implementation is quite simple, but certainly can be improved, e.g. transactions, prevention against sql injection etc. To connect the PersonMapStore to the persons map, we can configure it like this in the Hazelcast configuration file:
+As you can see the implementation is quite simple, but certainly can be improved, e.g. transactions, prevention against sql injection etc. To connect the PersonMapStore to the persons map, we can configure it using the 'map-store' setting:
 \begin{lstlisting}[language=xml]
 <hazelcast>
     <map name="persons">
@@ -619,6 +556,94 @@ In some cases your MapLoader needs to be notified of lifecycle events. This can 
 \begin{enumerate}
 \item init: useful if you want to initialize resources like opening database connections. One of the parameters the init method receives is a Properties object. This is useful if you want to pass properties from the outside to the MapLoader implementation. If you make use of the xml configuration, in the map-store xml configuration you can specify the properties that need to be passed to the init method.
 \item destroy: useful if need to cleanup resources like closing database connections.
+\end{enumerate}
+
+\section{Eviction}
+By default all the map entries that are put in the map, will stay there. You can choose to delete them manually, but you can also rely on an eviction policy that takes care of deleting items automatically. This feature enables Hazelcast to be used as a distributed cache since hot data will be kept in memory. 
+
+The eviction configuration can be done using the following parameters:
+\begin{enumerate}
+\item max-size: Maximum size of the map. When max size is reached, map is evicted based on the policy defined. Any integer between 0 and Integer.MAX VALUE. 0 means Integer.MAX\_VALUE and the default is 0. There also is a policy attribute, that determines how the max-size is going to interpreted:
+   \begin{enumerate}
+   		\item map\_size\_per\_jvm: maximum number of map entries in the JVM. This is the default policy.
+   		\item cluster\_wide\_map\_size: total number of map entries in the cluster. 
+   		\item partitions\_wide\_map\_size: Partitions (default 271) wide max map size.[todo]
+   		\item used\_heap\_size:Max used heap size in MB (mega-bytes) per JVM.
+   		\item used\_heap\_percentage:Max used heap size percentage per JVM.
+   \end{enumerate}	
+\item eviction-policy:
+   \begin{enumerate}
+   	 	\item NONE: No items will be evicted, so the max-size is ignored. This is the default policy. If you want max-size to work you need to set an eviction-policy other than NONE. Of course, you still can combine it with time-to-live-seconds and  max-idle-seconds.
+	 	\item LRU: Least Recently Used
+	 	\item LFU: Least Frequently Used.
+	\end{enumerate}
+\item time-to-live-seconds: Maximum number of seconds for each entry to stay in the map. Entries that are older than time-to-live-seconds and not updated for time-to-live-seconds will get automatically evicted from the map. Any integer between 0 and Integer.MAX\_VALUE. 0 means infinite. Default is 0.
+\item max-idle-seconds:  Maximum number of seconds for each entry to stay idle in the map. Entries that are idle (not touched) for more than max-idle-seconds will get automatically evicted from the map. Entry is touched if get, put or containsKey is called. Any integer between 0 and Integer.MAX\_VALUE. 0 means infinite. Default is 0.
+\item eviction-percentage:  When max. size is reached, specified percentage of the map will be evicted. Any integer between 0 and 100. If 25 is set for example, 25 \% of the entries will get evicted.
+\item eviction-delay-seconds: Specifies when eviction will be started. Default value is 3. So every 3 (+up to 5 for performance reasons) seconds eviction will be kicked of. Eviction is costly operation, setting this number too low, can decrease the performance.
+\end{enumerate}
+
+An example configuration:
+\begin{lstlisting}[language=xml]
+<hazelcast>
+    <map name="articles">
+        <max-size policy="map_size_per_jvm">10000</max-size>
+        <eviction-policy>LRU</eviction-policy>
+        <max-idle-seconds>60</max-idle-seconds>
+    </map>
+</hazelcast>
+\end{lstlisting}
+This configures an articles Map that will start to evict map entries from a member, as soon as the map size within that member exceeds 10000. It will then start to remove map entries that are least recently used. Also when map entries are not used for more than 60 seconds, they will be evicted as well.
+
+Important: When an item is evicted, the 'MapStore.delete(Object key)' method is not called.
+
+\section{Near Cache}
+Till so far all the map entries are owned by a single member, so if a value is needed, the member that owns the key is used to read the value. But in some cases data needs to be read very frequently by members that don't own the key. The problem is that most requests will require remoting, and therefor have a high latency. Luckily Hazelcast has a feature called the near cache that makes map entries locally available by adding a local cache attached to the the map. 
+
+Imagine that we have a web-shop where articles can be ordered and where these articles are stored in a Hazelcast map. To enable local caching of frequently used articles, the near cache needs to be configured like this:
+\begin{lstlisting}[language=xml]
+<hazelcast>
+    ...
+    <map name="articles">
+      <near-cache/>
+    </map>
+</hazelcast>
+\end{lstlisting}
+On the near cache the following properties can be configured:
+\begin{enumerate}
+\item max-size: the maximum number of cache entries per local cache. As soon as the maximum size has been reached, the cache will start to evict entries based on the eviction policy. max-size should be between 0 and Integer.MAX\_SIZE, where 0 will be interpreted as Integer.MAX\_SIZE. The default is 0, but it probably is better to explicitly configure max-size in combination with eviction-policy, or else time-to-live-seconds/max-idle-seconds to prevent OutOfMemoryErrors.
+\item eviction-policy: the policy used to evict members from the cache when the near cache is full. The following options are available:
+\begin{enumerate}
+ \item NONE: No items will be evicted, so the max-size is ignored. This is the default policy. If you want max-size to work you need to set an eviction-policy other than NONE. Of course, you still can combine it with time-to-live-seconds and  max-idle-seconds.
+ \item LRU: Least Recently Used
+ \item LFU: Least Frequently Used.
+\end{enumerate}
+\item time-to-live-seconds: the number of seconds a map entry is allowed to remain in the cache. Valid values are 0 to Integer.MAX\_SIZE, and 0 will be interpreted as infinite. The default is 0.
+\item max-idle-seconds: the maximum number of seconds a map entry is allowed to stay in the cache without being read. max-idle-seconds should be between 0 and Integer.MAX\_SIZE, where 0 will be interpreted as Integer.MAX\_SIZE. The default is 0. 
+\item invalidate-on-change: should all the members listen to change of their cached entries and evict the entry when updated or deleted. Valid values are true/false and defaults to true. 
+\end{enumerate}
+
+An example configuration:
+\begin{lstlisting}[language=xml]
+<hazelcast>
+    <map name="articles">
+        <near-cache/>
+            <max-size>10000</max-size>
+            <eviction-policy>LRU</eviction-policy>
+            <max-idle-seconds>60</max-idle-seconds>
+        </near-cache>
+    </map>
+</hazelcast>
+\end{lstlisting}
+This configures an articles Map with a near-cache, that will start to evict near-cache entries from a member, as soon as the near-cache size within that member exceeds 10000. It will then start to remove near-cache entries that are least recently used. Also when near cache entries are not used for more than 60 seconds, they will be evicted as well.
+
+In the previous 'Eviction' section we talked about evicting items from the map, but it is important to understand that the near cache and map eviction are two different things. The near cache is a local map that contains frequently accessed map entries from any member, the local map will only contain map entries it owns. You can even combine the eviction and the near cache; although their settings are independent. 
+
+Some things worth considering when using a near cache:
+\begin{enumerate}
+\item increases memory usage since the near cache items need to be stored in the memory of the member
+\item reduces consistency, especially when 'invalidate-on-change' is false: it could be that a cache entry never is refreshed.
+\item it is best used for read only data. Especially when 'invalidate-on-change' is enabled, there is a lot of remoting involved to invalidate the cache entry, when a map entry is updated.
 \end{enumerate}
 
 \section{Concurrency Control}
@@ -739,9 +764,9 @@ Aba problem; it can be that the following thing happens. And explain how it can 
 TODO: When to choose one, when to choose the other. Normally optimistic performs better if there is not that much contention. What is the reason to do so in Hazelcast? Is it better performing?
 
 \section{MultiMap}
-In some cases you need to attach multiple values for a single key. Luckily Hazelcast provides out of the box functionality for that in the form of a MultiMap. The MultiMap doesn't implement the java.util.Map interface since the signatures of the method are different. The MultiMap does have support for most of the functionality provided by the IMap (so locking, listeners etc). But it doesn't support indexing.
+In some cases you need to store multiple values for a single key. You could use a normal collection as value and store the 'real' values in this collection. The problem with this approach is that the whole collection needs to be deserialized for an operation like add. This can cause a lot of overhead, cpu, memory, network usage. To solve this problem Hazelcast provides a MultiMap where multiple values can be stored for a single key. 
 
-The reason why the MultiMap exists, apart from being easy to use is efficiency. If you would use the hazelcast map with an ordinary collection as value, then you need to deserialize the whole collection for every operation you do on that collection (e.g. adding a single element). With the MultiMap this isn't needed, so it is a lot more efficient.
+The MultiMap doesn't implement the java.util.Map interface since the signatures of the method are different. The MultiMap does have support for most of the functionality provided by the IMap (so locking, listeners etc). But it doesn't support indexing, predicates and the MapStore.
 
 To demonstrate the MultiMap where are going to create 2 member; in one member dummy data is created and in the other member it is read and written to the console.
 \begin{lstlisting}[language=java]
@@ -773,7 +798,10 @@ public class PrintMember {
 \end{lstlisting}
 It is important to realize that map.get(key) returns a copy of the values at some moment in time. Changes to this collection will result in an a UnsupportedOperationException. So if you want to change the values, you need to do it through the map.remove methods.
 
-Removing items; you can remove items from the MultiMap. This is using the equals operator of the value. If the collection for a specific key is empty, this collection will not automatically be removed, so it can be that you need to clean up the MultiMap so that no empty value collections remains.
+Removing items; you can remove items from the MultiMap. If the collection for a specific key is empty, this collection will not automatically be removed, so it can be that you need to clean up the MultiMap so that no empty value collections remains.
+
+[todo: list and set based multimap]
+[todo: config example]
 
 The value collection is set based, so no duplicates and there is no ordering.Null value is not allowed (npe). But the MultiMap can also be configured to be list based: MultiMapConfig.setValueCollectionType(ValueCollectionType.LIST). 
 

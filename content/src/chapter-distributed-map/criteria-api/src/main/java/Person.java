@@ -13,7 +13,7 @@ public class Person implements Serializable {
 
       @Override
     public String toString() {
-        return "Customer{" +
+        return "Person{" +
                 "male=" + male +
                 ", name='" + name + '\'' +
                 ", age=" + age +

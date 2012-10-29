@@ -2,18 +2,12 @@
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
            xsi:schemaLocation="http://www.hazelcast.com/schema/config http://www.hazelcast.com/schema/config/hazelcast-config-2.4.xsd">
 
-    <group>
-        <name></name>
-        <password></password>
-    </group>
-    
     <map name="articles">
-        <near-cache>
+         <near-cache>
+            <max-size>5000</max-size>
             <time-to-live-seconds>60</time-to-live-seconds>
             <eviction-policy>NONE</eviction-policy>
-            <max-size policy="Banana">50</max-size>
             <invalidate-on-change>false</invalidate-on-change>
         </near-cache>
-
     </map>
 </hazelcast>
