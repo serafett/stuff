@@ -4,10 +4,10 @@
     <packaging>jar</packaging>
 
     <artifactId>ec2</artifactId>
-    <name>Chapter Cluster Configuration - Ec2</name>
+    <name>Chapter Network Configuration - Ec2</name>
 
     <description>
-        Chapter Cluster Configuration - Ec2
+        Chapter Network Configuration - Ec2
     </description>
 
     <parent>

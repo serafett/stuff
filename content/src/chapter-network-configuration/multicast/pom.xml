@@ -4,10 +4,10 @@
     <packaging>jar</packaging>
 
     <artifactId>multicast</artifactId>
-    <name>Chapter Cluster Configuration - Multicast</name>
+    <name>Chapter Network Configuration - Multicast</name>
 
     <description>
-        Chapter Cluster Configuration - Multicast
+        Chapter Network Configuration - Multicast
     </description>
 
     <parent>

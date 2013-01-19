@@ -4,10 +4,10 @@
     <packaging>jar</packaging>
 
     <artifactId>group2</artifactId>
-    <name>Chapter Cluster Configuration - Group2</name>
+    <name>Chapter Network Configuration - Group2</name>
 
     <description>
-        Chapter Cluster Configuration - Group2
+        Chapter Network Configuration - Group2
     </description>
 
     <parent>

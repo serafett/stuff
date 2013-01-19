@@ -4,10 +4,10 @@
     <packaging>pom</packaging>
 
     <artifactId>groups</artifactId>
-    <name>Chapter Cluster Configuration - Groups</name>
+    <name>Chapter Network Configuration - Groups</name>
 
     <description>
-        Chapter Cluster Configuration - Groups
+        Chapter Network Configuration - Groups
     </description>
 
     <parent>

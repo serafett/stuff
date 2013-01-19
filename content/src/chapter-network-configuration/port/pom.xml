@@ -4,10 +4,10 @@
     <packaging>jar</packaging>
 
     <artifactId>port</artifactId>
-    <name>Chapter Cluster Configuration - Port</name>
+    <name>Chapter Network Configuration - Port</name>
 
     <description>
-        Chapter Cluster Configuration - Port
+        Chapter Network Configuration - Port
     </description>
 
     <parent>

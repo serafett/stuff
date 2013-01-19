@@ -4,10 +4,10 @@
     <packaging>pom</packaging>
 
     <artifactId>chapter-network-configuration</artifactId>
-    <name>Chapter Cluster Configuration</name>
+    <name>Chapter Network Configuration</name>
     <groupId>book.hazelcast.network-configuration</groupId>
     <description>
-        All the code samples for the cluster configuration
+        All the code samples for the network configuration
     </description>
 
     <parent>
@@ -19,10 +19,12 @@
 
     <modules>
         <module>port</module>
-        <module>outboundports</module>
+        <module>firewall</module>
+        <module>ssl</module>
         <module>multicast</module>
         <module>ec2</module>
         <module>tcpip</module>
         <module>groups</module>
+        <module>ipv6</module>
     </modules>
 </project>

@@ -4,10 +4,10 @@
     <packaging>jar</packaging>
 
     <artifactId>tcpip</artifactId>
-    <name>Chapter Cluster Configuration - TcpIp</name>
+    <name>Chapter Network Configuration - TcpIp</name>
 
     <description>
-        Chapter Cluster Configuration - Tcp/Ip
+        Chapter Network Configuration - Tcp/Ip
     </description>
 
     <parent>

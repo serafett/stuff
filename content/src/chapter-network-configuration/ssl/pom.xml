@@ -3,11 +3,11 @@
     <modelVersion>4.0.0</modelVersion>
     <packaging>jar</packaging>
 
-    <artifactId>firewall</artifactId>
-    <name>Chapter Network Configuration - Firewall</name>
+    <artifactId>ssl</artifactId>
+    <name>Chapter Network Configuration - SSL</name>
 
     <description>
-        Chapter Network Configuration - Firewall
+        Chapter Network Configuration - SSL
     </description>
 
     <parent>
