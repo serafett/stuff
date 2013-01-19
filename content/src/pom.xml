@@ -13,7 +13,7 @@
     </description>
 
     <properties>
-        <hazelcast.version>2.4.1</hazelcast.version>
+        <hazelcast.version>2.5</hazelcast.version>
     </properties>
 
     <dependencies>
@@ -32,7 +32,7 @@
         <module>chapter-distributed-topic</module>
         <module>chapter-clients</module>
         <module>chapter-distributed-map</module>
-        <module>chapter-cluster-configuration</module>
+        <module>chapter-network-configuration</module>
         <module>chapter-transactions</module>
         <module>chapter-serialization</module>
         <module>chapter-distributed-services</module>

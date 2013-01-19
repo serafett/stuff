@@ -135,9 +135,7 @@ Luckily Hazelcast solves these problems by supporting predicates that are execut
 \end{enumerate}
 The fork/join approach is highly scalable because it parallelizable. By adding additional cluster members, the number of partitions per member is reduced and therefor the time a member needs to iterate over all its data, is reduced as well. Also the local filtering is parallelizable because a pool of 'partition threads' will evaluate segments of elements concurrently. And last but not least, the amount of network traffic is reduced drastically, since only filtered data is send instead of all data.
 
-[todo: what about creating a map per 'index'. disadvantage,  ... multimap]
-
-Hazelcast provides 2 api's for distributed queries:
+Hazelcast provides 2 API's for distributed queries:
 \begin{enumerate}
 \item Criteria API
 \item Distributed SQL Query
@@ -228,7 +226,7 @@ The syntax we used so far to create Predicates is clear but can be simplified by
 As you can see, it can simplify things, especially if you have complex predicates. But it is a matter of taste which approach you prefer.
 
 \subsection*{Distributed SQL Query}
-In the previous section the Criteria API was explained where expression/predicate objects are manually created. The pain can be reduced a bit by making use of the PredicateBuilder, but it still isn't perfect. That is why a DSL was added: the Distributed SQL Query, where a SQL like language is used. But underwater the Criteria API is used. 
+In the previous section the Criteria API was explained where expression/predicate objects are manually created. The pain can be reduced a bit by making use of the PredicateBuilder, but it still isn't perfect. That is why a DSL was added: the Distributed SQL Query, that is based on a SQL like language. But underwater the Criteria API is used. 
 
 The 'get with name' function we already implemented using the Criteria API, can be implementing using the Distributed SQL Query like this:
 \begin{lstlisting}
@@ -300,8 +298,7 @@ It also is possible to call the 'IMap.addIndex(String name,boolean ordered)' met
 
 The performance impact of using one or more indices depends on a lot of factors; among them are the size of the map, the chance of finding the element with a full table scan etc. Also adding one or more indices make mutations to the map more expensive since the index needs to be updated as well. Therefor you need to test in a production like environment and a representative size/quality of the dataset, which configuration is best for you. In the source code you can 2 very rudimentary index benchmarks, one for updating and one for searching. 
 
-[todo: Are the near caches updates synchronously or asynchronously?]
-[todo: on the map roughly the same properties can be found.. are they ignored? Can you enter both?]
+[todo: how is the ordering implemented, for numeric values is can be simple, but what about strings?]
 
 \section{Data locality}
 In some cases you want data to be stored in the same partition to have improved locality of reference; an important feature for performance. This prevents going over the network, since the data can be accessed locally since it is stored in the same partition.
@@ -646,8 +643,11 @@ Some things worth considering when using a near cache:
 \item it is best used for read only data. Especially when 'invalidate-on-change' is enabled, there is a lot of remoting involved to invalidate the cache entry, when a map entry is updated.
 \end{enumerate}
 
+[todo: Are the near caches updates synchronously or asynchronously?]
+[todo: on the map roughly the same properties can be found.. are they ignored? Can you enter both?]
+
 \section{Concurrency Control}
-The Hazelcast map itself is threadsafe just like the ConcurrentHashMap or the Collections.synchronizedMap, but in some cased your thread safety requirements are bigger than what hazelcast provides out of the box. Luckily Hazelcast provides multiple concurrency control solutions;  it can either be pessimistic using locks or optimistic using compare and swap operations. Todo: what about transactions?
+The Hazelcast map itself is thread-safe just like the ConcurrentHashMap or the Collections.synchronizedMap, but in some cased your thread safety requirements are bigger than what hazelcast provides out of the box. Luckily Hazelcast provides multiple concurrency control solutions;  it can either be pessimistic using locks or optimistic using compare and swap operations. Todo: what about transactions?
 
 Take a look at the following example; if run by multiple members in parallel the total amount would be 
 \begin{lstlisting}[language=java]

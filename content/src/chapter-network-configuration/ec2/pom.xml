@@ -3,16 +3,16 @@
     <modelVersion>4.0.0</modelVersion>
     <packaging>jar</packaging>
 
-    <artifactId>group1</artifactId>
-    <name>Chapter Cluster Configuration - Group1</name>
+    <artifactId>ec2</artifactId>
+    <name>Chapter Cluster Configuration - Ec2</name>
 
     <description>
-        Chapter Cluster Configuration - Group1
+        Chapter Cluster Configuration - Ec2
     </description>
 
     <parent>
-        <groupId>book.hazelcast.configuration</groupId>
-        <artifactId>groups</artifactId>
+        <groupId>book.hazelcast.network-configuration</groupId>
+        <artifactId>chapter-network-configuration</artifactId>
         <version>0.1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
