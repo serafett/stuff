@@ -18,6 +18,8 @@
     </parent>
 
     <modules>
+        <module>port</module>
+        <module>outboundports</module>
         <module>multicast</module>
         <module>ec2</module>
         <module>tcpip</module>

@@ -1,8 +1,8 @@
 \chapter{Network configuration}
 
-TODO: IPV6
+Hazelcast can run perfectly within a single JVM and this is excellent for development and to speed up testing. But Hazelcast true strength becomes apparent when a cluster of JVM's running on multiple machines is created. Having a cluster of machines makes Hazelcast resilient to failure; if one machine fails, the data will failover to another machine as if nothing happened. It also makes Hazelcast scalable; just add extra machines to the cluster, to gain additional capacity. Creating clusters can be done by configuring the network settings.
 
-To configure the cluster options, we are going to make use of the following minimalistic Hazelcast node.
+To configure the networking settings, we are going to make use of the following minimalistic Hazelcast node.
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.Hazelcast;
 public class Node {
@@ -12,7 +12,7 @@ public class Node {
 }
 \end{lstlisting}
 
-Hazelcast network configuration can be done through the hazelcast.xml config file (it also can be done programmatically).
+In this chapter we are going to rely on the hazelcast.xml config file to set the networking options, but it can also be done programmatically. Within the config file there is a network section that can be configured:
 \begin{lstlisting}[language=xml]
 <hazelcast>
     ...
@@ -23,19 +23,53 @@ Hazelcast network configuration can be done through the hazelcast.xml config fil
 </hazelcast>
 \end{lstlisting}
 
-network.port:
-this is the port the Hazelcast uses for internal communication. If that port already is taken, e.g because another Hazelcast instance is running on that JVM, Hazelcast will automatically try to find another port. This is done by incrementing the port number
+\section{Port}
+One of the most basic configuration settings is the port Hazelcast is going to use for communication between the nodes. This can be done by the 'port' property in the network configuration which defaults to 5701. If the port is already in use and if auto-increment property is true, it is the default, Hazelcast will automatically try to find next port. Example:
 \begin{lstlisting}[language=xml]
 <hazelcast>
-    ...
     <network>
         <port auto-increment="true">5701</port>
-        ...  
    </network>
-    ...
 </hazelcast>
 \end{lstlisting}
-It defaults to 5701; so if you are fine with that, you can leave it as it is.
+In this example you can see the explicit set values, but you don't need to specify them since they are also the default. If you start the node, you will get output like:
+
+\begin{lstlisting}
+...
+Jan 19, 2013 10:58:46 AM com.hazelcast.impl.AddressPicker
+INFO: Prefer IPv4 stack is true.
+Jan 19, 2013 10:58:46 AM com.hazelcast.impl.AddressPicker
+INFO: Picked Address[192.168.1.104]:5701, using socket ServerSocket[addr=/0.0.0.0,localport=5701], bind any local is true
+Jan 19, 2013 10:58:47 AM com.hazelcast.system
+INFO: [192.168.1.104]:5701 [dev] Hazelcast Community Edition 2.5 (20130116) starting at Address[192.168.1.104]:5701
+Jan 19, 2013 10:58:47 AM com.hazelcast.system
+INFO: [192.168.1.104]:5701 [dev] Copyright (C) 2008-2012 Hazelcast.com
+Jan 19, 2013 10:58:47 AM com.hazelcast.impl.LifecycleServiceImpl
+INFO: [192.168.1.104]:5701 [dev] Address[192.168.1.104]:5701 is STARTING
+Jan 19, 2013 10:58:47 AM com.hazelcast.impl.Node
+WARNING: [192.168.1.104]:5701 [dev] No join method is enabled! Starting standalone.
+...
+\end{lstlisting}
+As you can see, the port is 5701. If another Node is started, you will get output like this:
+\begin{lstlisting}
+...
+INFO: Prefer IPv4 stack is true.
+Jan 19, 2013 11:01:09 AM com.hazelcast.impl.AddressPicker
+INFO: Picked Address[192.168.1.104]:5702, using socket ServerSocket[addr=/0.0.0.0,localport=5702], bind any local is true
+Jan 19, 2013 11:01:09 AM com.hazelcast.system
+INFO: [192.168.1.104]:5702 [dev] Hazelcast Community Edition 2.5 (20130116) starting at Address[192.168.1.104]:5702
+Jan 19, 2013 11:01:09 AM com.hazelcast.system
+INFO: [192.168.1.104]:5702 [dev] Copyright (C) 2008-2012 Hazelcast.com
+Jan 19, 2013 11:01:09 AM com.hazelcast.impl.LifecycleServiceImpl
+INFO: [192.168.1.104]:5702 [dev] Address[192.168.1.104]:5702 is STARTING
+Jan 19, 2013 11:01:09 AM com.hazelcast.impl.Node
+WARNING: [192.168.1.104]:5702 [dev] No join method is enabled! Starting standalone.
+Jan 19, 2013 11:01:09 AM com.hazelcast.impl.Node
+WARNING: [192.168.1.104]:5702 [dev] Config seed port is 5701 and cluster size is 1. Some of the ports seem occupied!
+Jan 19, 2013 11:01:09 AM com.hazelcast.impl.LifecycleServiceImpl
+INFO: [192.168.1.104]:5702 [dev] Address[192.168.1.104]:5702 is STARTED...
+\end{lstlisting}
+As you can see the port of the second node is 5702. If you look carefully, at the end you see a warning about cluster size is 1. This is because the created nodes are currently not part of a cluster, but are standalone nodes. To create a cluster, see the Node Discovery chapter.
 
 \section{Node discovery}
 Hazelcast currently supports 3 mechanisms for Hazelcast nodes to discover each other and join the cluster. Without this discovery mechanism, the node's will not form a cluster together, but will remain 1 node clusters. The discovery mechanisms are:
@@ -316,7 +350,36 @@ partitionGroupConfig.addMemberGroupConfig(memberGroupConfig);
 partitionGroupConfig.addMemberGroupConfig(memberGroupConfig2);
 \end{lstlisting}
 
+\section{IPv6 Support}
+
+\section{Encryption}
+
+\section{SSL}
+
+\section{Socket Interceptor}
+
 \section{Network Partitioning (Split-Brain Syndrome)}
+
+\section{Firewall}
+By default Hazelcast lets the system to pick up an ephemeral port during socket bind operation. But security policies/firewalls may require to restrict outbound ports to be used by Hazelcast enabled applications. To fulfill this requirement, you can configure Hazelcast to use only defined outbound ports, example:
+
+\begin{lstlisting}[language=xml]
+<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config
+                               http://www.hazelcast.com/schema/config/hazelcast-config-2.5.xsd"
+           xmlns="http://www.hazelcast.com/schema/config"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <network>
+        <join>
+            <multicast enabled="true"/>
+        </join>
+        <outbound-ports>
+            <ports>33000-35000</ports>
+        </outbound-ports>
+    </network>
+</hazelcast
+\end{lstlisting}
+
+todo: explain the different syntax options.
 
 [todo: comment about generating the hazelcast.xml to deal with limitations in the join mechanism. You could generate
 a hazelcast.xml based on database content containing the members.]
