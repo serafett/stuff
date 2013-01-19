@@ -361,8 +361,7 @@ partitionGroupConfig.addMemberGroupConfig(memberGroupConfig2);
 \section{Network Partitioning (Split-Brain Syndrome)}
 
 \section{Firewall}
-By default Hazelcast lets the system to pick up an ephemeral port during socket bind operation. But security policies/firewalls may require to restrict outbound ports to be used by Hazelcast enabled applications. To fulfill this requirement, you can configure Hazelcast to use only defined outbound ports, example:
-
+When a Hazelcast member connects to another Hazelcast member, it binds to port 5701; see the ports section to change this. During the binding process on the socket server, another port is opened. By default this will be an 'ephemeral' port since we don't care about which port is being used as long as it is free. The problem is that this kind of behavior can lead to security issues since there is no control on the ports being used. Because of this a firewall is much harder to configure. Luckily Hazelcast is able to restrict the outbound ports being used by explicitly configuring them. For example if we want to allow the following port range 33000-30010 for the outbound ports, it can be configured like this:
 \begin{lstlisting}[language=xml]
 <hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config
                                http://www.hazelcast.com/schema/config/hazelcast-config-2.5.xsd"
@@ -373,13 +372,26 @@ By default Hazelcast lets the system to pick up an ephemeral port during socket 
             <multicast enabled="true"/>
         </join>
         <outbound-ports>
-            <ports>33000-35000</ports>
+            <ports>33000-30010</ports>
         </outbound-ports>
     </network>
 </hazelcast
 \end{lstlisting}
 
-todo: explain the different syntax options.
+To demonstrate the outbound ports configuration, start 2 Hazelcast node's with the configuration and when the nodes are fully started, execute 'sudo lsof -i | grep java'. Below you can find cleaned output of the command:
+\begin{lstlisting}
+java 44711 38u IPv4 TCP *:5701 (LISTEN)
+java 44711 40u IPv4 TCP 172.16.78.1:5701->172.16.78.1:33010 (ESTABLISHED)
+java 44741 38u IPv4 TCP *:5702 (LISTEN)
+java 44741 54u IPv4 TCP 172.16.78.1:33010->172.16.78.1:5701 (ESTABLISHED)
+\end{lstlisting}
+As you can see there are 2 java processes: 44711 and 4471 that respectively listen on port 5701 and 5702. 
+
+
+You can specify multiple 'ports' configurations, ether by separating them by comma, e.g. '33000-34000,35000-36000' or by adding multiple <ports>..</ports> sections. If you don't want to use a port range, but want to make use of an explicit port, just provide the port number. This can also be combined with the comma or with multiple <ports>..</ports> sections.
+
+todo: perhaps add ip tables firewall rule
+also add rule for the listening.. and for the outbound
 
 [todo: comment about generating the hazelcast.xml to deal with limitations in the join mechanism. You could generate
 a hazelcast.xml based on database content containing the members.]

@@ -7,7 +7,7 @@
             <multicast enabled="true"/>
         </join>
         <outbound-ports>
-            <ports>33000-33010</ports>
+            <ports>30000-31000</ports>
         </outbound-ports>
     </network>
 </hazelcast>
