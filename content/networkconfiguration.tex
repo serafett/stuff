@@ -355,6 +355,40 @@ partitionGroupConfig.addMemberGroupConfig(memberGroupConfig2);
 \section{Encryption}
 
 \section{SSL}
+TODO: What is the difference between SSL and encryption
+
+Hazelcast allows you to use SSL socket communication among all Hazelcast members to prevent sniffers from seeing what goes over the line. You need to implement com.hazelcast.nio.ssl.SSLContextFactory and configure SSL section in network configuration. Luckily Hazelcast provides a default implementation called the com.hazelcast.nio.ssl.BasicSSLContextFactory which we are going to use:
+\begin{lstlisting}[language=xml]
+<hazelcast>
+    <network>
+        <join><multicast enabled="true"/></join>
+        <ssl enabled="true">
+            <factory-class-name>com.hazelcast.nio.ssl.BasicSSLContextFactory</factory-class-name>
+            <properties>
+                <property name="keyStore">keyStore.jks</property>
+                <property name="keyStorePassword">password</property>
+            </properties>
+        </ssl>
+    </network>
+</hazelcast>
+\end{lstlisting}
+The 'keyStore' is the path to the keyStore and the 'keyStorePassword' is the password of the keystore. In the example code you can find an already created keystore and also the documentation to create one yourself.
+
+When you start a node, you will see that SSL is enabled:
+\begin{lstlisting}
+Jan 19, 2013 4:00:43 PM com.hazelcast.nio.ConnectionManager
+INFO: [192.168.1.104]:5701 [dev] SSL is enabled
+\end{lstlisting}
+
+There are some additional properties for this implementation:
+\begin{enumerate}
+\item keyManagerAlgorithm: defaults to 'SunX509'.
+\item trustManagerAlgorithm: defaults to 'SunX509'.
+\item protocol: defaults to 'TLS'
+\end{enumerate}
+Another way to configure the keyStore/keyStorePassword is through the   'javax.net.ssl.keyStore' and 'javax.net.ssl.keyStorePassword' system properties.
+
+Note that, you can not use SSL when Hazelcast Encryption is enabled.
 
 \section{Socket Interceptor}
 
@@ -383,7 +417,7 @@ java 46120 IPv4 TCP 172.16.78.1:30609->172.16.78.1:5701 (ESTABLISHED)
 \end{lstlisting}
 As you can see there are 2 java processes: 46117 and 46120 that listen on port 5701 and 5702 (inbound traffic). You can also see that java process 46120 is using port 30609 for outbound traffic.
 
-Apart from specifying port ranges, you can also specify single ports. And multiple port configurations can be combined either by separating them by comma or by providing multiple 'ports' sections. So if you want to use port 30000,30005 and portrange 31000 till 32000, you could say the following: 30000,30005,31000-32000. 
+Apart from specifying port ranges, you can also specify single ports. And multiple port configurations can be combined either by separating them by comma or by providing multiple 'ports' sections. So if you want to use port 30000,30005 and portrange 31000 till 32000, you could say the following: <ports>30000,30005,31000-32000</ports>. 
 
 \subsection{iptables}
 If you are making use of iptables the following rule can be added to allow for outbound traffic from ports 33000-31000:
