@@ -35,7 +35,6 @@
         <module>chapter-network-configuration</module>
         <module>chapter-transactions</module>
         <module>chapter-serialization</module>
-        <module>chapter-distributed-services</module>
     </modules>
 
     <build>
