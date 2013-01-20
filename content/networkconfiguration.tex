@@ -69,10 +69,10 @@ WARNING: [192.168.1.104]:5702 [dev] Config seed port is 5701 and cluster size is
 Jan 19, 2013 11:01:09 AM com.hazelcast.impl.LifecycleServiceImpl
 INFO: [192.168.1.104]:5702 [dev] Address[192.168.1.104]:5702 is STARTED...
 \end{lstlisting}
-As you can see the port of the second node is 5702. If you look carefully, at the end you see a warning about cluster size is 1. This is because the created nodes are currently not part of a cluster, but are standalone nodes. To create a cluster, see the Node Discovery chapter.
+As you can see the port of the second node is 5702. If you look carefully, at the end you see a warning about cluster size is 1. This is because the created nodes are currently not part of a cluster, but are standalone nodes. To create a cluster, see the Node Discovery section.
 
 \section{Node discovery}
-Hazelcast currently supports 3 mechanisms for Hazelcast nodes to discover each other and join the cluster. Without this discovery mechanism, the node's will not form a cluster together, but will remain 1 node clusters. The discovery mechanisms are:
+Hazelcast currently supports 3 mechanisms for Hazelcast nodes to discover each other and join the cluster. Without this discovery mechanisms, the node's will not form a cluster, but will remain stand alone Hazelcast instances. The discovery mechanisms are:
 \begin{enumerate}
 \item Multicast:
 \item TCP/IP Cluster:
@@ -80,8 +80,7 @@ Hazelcast currently supports 3 mechanisms for Hazelcast nodes to discover each o
 \end{enumerate}
 
 \subsection{Configuring Hazelcast for Multicast}
-
-With multicast discovery a node will send a message to all node's that listen on the multi-cast port. It is the easiest configuration for testing. But in a lot of production environments, multicast is not allowed.
+With multicast discovery a node will send a message to all node's that listen on the multi-cast port. It is the easiest configuration for testing. But in a lot of production environments, multicast is not supported or desirable.
 
 A very minimalistic multicast configuration is the following:
 \begin{lstlisting}[language=xml]
@@ -387,8 +386,6 @@ There are some additional properties that can be set on the BasicSSLContextFacto
 \item protocol: defaults to 'TLS'
 \end{enumerate}
 Another way to configure the keyStore/keyStorePassword is through the 'javax.net.ssl.keyStore' and 'javax.net.ssl.keyStorePassword' system properties.
-
-Note that, you can not use SSL when Hazelcast Encryption is enabled.
 
 \section{Encryption}
 [todo: why is there encryption and the ssl option? So when to select one or the other?]
