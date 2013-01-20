@@ -1,0 +1,24 @@
+<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config
+                               http://www.hazelcast.com/schema/config/hazelcast-config-2.5.xsd"
+           xmlns="http://www.hazelcast.com/schema/config"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <network>
+        <join>
+            <multicast enabled="true"/>
+        </join>
+        <asymmetric-encryption enabled="true">
+            <!-- encryption algorithm -->
+            <algorithm>RSA</algorithm>
+            <!-- private key password -->
+            <keyPassword>thekeypass</keyPassword>
+            <!-- private key alias -->
+            <keyAlias>member1</keyAlias>
+            <!-- key store type -->
+            <storeType>JKS</storeType>
+            <!-- key store password -->
+            <storePassword>password</storePassword>
+            <!-- path to the key store -->
+            <storePath>keystore.jks</storePath>
+        </asymmetric-encryption>
+    </network>
+</hazelcast>

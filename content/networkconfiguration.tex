@@ -352,12 +352,12 @@ partitionGroupConfig.addMemberGroupConfig(memberGroupConfig2);
 
 \section{IPv6 Support}
 
-\section{Encryption}
-
 \section{SSL}
 TODO: What is the difference between SSL and encryption
 
-Hazelcast allows you to use SSL socket communication among all Hazelcast members to prevent sniffers from seeing what goes over the line. You need to implement com.hazelcast.nio.ssl.SSLContextFactory and configure SSL section in network configuration. Luckily Hazelcast provides a default implementation called the com.hazelcast.nio.ssl.BasicSSLContextFactory which we are going to use:
+In a production environment often you want to prevent that the communication between Hazelcast nodes can be tampered or can be read, with because it could contains sensitive information. Luckily Hazelcast provides a solution for that by enabling SSL encryption.
+
+The basic functionality is provided by 'com.hazelcast.nio.ssl.SSLContextFactory' interface and configurable through the the SSL section in network configuration. Luckily Hazelcast provides a default implementation called the 'com.hazelcast.nio.ssl.BasicSSLContextFactory' which we are going to use for the example:
 \begin{lstlisting}[language=xml]
 <hazelcast>
     <network>
@@ -372,7 +372,7 @@ Hazelcast allows you to use SSL socket communication among all Hazelcast members
     </network>
 </hazelcast>
 \end{lstlisting}
-The 'keyStore' is the path to the keyStore and the 'keyStorePassword' is the password of the keystore. In the example code you can find an already created keystore and also the documentation to create one yourself.
+The 'keyStore' is the path to the keyStore. [todo: is it possible to provide a classpath reference so it can be included in the jar, and is this a desirable practice?] and the 'keyStorePassword' is the password of the keystore. In the example code you can find an already created keystore and also the documentation to create one yourself.
 
 When you start a node, you will see that SSL is enabled:
 \begin{lstlisting}
@@ -380,15 +380,64 @@ Jan 19, 2013 4:00:43 PM com.hazelcast.nio.ConnectionManager
 INFO: [192.168.1.104]:5701 [dev] SSL is enabled
 \end{lstlisting}
 
-There are some additional properties for this implementation:
+There are some additional properties that can be set on the BasicSSLContextFactory:
 \begin{enumerate}
 \item keyManagerAlgorithm: defaults to 'SunX509'.
 \item trustManagerAlgorithm: defaults to 'SunX509'.
 \item protocol: defaults to 'TLS'
 \end{enumerate}
-Another way to configure the keyStore/keyStorePassword is through the   'javax.net.ssl.keyStore' and 'javax.net.ssl.keyStorePassword' system properties.
+Another way to configure the keyStore/keyStorePassword is through the 'javax.net.ssl.keyStore' and 'javax.net.ssl.keyStorePassword' system properties.
 
 Note that, you can not use SSL when Hazelcast Encryption is enabled.
+
+\section{Encryption}
+[todo: why is there encryption and the ssl option? So when to select one or the other?]
+[todo: are there any performance implications?]
+[todo: when to use async or sync.]
+[todo: encryption and SSL can't be combined with each other. ]
+[todo: asynchronous and synchronous can't be combined with each other.]
+
+\begin{enumerate}
+\item asymmetric encryption
+\item symmetric encryption
+\end{enumerate}
+
+\subsection{Asymmetric Encryption}
+Asymmetric encryption relies on a public/private-key pair. Data is encrypted by the sender using the public, a key everybody is allowed to have, and decrypted using the private key of the receiver. 
+
+\begin{lstlisting}[language=xml]
+
+\end{lstlisting}
+
+[todo:the following algorithms are available RSA/NONE/PKCS1PADDING]
+[todo:the none algorithm disables the encryption?]
+[todo:how to keep the keystores in sync? Since each keystore needs to be updated when a member joins]
+
+\subsection{Symmetric Encryption}
+[todo:which algorithms are available]
+
+\begin{lstlisting}[language=xml]
+<hazelcast>
+    <network>
+        <join>
+            <multicast enabled="true"/>
+        </join>
+        <symmetric-encryption enabled="true">
+            <algorithm>PBEWithMD5AndDES</algorithm>
+            <salt>somesalt</salt>
+            <password>somepass</password>
+            <iteration-count>19</iteration-count>
+        </symmetric-encryption>
+    </network>
+</hazelcast>
+\end{lstlisting}
+When we start 2 Nodes using the configuration, we'll see that the symmetric encryption is activated:
+\begin{lstlisting}
+Jan 20, 2013 9:22:08 AM com.hazelcast.nio.SocketPacketWriter
+INFO: [192.168.1.104]:5702 [dev] Writer started with SymmetricEncryption
+Jan 20, 2013 9:22:08 AM com.hazelcast.nio.SocketPacketReader
+INFO: [192.168.1.104]:5702 [dev] Reader started with SymmetricEncryption
+\end{lstlisting}
 
 \section{Socket Interceptor}
 
