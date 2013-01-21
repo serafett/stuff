@@ -1,6 +1,6 @@
 import com.hazelcast.core.*;
 import java.util.concurrent.BlockingQueue;
-public class ProducerNode {
+public class ProducerMember {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
         BlockingQueue<Integer> queue = hzInstance.getQueue("queue");
