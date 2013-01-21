@@ -1,3 +1,3 @@
 #!/bin/sh
 
-java -cp target/lib/*:target/classes Node
+java -cp target/lib/*:target/classes Member
