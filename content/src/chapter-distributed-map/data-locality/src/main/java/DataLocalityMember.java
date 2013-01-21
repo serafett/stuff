@@ -1,7 +1,7 @@
 import com.hazelcast.core.*;
 import com.hazelcast.partition.*;
 import java.util.Map;
-public class Main {
+public class DataLocalityMember {
     public static void main(String[] args) {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
         Map<Long, Customer> customerMap = hzInstance.getMap("customers");

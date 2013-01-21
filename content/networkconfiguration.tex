@@ -2,10 +2,10 @@
 
 Hazelcast can run perfectly within a single JVM and this is excellent for development and to speed up testing. But Hazelcast true strength becomes apparent when a cluster of JVM's running on multiple machines is created. Having a cluster of machines makes Hazelcast resilient to failure; if one machine fails, the data will failover to another machine as if nothing happened. It also makes Hazelcast scalable; just add extra machines to the cluster, to gain additional capacity. Creating clusters can be done by configuring the network settings.
 
-To configure the networking settings, we are going to make use of the following minimalistic Hazelcast node.
+To configure the networking settings, we are going to make use of the following minimalistic Hazelcast member.
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.Hazelcast;
-public class Node {
+public class Member {
     public static void main(String[] args) {
         Hazelcast.newHazelcastInstance(null);
     }
@@ -24,7 +24,7 @@ In this chapter we are going to rely on the hazelcast.xml config file to set the
 \end{lstlisting}
 
 \section{Port}
-One of the most basic configuration settings is the port Hazelcast is going to use for communication between the nodes. This can be done by the 'port' property in the network configuration which defaults to 5701. If the port is already in use and if auto-increment property is true, it is the default, Hazelcast will automatically try to find next port. Example:
+One of the most basic configuration settings is the port Hazelcast is going to use for communication between the members. This can be done by the 'port' property in the network configuration which defaults to 5701. If the port is already in use and if auto-increment property is true, it is the default, Hazelcast will automatically try to find next port. Example:
 \begin{lstlisting}[language=xml]
 <hazelcast>
     <network>
@@ -32,8 +32,7 @@ One of the most basic configuration settings is the port Hazelcast is going to u
    </network>
 </hazelcast>
 \end{lstlisting}
-In this example you can see the explicit set values, but you don't need to specify them since they are also the default. If you start the node, you will get output like:
-
+In this example you can see the explicit set values, but you don't need to specify them since they are also the default. If you start the member, you will get output like:
 \begin{lstlisting}
 ...
 Jan 19, 2013 10:58:46 AM com.hazelcast.impl.AddressPicker
@@ -50,7 +49,7 @@ Jan 19, 2013 10:58:47 AM com.hazelcast.impl.Node
 WARNING: [192.168.1.104]:5701 [dev] No join method is enabled! Starting standalone.
 ...
 \end{lstlisting}
-As you can see, the port is 5701. If another Node is started, you will get output like this:
+As you can see, the port is 5701. If another member is started, you will get output like this:
 \begin{lstlisting}
 ...
 INFO: Prefer IPv4 stack is true.
@@ -69,10 +68,10 @@ WARNING: [192.168.1.104]:5702 [dev] Config seed port is 5701 and cluster size is
 Jan 19, 2013 11:01:09 AM com.hazelcast.impl.LifecycleServiceImpl
 INFO: [192.168.1.104]:5702 [dev] Address[192.168.1.104]:5702 is STARTED...
 \end{lstlisting}
-As you can see the port of the second node is 5702. If you look carefully, at the end you see a warning about cluster size is 1. This is because the created nodes are currently not part of a cluster, but are standalone nodes. To create a cluster, see the Node Discovery section.
+As you can see the port of the second member is 5702. If you look carefully, at the end you see a warning about cluster size is 1. This is because the created members are currently not part of a cluster, but are standalone. To create a cluster, see the Member Discovery section.
 
-\section{Node discovery}
-Hazelcast currently supports 3 mechanisms for Hazelcast nodes to discover each other and join the cluster. Without this discovery mechanisms, the node's will not form a cluster, but will remain stand alone Hazelcast instances. The discovery mechanisms are:
+\section{Member discovery}
+Hazelcast currently supports 3 mechanisms for Hazelcast members to discover each other and join the cluster. Without this discovery mechanisms, the members's will not form a cluster, but will remain stand alone Hazelcast instances. The discovery mechanisms are:
 \begin{enumerate}
 \item Multicast:
 \item TCP/IP Cluster:
@@ -80,9 +79,9 @@ Hazelcast currently supports 3 mechanisms for Hazelcast nodes to discover each o
 \end{enumerate}
 
 \subsection{Configuring Hazelcast for Multicast}
-With multicast discovery a node will send a message to all node's that listen on the multi-cast port. It is the easiest configuration for testing. But in a lot of production environments, multicast is not supported or desirable.
+With multicast discovery a member will send a message to all members that listen on the multi-cast port. It is the easiest configuration for testing. But in a lot of production environments, multicast is not supported or desirable.
 
-A very minimalistic multicast configuration is the following:
+Underneath you can see a very minimalistic multicast configuration:
 \begin{lstlisting}[language=xml]
 <hazelcast>
     <network>
@@ -90,8 +89,7 @@ A very minimalistic multicast configuration is the following:
     </network>
 </hazelcast>
 \end{lstlisting}
-
-If you start one node, you will see output like this:
+If you start one member, you will see output like this:
 \begin{lstlisting}
 Sep 5, 2012 6:39:31 PM com.hazelcast.impl.AddressPicker
 INFO: Prefer IPv4 stack is true.
@@ -113,8 +111,7 @@ Members [1] {
 Sep 5, 2012 6:39:34 PM com.hazelcast.impl.LifecycleServiceImpl
 INFO: [10.37.129.2]:5701 [dev] Address[10.37.129.2]:5701 is STARTED
 \end{lstlisting}	
-
-As you can see the node is started and currently the cluster only has a single member. If you start another node on the same machine, on the console of the first node the following will be added to the output:
+As you can see the member is started and currently the cluster only has a single member. If you start another member on the same machine, on the console of the first member the following will be added to the output:
 \begin{lstlisting}
 Sep 5, 2012 6:39:38 PM com.hazelcast.nio.SocketAcceptor
 INFO: [10.37.129.2]:5701 [dev] 5701 is accepting socket connection from /10.37.129.2:64916
@@ -128,7 +125,7 @@ Members [2] {
     Member [10.37.129.2]:5702
 }
 \end{lstlisting}	
-As you can see, the first node can see the second node. And if we look at the end of logging for the second node, we'll find something similar:
+As you can see, the first member can see the second member. And if we look at the end of logging for the second member, we'll find something similar:
 \begin{lstlisting}
 Members [2] {
     Member [10.37.129.2]:5701
@@ -138,10 +135,9 @@ Members [2] {
 Sep 5, 2012 6:39:45 PM com.hazelcast.impl.LifecycleServiceImpl
 INFO: [10.37.129.2]:5702 [dev] Address[10.37.129.2]:5702 is STARTED
 \end{lstlisting}		
+After this point, we now have a 2 member Hazelcast cluster running on a single machine. Try creating another few members. And you can of course also try to connect multiple members over a network;
 
-After this point, we now have a 2 node Hazelcast cluster running on a single machine. Try creating another few nodes. And you can of course also try to connect multiple nodes over a network;
-
-If you don't get the see multiple members joining each other, than it is likely because multicast has been disabled. If you are on a *NIX environment, you can try to execute the command 'ifconfig' and look for 'MULTICAST'. 
+If you don't get the see multiple members joining each other, than it is likely because multicast has been disabled. If you are on a *NIX environment, you can try to execute the command 'ifconfig' and look for 'MULTICAST'.
 
 \begin{lstlisting}[language=xml]
 <hazelcast>
@@ -167,7 +163,7 @@ multicast-group:
 With multicast a process is part of the multicast group. Only other processes that are part of the same group will receive each others messages. The multicast group ip address doesn't conflict with normal unicast ip addresses since they have a specific range that is excluded from normal unicast usage. 224.0.0.0 to 239.255.255.255 (inclusive)
 defaults:224.2.2.3. The address 224.0.0.0 is reserved and should not be used.
 
-multicast-port: The port of the multicast socket where the Hazelcast Node listens and sends discovery messages on. Unlike normal unicast sockets where only a single process can listen to a port, with multicast sockets multiple processes can listen to the same port. So you don't need to be worried about having multiple Hazelcast nodes that run on the same JVM are going to conflict.
+multicast-port: The port of the multicast socket where the Hazelcast member listens and sends discovery messages on. Unlike normal unicast sockets where only a single process can listen to a port, with multicast sockets multiple processes can listen to the same port. So you don't need to be worried about having multiple Hazelcast members that run on the same JVM are going to conflict.
 defaults:54327
 
 TODO: Why are we talking about time to live in seconds? TTL on multicast isn't interpreted in seconds.
@@ -267,7 +263,7 @@ todo: password is optional, it defaults to 'drowssap'
     ...
 </hazelcast>
 \end{verbatim}
-You can also set the groupName with Config API. JVM can host multiple Hazelcast instances (nodes). Each node can only participate in one group and it only joins to its own group, does not mess with others. Following code creates 3 separate Hazelcast nodes, h1 belongs to app1 cluster, while h2 and h3 are belong to app2 cluster.
+You can also set the groupName with Config API. JVM can host multiple Hazelcast instances (members). Each member can only participate in one group and it only joins to its own group, does not mess with others. Following code creates 3 separate Hazelcast members, h1 belongs to app1 cluster, while h2 and h3 are belong to app2 cluster.
 
 \begin{lstlisting}
 Config configApp1 = new Config();
@@ -283,7 +279,7 @@ HazelcastInstance h3 = Hazelcast.newHazelcastInstance(configApp2);
 
 \section{Specifying network interfaces}
 
-You can also specify which network interfaces that Hazelcast should use. Servers mostly have more than one network interface so you may want to list the valid IPs. Range characters ('*' and '-') can be used for simplicity. So 10.3.10.*, for instance, refers to IPs between 10.3.10.0 and 10.3.10.255. Interface 10.3.10.4-18 refers to IPs between 10.3.10.4 and 10.3.10.18 (4 and 18 included). If network interface configuration is enabled (disabled by default) and if Hazelcast cannot find an matching interface, then it will print a message on console and won't start on that node.
+You can also specify which network interfaces that Hazelcast should use. Servers mostly have more than one network interface so you may want to list the valid IPs. Range characters ('*' and '-') can be used for simplicity. So 10.3.10.*, for instance, refers to IPs between 10.3.10.0 and 10.3.10.255. Interface 10.3.10.4-18 refers to IPs between 10.3.10.4 and 10.3.10.18 (4 and 18 included). If network interface configuration is enabled (disabled by default) and if Hazelcast cannot find an matching interface, then it will print a message on console and won't start on that member.
 
 \begin{lstlisting}[language=xml]
 <hazelcast>
@@ -301,15 +297,15 @@ You can also specify which network interfaces that Hazelcast should use. Servers
 \end{lstlisting}
 
 \section{Partition Group Configuration}
-Hazelcast distributes key objects into partitions (blocks) using a consistent hashing algorithm and those partitions are assigned to nodes. That means an entry is stored in a node which is owner of partition to that entry's key is assigned. Number of total partitions is default 271 and can be changed with configuration property hazelcast.map.partition.count. Along with those partitions, there are also copies of them as backups. Backup partitions can have multiple copies due to backup count defined in configuration, such as first backup partition, second backup partition etc. As a rule, a node can not hold more than one copy of a partition (ownership or backup). By default Hazelcast distributes partitions and their backup copies randomly and equally among cluster nodes assuming all nodes in the cluster are identical.
+Hazelcast distributes key objects into partitions (blocks) using a consistent hashing algorithm and those partitions are assigned to members. That means an entry is stored in a member which is owner of partition to that entry's key is assigned. Number of total partitions is default 271 and can be changed with configuration property hazelcast.map.partition.count. Along with those partitions, there are also copies of them as backups. Backup partitions can have multiple copies due to backup count defined in configuration, such as first backup partition, second backup partition etc. As a rule, a member can not hold more than one copy of a partition (ownership or backup). By default Hazelcast distributes partitions and their backup copies randomly and equally among cluster members assuming all members in the cluster are identical.
 
-What if some nodes share same JVM or physical machine or chassis and you want backups of these nodes to be assigned to nodes in another machine or chassis? What if processing or memory capacities of some nodes are different and you do not want equal number of partitions to be assigned to all nodes?
+What if some members share same JVM or physical machine or chassis and you want backups of these members to be assigned to members in another machine or chassis? What if processing or memory capacities of some members are different and you do not want equal number of partitions to be assigned to all members?
 
-You can group nodes in same JVM (or physical machine) or nodes located in the same chassis. Or you can group nodes to create identical capacity. We call these groups as partition groups. This way partitions are assigned to those partition groups instead of single nodes. And backups of these partitions are located in another partition group.
+You can group members in same JVM (or physical machine) or members located in the same chassis. Or you can group members to create identical capacity. We call these groups as partition groups. This way partitions are assigned to those partition groups instead of single members. And backups of these partitions are located in another partition group.
 
 When you enable partition grouping, Hazelcast presents two choices to configure partition groups at the moments.
 
-First one is to group nodes automatically using IP addresses of nodes, so nodes sharing same network interface will be grouped together.
+First one is to group members automatically using IP addresses of members, so members sharing same network interface will be grouped together.
 
 \begin{lstlisting}
 <partition-group enabled="true" group-type="HOST_AWARE" />
@@ -354,7 +350,7 @@ partitionGroupConfig.addMemberGroupConfig(memberGroupConfig2);
 \section{SSL}
 TODO: What is the difference between SSL and encryption
 
-In a production environment often you want to prevent that the communication between Hazelcast nodes can be tampered or can be read, with because it could contains sensitive information. Luckily Hazelcast provides a solution for that by enabling SSL encryption.
+In a production environment often you want to prevent that the communication between Hazelcast memebers can be tampered or can be read, with because it could contains sensitive information. Luckily Hazelcast provides a solution for that by enabling SSL encryption.
 
 The basic functionality is provided by 'com.hazelcast.nio.ssl.SSLContextFactory' interface and configurable through the the SSL section in network configuration. Luckily Hazelcast provides a default implementation called the 'com.hazelcast.nio.ssl.BasicSSLContextFactory' which we are going to use for the example:
 \begin{lstlisting}[language=xml]
@@ -373,7 +369,7 @@ The basic functionality is provided by 'com.hazelcast.nio.ssl.SSLContextFactory'
 \end{lstlisting}
 The 'keyStore' is the path to the keyStore. [todo: is it possible to provide a classpath reference so it can be included in the jar, and is this a desirable practice?] and the 'keyStorePassword' is the password of the keystore. In the example code you can find an already created keystore and also the documentation to create one yourself.
 
-When you start a node, you will see that SSL is enabled:
+When you start a member, you will see that SSL is enabled:
 \begin{lstlisting}
 Jan 19, 2013 4:00:43 PM com.hazelcast.nio.ConnectionManager
 INFO: [192.168.1.104]:5701 [dev] SSL is enabled
@@ -388,30 +384,11 @@ There are some additional properties that can be set on the BasicSSLContextFacto
 Another way to configure the keyStore/keyStorePassword is through the 'javax.net.ssl.keyStore' and 'javax.net.ssl.keyStorePassword' system properties.
 
 \section{Encryption}
+Hazelcast only supports Symmetric encryption
+[todo:which algorithms are available]
 [todo: why is there encryption and the ssl option? So when to select one or the other?]
 [todo: are there any performance implications?]
-[todo: when to use async or sync.]
 [todo: encryption and SSL can't be combined with each other. ]
-[todo: asynchronous and synchronous can't be combined with each other.]
-
-\begin{enumerate}
-\item asymmetric encryption
-\item symmetric encryption
-\end{enumerate}
-
-\subsection{Asymmetric Encryption}
-Asymmetric encryption relies on a public/private-key pair. Data is encrypted by the sender using the public, a key everybody is allowed to have, and decrypted using the private key of the receiver. 
-
-\begin{lstlisting}[language=xml]
-
-\end{lstlisting}
-
-[todo:the following algorithms are available RSA/NONE/PKCS1PADDING]
-[todo:the none algorithm disables the encryption?]
-[todo:how to keep the keystores in sync? Since each keystore needs to be updated when a member joins]
-
-\subsection{Symmetric Encryption}
-[todo:which algorithms are available]
 
 \begin{lstlisting}[language=xml]
 <hazelcast>
@@ -428,7 +405,7 @@ Asymmetric encryption relies on a public/private-key pair. Data is encrypted by 
     </network>
 </hazelcast>
 \end{lstlisting}
-When we start 2 Nodes using the configuration, we'll see that the symmetric encryption is activated:
+When we start 2 members using the configuration, we'll see that the symmetric encryption is activated:
 \begin{lstlisting}
 Jan 20, 2013 9:22:08 AM com.hazelcast.nio.SocketPacketWriter
 INFO: [192.168.1.104]:5702 [dev] Writer started with SymmetricEncryption
@@ -454,7 +431,7 @@ Luckily Hazelcast is able to restrict the outbound ports by configuring them. Fo
     </network>
 </hazelcast
 \end{lstlisting}
-To demonstrate the outbound ports configuration, start 2 Hazelcast node's with the configuration and when the nodes are fully started, execute 'sudo lsof -i | grep java'. Below you can see the cleaned output of the command:
+To demonstrate the outbound ports configuration, start 2 Hazelcast members with the configuration and when the members are fully started, execute 'sudo lsof -i | grep java'. Below you can see the cleaned output of the command:
 \begin{lstlisting}
 java 46117 IPv4 TCP *:5701 (LISTEN)
 java 46117 IPv4 TCP 172.16.78.1:5701->172.16.78.1:30609 (ESTABLISHED)

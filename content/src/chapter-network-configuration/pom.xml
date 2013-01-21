@@ -25,8 +25,7 @@
         <module>tcpip</module>
         <module>groups</module>
         <module>firewall</module>
-        <module>symmetric-encryption</module>
-        <module>asymmetric-encryption</module>
+        <module>encryption</module>
         <module>ipv6</module>
     </modules>
 </project>

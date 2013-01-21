@@ -3,6 +3,6 @@ import com.hazelcast.core.HazelcastInstance;
 
 public class Main {
     public static void main(String[] args){
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        Hazelcast.newHazelcastInstance(null);
     }
 }
