@@ -348,9 +348,7 @@ partitionGroupConfig.addMemberGroupConfig(memberGroupConfig2);
 \section{IPv6 Support}
 
 \section{SSL}
-TODO: What is the difference between SSL and encryption
-
-In a production environment often you want to prevent that the communication between Hazelcast memebers can be tampered or can be read, with because it could contains sensitive information. Luckily Hazelcast provides a solution for that by enabling SSL encryption.
+In a production environment often you want to prevent that the communication between Hazelcast members can be tampered or can be read, with because it could contains sensitive information. Luckily Hazelcast provides a solution for that by enabling SSL encryption.
 
 The basic functionality is provided by 'com.hazelcast.nio.ssl.SSLContextFactory' interface and configurable through the the SSL section in network configuration. Luckily Hazelcast provides a default implementation called the 'com.hazelcast.nio.ssl.BasicSSLContextFactory' which we are going to use for the example:
 \begin{lstlisting}[language=xml]
@@ -383,11 +381,17 @@ There are some additional properties that can be set on the BasicSSLContextFacto
 \end{enumerate}
 Another way to configure the keyStore/keyStorePassword is through the 'javax.net.ssl.keyStore' and 'javax.net.ssl.keyStorePassword' system properties.
 
+[todo: should the keystore file be shared between the instances or should every member have its own keystore updated with the keys of all other members]
+
 \section{Encryption}
-Hazelcast only supports Symmetric encryption
-[todo:which algorithms are available]
-[todo: why is there encryption and the ssl option? So when to select one or the other?]
-[todo: are there any performance implications?]
+Apart from supporting SSL, Hazelcast also supports symmetric encryption based on the Java Cryptography Architecture (JCA). The main advantage of using the latter is that it is easier to set up because you don't need to deal with the keystore. The main disadvantage is that its less secure, because SSL relies on an on the fly created public/private key pair and the symmetric encryption relies on a constant password/salt.
+
+SSL and symmetric encryption solutions will roughly have the same CPU and network bandwidth overhead since for the main data  they rely on symmetric encryption (only the public key is encrypted using asymmetric encryption). Compared to non encrypted data, the performance degradation will be roughly 50%. [todo: increased latency]
+
+Hazelcast used to have support for asymmetric encryption, but due its complex setup, this feature has been removed since Hazelcast 3.0. 
+
+There is currently no support for encryption between a native client and a cluster member; is there an alternative?
+
 [todo: encryption and SSL can't be combined with each other. ]
 
 \begin{lstlisting}[language=xml]
@@ -412,6 +416,8 @@ INFO: [192.168.1.104]:5702 [dev] Writer started with SymmetricEncryption
 Jan 20, 2013 9:22:08 AM com.hazelcast.nio.SocketPacketReader
 INFO: [192.168.1.104]:5702 [dev] Reader started with SymmetricEncryption
 \end{lstlisting}
+
+Since encryption relies on the JCA, additional algorithms can be used by enabling the Bouncy Castle JCA provider through property 'hazelcast.security.bouncy.enabled'.
 
 \section{Socket Interceptor}
 
