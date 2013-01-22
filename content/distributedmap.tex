@@ -62,7 +62,9 @@ employees.put(123,e);
 \end{lstlisting}
 
 \subsection*{cache-value}
-Apart from writing the update back to the map, there is another very important setting called 'cache-value'. When the value is read from a map, the value is deserialized since the map contains the serialized value. The problem is that this can lead to a lot of deserialization overhead if the value is read frequently. To reduce this overhead, if the member owns the key, the value instance can be cached. So multiple requests for some key that is owned by that member, will result in the same instance being returned instead of a copy. This works very fine if the value is an immutable object, but if the value is a mutable object, it can lead to unexpected sharing. This can cause all kinds of problems like race problems and JMM problems. By default 'cache-value' is set to true, so if you store mutable objects in your map, you need to explicitly set 'cache-value' to false, e.g:
+Apart from writing the update back to the map, there is another very important setting called 'cache-value'. When the value is read from a map, the value is deserialized since the map contains the serialized value. The problem is that this can lead to a lot of deserialization overhead if the value is read frequently. To reduce this overhead, if the member owns the key, the value instance can be cached. So multiple requests for some key that is owned by that member, will result in the same instance being returned instead of a copy. 
+
+This works very fine if the value is an immutable object, but if the value is a mutable object, it can lead to unexpected sharing. This can cause all kinds of problems like race problems and JMM problems. By default 'cache-value' is set to true, so if you store mutable objects in your map, you need to explicitly set 'cache-value' to false, e.g:
 \begin{lstlisting}[language=xml]
 <hazelcast>
     <map name="employees">
@@ -71,6 +73,8 @@ Apart from writing the update back to the map, there is another very important s
 </hazelcast>
 \end{lstlisting}
 This only need to be done with the map, the other data structures that are build on top of the map like the Queue do not cache the value. The cashed value is stored directly in local map entry, so the size of the cache will always be equal or smaller than the number of local map entries. This means that there will be extra memory usage, but it will not grow uncontrollable.
+
+One thing to watch out for is that when you put an item in a cache-value enabled map, it will not return that instance on a subsequent read, but it will return a copy (due to deserialization). This copy will be cached, not the original instance.
 
 \section{Hashcode and equals}
 In most cases you probably will make use of some basic type like a Long, Integer or String as key. But in some cases you will need to create custom keys. But to do it correctly in Hazelcast, you need to understand how this mechanism works because it works differently compared to traditional map implementations. When you store a key/value in a Hazelcast map, instead of storing the Object, the object are serialized to byte arrays and these are stored. To use the hash/equals in Hazelcast you need to know the following rules:
@@ -643,8 +647,11 @@ Some things worth considering when using a near cache:
 \item it is best used for read only data. Especially when 'invalidate-on-change' is enabled, there is a lot of remoting involved to invalidate the cache entry, when a map entry is updated.
 \end{enumerate}
 
+The near cache obeys the 'cache-value' property on the map.
+
 [todo: Are the near caches updates synchronously or asynchronously?]
 [todo: on the map roughly the same properties can be found.. are they ignored? Can you enter both?]
+[todo: does the near cache also cache the value or does it always return a deserialized version (so a fresh copy)]
 
 \section{Concurrency Control}
 The Hazelcast map itself is thread-safe just like the ConcurrentHashMap or the Collections.synchronizedMap, but in some cased your thread safety requirements are bigger than what hazelcast provides out of the box. Luckily Hazelcast provides multiple concurrency control solutions;  it can either be pessimistic using locks or optimistic using compare and swap operations. Todo: what about transactions?

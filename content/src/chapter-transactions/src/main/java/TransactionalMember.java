@@ -1,14 +1,18 @@
 import com.hazelcast.core.*;
 import java.util.Map;
-public class PutWithoutTransaction {
+public class TransactionalMember {
     public static void main(String[] args) {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
         Map map = hzInstance.getMap("map");
+        Transaction txn = hzInstance.getTransaction();
+        txn.begin();
         try {
             map.put("1", "1");
-            if(true)throw new RuntimeException();
             map.put("2", "2");
-        } catch (RuntimeException e) {}
-        System.out.println("Map.size: "+map.size());
+            txn.commit();
+        } catch (Throwable t) {
+            txn.rollback();
+        }
+        System.out.println("Map.size: " + map.size());
     }
 }
