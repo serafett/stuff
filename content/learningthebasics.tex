@@ -175,6 +175,17 @@ Members [2] {
 \end{verbatim}
 As you can see there is a 2 member cluster created.
 
+\section{Properties}
+In the Hazelcast xml file properties can be included like this:
+\begin{lstlisting}[language=java]
+<hazelcast>
+    <properties>
+        <property name="property-name">property-value</property>
+    </properties>
+</hazelcast>
+\end{lstlisting}
+[todo: is it possible to make use of System properties or other form of 'variables'. So that the same config file can be used, but with different settings.. E.g. to dev/production]
+
 \section{Configure logging}
 
 \section{Downloading example sources}

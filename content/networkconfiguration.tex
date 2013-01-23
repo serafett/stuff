@@ -70,11 +70,11 @@ INFO: [192.168.1.104]:5702 [dev] Address[192.168.1.104]:5702 is STARTED...
 \end{lstlisting}
 As you can see the port of the second member is 5702. If you look carefully, at the end you see a warning about cluster size is 1. This is because the created members are currently not part of a cluster, but are standalone. To create a cluster, see the Member Discovery section.
 
-\section{Member discovery}
-Hazelcast supports 3 mechanisms for nodes to discover the cluster: multicast, tcp/ip-cluster, Amazon EC2. Without this discovery mechanisms, the members's will not form a cluster, but will remain stand alone Hazelcast instances. Once the nodes have discovered the cluster, Hazelcast relies on TCP for internal communication.
+\section{Join Mechanism }
+Hazelcast supports 3 mechanisms for nodes to join the cluster: multicast, tcp/ip-cluster, Amazon EC2. Without these discovery mechanisms, the members's will not form a cluster, but will remain stand alone Hazelcast instances. After joining the cluster, Hazelcast relies on TCP for internal communication.
 
 \subsection{Multicast}
-With multicast discovery a member will send a message to all members that listen on the multi-cast port. It is the easiest configuration for testing. But in a lot of production environments, multicast is not supported or desirable.
+With multicast discovery a member will send a message to all members that listen on the multi-cast port. It is the easiest mechanism to configure, but not always available. 
 
 Underneath you can see a very minimalistic multicast configuration:
 \begin{lstlisting}[language=xml]
@@ -149,7 +149,8 @@ If you don't see members joining, then it is likely because multicast has been d
 
 The Hazelcast multicast functionality is build on the java.net.MulticastSocket.
 
-TODO: So by setting the multicast-group or the multicast-port, you can have separate Hazelcast clusters within the same network. Which is the preferred way?
+[TODO: So by setting the multicast-group or the multicast-port, you can have separate Hazelcast clusters within the same network. Which is the preferred way?]
+[todo:If you go with multicast then we highly recommend using different <multicast-group> IP for your production, development and test clusters for clean separation.]
 
 \begin{enumerate}
 \item 	multicast-group:
@@ -162,9 +163,9 @@ TODO: So by setting the multicast-group or the multicast-port, you can have sepa
 \end{enumerate}
 
 \subsection{TCP/IP cluster}
-In the previous section we made use of Multicast, but this is not always an option, e.g. when making use of cloud environments. That is why Hazelcast supports another discovery mechanism: the TCP/IP cluster. The idea behind this approach is that there should be a one or more well known members, other members can connect to. Once the members have connected to the cluster, they will keep each other up to date with all member addresses.
+In the previous section we made use of Multicast, but this is not always an option, e.g. when making use of cloud environments. That is why Hazelcast supports another discovery mechanism: the TCP/IP cluster. The idea behind this approach is that there should be a one or more well known members to connect to. Once new members have connected to the cluster, they will keep each other up to date with all member addresses.
 
-Underneath there is an example of a TCP/IP cluster configuration where such a well known member is configured using the interface of that 
+Underneath there is an example of a TCP/IP cluster configuration where such a well known member is configured using its interface:
 \begin{lstlisting}[language=xml]
 <hazelcast>
     <network>
@@ -177,14 +178,16 @@ Underneath there is an example of a TCP/IP cluster configuration where such a we
     </network>
 </hazelcast>
 \end{lstlisting}
+If you need to create a range of members the following syntax can be used: '192.168.1.0-7' or by a comma separated list or by adding multiple '<interface>..</interface>' entries. Well known addresses can be configured through setting interface, or using the hostname. [todo: also port can be included]
 
-It can be configured through setting interface, or using the hostname.
 
 For the none-multicast option, all or subset of cluster members' hostnames and/or ip addresses must be listed. Note that all of the cluster members don't have to be listed there but at least one of them has to be active in cluster when a new member joins. The tcp-ip tag accepts an attribute called "conn-timeout-seconds". The default value is 5. Increasing this value is recommended if you have many IP's listed and members can not properly build up the cluster.
 
-
-
-<required-member></required-member>: defaults to 127.0.0.1
+[todo]
+By removing or setting to a higher value, 'hazelcast.merge.first.run.delay.seconds' and 'hazelcast.merge.next.run.delay.seconds' properties. On this setup, Hazelcast searches for other members every 5 seconds.For TCP-IP join strategy, Hazelcast tries to connect at max three successive ports for an address. Since your first node's address is bound to 127.0.0.1:5701, it only tries for remaining two ports (5702 and 5703).
+[todo]
+hazelcast.socket.bind.any =false
+This will make sure that at least the TCP/IP communication is binding to the specified network address.
 
 \subsection{EC2 Auto Discovery}
 
@@ -244,23 +247,25 @@ HazelcastInstance h3 = Hazelcast.newHazelcastInstance(configApp2);
 \end{lstlisting}
 
 \section{Specifying network interfaces}
+Most server machines can have multiple network interfaces. 
 
 You can also specify which network interfaces that Hazelcast should use. Servers mostly have more than one network interface so you may want to list the valid IPs. Range characters ('*' and '-') can be used for simplicity. So 10.3.10.*, for instance, refers to IPs between 10.3.10.0 and 10.3.10.255. Interface 10.3.10.4-18 refers to IPs between 10.3.10.4 and 10.3.10.18 (4 and 18 included). If network interface configuration is enabled (disabled by default) and if Hazelcast cannot find an matching interface, then it will print a message on console and won't start on that member.
 
 \begin{lstlisting}[language=xml]
 <hazelcast>
-    ...
     <network>
-        ....
         <interfaces enabled="true">
             <interface>10.3.16.*</interface> 
             <interface>10.3.10.4-18</interface> 
             <interface>192.168.1.3</interface>         
         </interfaces>    
     </network>
-    ...
 </hazelcast>
 \end{lstlisting}
+
+[todo: when there are multiple interfaces, which is selected by default?]
+[todo: does this work for multicast?]
+[todo: every machine could have different interfaces. So should all the interfaces be listed of all machines? Or should an hazelcast config per machine be 'generated'?]
 
 \section{Partition Group Configuration}
 Hazelcast distributes key objects into partitions (blocks) using a consistent hashing algorithm and those partitions are assigned to members. That means an entry is stored in a member which is owner of partition to that entry's key is assigned. Number of total partitions is default 271 and can be changed with configuration property hazelcast.map.partition.count. Along with those partitions, there are also copies of them as backups. Backup partitions can have multiple copies due to backup count defined in configuration, such as first backup partition, second backup partition etc. As a rule, a member can not hold more than one copy of a partition (ownership or backup). By default Hazelcast distributes partitions and their backup copies randomly and equally among cluster members assuming all members in the cluster are identical.
