@@ -5,9 +5,14 @@
     <network>
         <join>
             <multicast enabled="false"/>
-            <tcp-ip enabled="true">
-                <interface>192.168.1.104</interface >
-            </tcp-ip>
+            <aws enabled="true" >
+                <access-key>my-access-key</access-key>
+                <secret-key>my-secret-key</secret-key>
+                <region>us-west-1</region>
+                <security-group-name>hazelcast-sg</security-group-name>
+                <tag-key>type</tag-key>
+                <tag-value>hz-nodes</tag-value>
+            </aws>
         </join>
     </network>
 </hazelcast>
