@@ -8,7 +8,7 @@ import java.util.Set;
 public class SqlQueryMember {
 
     public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         IMap<String, Customer> map = hzInstance.getMap("map");
 
         map.put("1", new Customer("peter", true, 36));

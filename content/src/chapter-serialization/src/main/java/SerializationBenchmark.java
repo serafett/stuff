@@ -13,7 +13,7 @@ import java.util.Map;
 
 public class SerializationBenchmark {
 
-    private final HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+    private final HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
     private final Map map = hzInstance.getMap("map");
 
     public static void main(String[] args) {

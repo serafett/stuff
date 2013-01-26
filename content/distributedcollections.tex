@@ -22,7 +22,7 @@ import com.hazelcast.
 import java.util.concurrent.BlockingQueue;
 public class ProducerMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         BlockingQueue<Integer> queue = hzInstance.getQueue("queue");
         for (int k = 1; k < 100; k++) {
             queue.put(k);
@@ -42,7 +42,7 @@ import com.hazelcast.core.*;
 import java.util.concurrent.BlockingQueue;
 public class ConsumerMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         BlockingQueue<Integer> queue = hzInstance.getQueue("queue");
         while (true){
             int item = queue.take();
@@ -150,7 +150,7 @@ import com.hazelcast.core.*;
 import java.util.*;
 public class WriteMember {
     public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         List<String> list = hzInstance.getList("list");
         list.add("Tokyo");
         list.add("Paris");
@@ -163,7 +163,7 @@ import com.hazelcast.core.*;
 import java.util.List;
 public class ReadMember {
     public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         List<String> list = hzInstance.getList("list");
         for (String s : list) System.out.println(s);
         System.out.println("Reading finished!");
@@ -192,7 +192,7 @@ import com.hazelcast.core.*;
 import java.util.Set;
 public class WriteMember {
     public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         Set<String> set = hzInstance.getSet("set");
         set.add("Tokyo");
         set.add("Paris");
@@ -203,7 +203,7 @@ public class WriteMember {
 
 public class ReadMember {
     public static void main(String[] args) {
-         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
          Set<String> set = hzInstance.getSet("set");
          for(String s: set) System.out.println(s);
          System.out.println("Reading finished!");
@@ -231,7 +231,7 @@ The following example shows an ItemListener that listens to all changes made in 
 import com.hazelcast.core.*;
 public class ItemListenerMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         ICollection<String> queue = hzInstance.getQueue("queue");
         queue.addItemListener(new ItemListenerImpl<String>(), true);
         System.out.println("ItemListener started");
@@ -254,7 +254,7 @@ import com.hazelcast.core.*;
 import java.util.concurrent.BlockingQueue;
 public class CollectionChangeMember{
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         BlockingQueue<String> queue = hzInstance.getQueue("queue");
         queue.put("foo");
         queue.put("bar");

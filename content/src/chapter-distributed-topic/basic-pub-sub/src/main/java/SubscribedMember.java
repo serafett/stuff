@@ -2,7 +2,7 @@ import com.hazelcast.core.*;
 import java.util.*;
 public class SubscribedMember {
     public static void main(String[] args){
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         ITopic<Date> topic = hzInstance.getTopic("topic");
         topic.addMessageListener(new MessageListenerImpl());
         System.out.println("Subscribed");

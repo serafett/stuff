@@ -7,7 +7,7 @@ import java.util.Map;
 public class TransactionTemplateExample {
 
     public static void main(String[] args) throws Throwable {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         final Map map = hzInstance.getMap("map");
 
         new TransactionTemplate<String>(){

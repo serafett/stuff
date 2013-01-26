@@ -10,7 +10,7 @@ import java.util.concurrent.Executors;
 
 public class MultiThreadedSubscribedMember {
     public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         ITopic<Date> topic = hzInstance.getTopic("topic");
         topic.addMessageListener(new MessageListenerImpl());
         System.out.println("Subscribed");

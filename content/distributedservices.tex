@@ -96,7 +96,7 @@ import com.hazelblast.server.pojoslice.*;
 import com.hazelcast.core.*;
 public class Server {
     public static void main(String[] args){
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         Pojo pojo = new Pojo(hzInstance);
         Slice slice = new PojoSlice(pojo);
         SliceServer sliceServer = new SliceServer(slice);

@@ -1,7 +1,7 @@
 import com.hazelcast.core.*;
 public class RacyMember {
     public static void main(String[] args) throws InterruptedException {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         AtomicNumber number1 = hzInstance.getAtomicNumber("number1");
         AtomicNumber number2 = hzInstance.getAtomicNumber("number2");
         System.out.println("Started");

@@ -1,7 +1,7 @@
 import com.hazelcast.core.*;
 public class SemaphoreMember {
     public static void main(String[] args)throws Exception{
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         ISemaphore semaphore = hzInstance.getSemaphore("semaphore");
         AtomicNumber resource = hzInstance.getAtomicNumber("resource");
         for(int k=0;k<1000;k++){

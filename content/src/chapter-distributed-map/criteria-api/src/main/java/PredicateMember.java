@@ -22,7 +22,7 @@ import static com.hazelcast.query.Predicates.or;
 
 public class PredicateMember {
 
-    private HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+    private HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
     private IMap<String, Person> personMap = hzInstance.getMap("personMap");
 
     public static void main(String[] args) {

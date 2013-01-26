@@ -3,7 +3,7 @@ import com.hazelcast.partition.*;
 import java.util.Map;
 public class DataLocalityMember {
     public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         Map<Long, Customer> customerMap = hzInstance.getMap("customers");
         Map<OrderKey, Order> orderMap = hzInstance.getMap("orders");
 

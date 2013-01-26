@@ -25,7 +25,7 @@ We'll demonstrate the AtomicNumber by creating an instance and incrementing it o
 import com.hazelcast.core.*;
 public class AtomicNumberMember {
     public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         AtomicNumber counter = hzInstance.getAtomicNumber("counter");
         for (int k = 0; k < 1000 * 1000; k++) {
             if (k % 200000 == 0) System.out.println("At: "+k);
@@ -67,7 +67,7 @@ To show you how a race problem can be solved with a Hazelcast lock, I have creat
 import com.hazelcast.core.*;
 public class RacyMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         AtomicNumber number1 = hzInstance.getAtomicNumber("number1");
         AtomicNumber number2 = hzInstance.getAtomicNumber("number2");
         System.out.println("Started");
@@ -102,7 +102,7 @@ The reason this race problem is occurring is that the writing and the reading of
 import com.hazelcast.core.*;
 public class RaceFreeMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         AtomicNumber number1 = hzInstance.getAtomicNumber("number1");
         AtomicNumber number2 = hzInstance.getAtomicNumber("number2");
         ILock lock = hazelcastInstance.getLock("lock");
@@ -161,7 +161,7 @@ I'll explain the semaphore with an example. To simulate a shared resource we hav
 import com.hazelcast.core.*;
 public class SemaphoreMember {
     public static void main(String[] args)throws Exception{
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         ISemaphore semaphore = hzInstance.getSemaphore("semaphore");
         AtomicNumber resource = hzInstance.getAtomicNumber("resource");
         for(int k=0;k<1000;k++){
@@ -223,7 +223,7 @@ The explain the ICountDownLatch, image there is a leader process that undertakes
 import com.hazelcast.core.*;
 public class Leader{
     public static void main(String[] args)throws Exception{
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         ICountDownLatch latch = hzInstance.getCountDownLatch("countDownLatch");      
         System.out.println("Starting");
         latch.setCount(1); 
@@ -236,7 +236,7 @@ public class Leader{
 
 public class Follower{
     public static void main(String[] args)throws Exception{
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null); 
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(); 
         ICountDownLatch latch = hzInstance.getCountDownLatch("countDownLatch");
         System.out.println("Waiting");
         latch.await();
@@ -269,7 +269,7 @@ Underneath is a small example of the id generator:
 import com.hazelcast.core.*;
 public class IdGeneratorMember {
     public static void main(String[] args) throws Exception{
-        HazelcastInstance hazelcast = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hazelcast = Hazelcast.newHazelcastInstance();
         IdGenerator idGenerator = hazelcast.getIdGenerator("idGenerator");
         for (int k = 0; k < 1000; k++){
             Thread.sleep(1000);

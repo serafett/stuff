@@ -15,7 +15,7 @@ public class QueryPerformanceMember {
             "Ethan", "Abigail",  "Alexander", "Madison","Aiden", "Mia","Daniel", "Chloe"};
 
     public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         boolean indexEnabled = true;
 
         IMap<String, Person> personMap;

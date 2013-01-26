@@ -39,7 +39,7 @@ import com.hazelcast.core.Hazelcast;
 import java.util.concurrent.Executor;
 public class MasterMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         ExecutorService executor = hzInstance.getExecutorService("executor");
         for (int k = 1; k <= 1000; k++) {
             Thread.sleep(1000);
@@ -140,7 +140,7 @@ To scale up our echo example, we can add the following very basic slave member:
 import com.hazelcast.core.*;
 public class SlaveMember {
     public static void main(String[] args) {
-        Hazelcast.newHazelcastInstance(null);
+        Hazelcast.newHazelcastInstance();
     }
 }
 \end{lstlisting}
@@ -192,7 +192,7 @@ import com.hazelcast.core.*;
 import java.util.concurrent.*;
 public class MasterMember {
     public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         ExecutorService executorService = hzInstance.getExecutorService();
         for (Member member : hzInstance.getCluster().getMembers()) {
             EchoTask task = new EchoTask("echo" + member.getInetSocketAddress());
@@ -252,7 +252,7 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 public class MasterMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         Map<String, String> map = hzInstance.getMap("map");
         for (int k = 0; k < 10; k++) 
             map.put(UUID.randomUUID().toString(), "");
@@ -305,7 +305,7 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 public class MasterMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         Map map = hzInstance.getMap("map");
         for (int k = 0; k < 5; k++)
             map.put(UUID.randomUUID().toString(), null);
@@ -367,7 +367,7 @@ import com.hazelcast.core.*;
 import java.util.concurrent.*;
 public class MasterMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         ExecutorService executorService = hzInstance.getExecutorService();
         int n = Integer.parseInt(args[0]);
         Future<Long> future = executorService.submit(new FibonacciCallable(n));
@@ -403,7 +403,7 @@ import com.hazelcast.core.*;
 import java.util.concurrent.*;
 public class MasterMember {
     public static void main(String[] args){
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         ExecutorService es = hzInstance.getExecutorService();
         DistributedTask<Long> task = new DistributedTask<Long>(new FibonacciCallable(10));
         ExecutionCallback<Long> executionCallback = new ExecutionCallback<Long>() {

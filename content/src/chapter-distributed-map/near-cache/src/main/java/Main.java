@@ -2,7 +2,7 @@ import com.hazelcast.core.*;
 import java.util.Map;
 public class Main {
     public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         Map<Long, Article> articles = hzInstance.getMap("articles");
         Article article = new Article("foo");
         articles.put(1L, article);

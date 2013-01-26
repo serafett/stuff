@@ -20,7 +20,7 @@ import com.hazelcast.core.*;
 import java.util.Map;
 public class FillMapMember {
     public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         Map<String, String> employees = hzInstance.getMap("employees");
         employees.put("1", "Tokyo");
         employees.put("2", "Paris");
@@ -34,7 +34,7 @@ import com.hazelcast.core.*;
 import java.util.Map;
 public class PrintAllMember {
     public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         Map<String, String> employees = hzInstance.getMap("employees");
         for(Map.Entry<String,String> entry : employees.entrySet())
             System.out.println(entry.getKey()+" "+entry.getValue());
@@ -367,7 +367,7 @@ import com.hazelcast.partition.*;
 import java.util.Map;
 public class DataLocalityMember {
     public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         Map<Long, Customer> customerMap = hzInstance.getMap("customers");
         Map<OrderKey, Order> orderMap = hzInstance.getMap("orders");
 
@@ -517,7 +517,7 @@ In the following code fragment you can see a member that writes a person to the 
 import com.hazelcast.core.*;
 public class WriteMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         IMap<Long, Person> personMap = hzInstance.getMap("personMap");
         personMap.put(1L, new Person("Peter"));
         System.exit(0);
@@ -527,7 +527,7 @@ public class WriteMember {
 import com.hazelcast.core.*;
 public class ReadMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         IMap<Long, Person> personMap = hzInstance.getMap("personMap");
         Person p = personMap.get(1L);
         System.out.println(p);
@@ -662,7 +662,7 @@ import com.hazelcast.core.*;
 import java.io.Serializable;
 public class RacyUpdateMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         IMap<String, Value> map = hzInstance.getMap("map");
         String key = "1";
         map.put(key, new Value());
@@ -694,7 +694,7 @@ import com.hazelcast.core.*;
 import java.io.Serializable;
 public class PessimisticUpdateMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         IMap<String, Value> map = hzInstance.getMap("map");
         String key = "1";
         map.put(key, new Value());
@@ -732,7 +732,7 @@ import java.io.Serializable;
 //This code is broken on purpose.
 public class OptimisticMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         IMap<String, Value> map = hzInstance.getMap("map");
         String key = "1";
         map.put(key, new Value());
@@ -780,7 +780,7 @@ To demonstrate the MultiMap where are going to create 2 member; in one member du
 import com.hazelcast.core.*;
 public class PutMember {
     public static void main(String[] args){
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         MultiMap<String,String> map = hzInstance.getMultiMap("map");
         map.put("Peter","England");
         map.put("Peter","Holland");
@@ -794,7 +794,7 @@ import com.hazelcast.core.*;
 import java.util.Collection;
 public class PrintMember {
     public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         MultiMap<String,String> map = hzInstance.getMultiMap("map");
         for(String key: map.keySet()){
             Collection<String> values = map.get(key);

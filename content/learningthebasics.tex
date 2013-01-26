@@ -21,7 +21,7 @@ If your project is not relying on Maven, then make sure that the Hazelcast jar i
 
 \section{Hazelcast and Maven}
 Hazelcast is very easy to include in your Maven project without needing to install Hazelcast at all. Hazelcast can be found in the standard Maven repositories, so no need to added additional repositories to your Maven project. To include Hazelcast in your project, just add the following to your pom.xml:
-\begin{verbatim}
+\begin{lstlisting}[language=xml]
 <dependencies>	
    ...
    <dependency>
@@ -29,9 +29,8 @@ Hazelcast is very easy to include in your Maven project without needing to insta
       <artifactId>hazelcast</artifactId>
       <version>2.3.1</version>
    </dependency>
-
 </dependencies>
-\end{verbatim}	
+\end{lstlisting}
 That is it. Make sure that you check the Hazelcast website to make use of the most recent version. 
 
 After this dependency is added, Maven will automatically downloaded the dependencies needed.  The lack of needing to install Hazelcast is something I really like because it saves up quite a lot of time, so we can spend that time doing more useful things.
@@ -44,35 +43,36 @@ Hazelcast can be configured in different ways:
 \item Spring
 \end{enumerate}
 In this book we'll use the xml configuration file. When you are running a maven project; just add a resources directory under your src/main/ and create a file 'hazelcast.xml'. The following xml shows an empty configuration:
-\begin{verbatim}
+\begin{lstlisting}[language=xml]
 <hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config
-           hazelcast-config-2.0.xsd"
+                               http://www.hazelcast.com/schema/config/hazelcast-config-2.5.xsd"
            xmlns="http://www.hazelcast.com/schema/config"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 </hazelcast>
-\end{verbatim}
-But in our examples we rely on multicast being enabled for member discovery. So this will be the basic configuration we rely on:
+\end{lstlisting}
+This example also imports and XML schema (XSD) for validation and if you are using an IDE, you probably get code completion. To reduce the size of the examples, the XSD import is left out.
+
+In our examples we rely on multicast being enabled for member discovery. So if an XML configuration file is going to be used, it needs to contain the following:
 \begin{lstlisting}[language=xml]
-<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config hazelcast-config-2.3.xsd"
-           xmlns="http://www.hazelcast.com/schema/config"
-           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<hazelcast>
     <network>
        <join><multicast enabled="true"/></join>
    </network>
 </hazelcast>
 \end{lstlisting}
 For more information check [chapter Cluster Configuration: Multicast]
+[todo: verify.. an empty network configuration doesn't automatically multicast?]
 
 In this book, and probably also in practice, will be using the following approach to load a HazelcastInstance:
 \begin{lstlisting}[language=java]
 public class Main {
     public static void main(String[] args){
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         ...
     }
 }
 \end{lstlisting}
-As you can see we passed a null config reference as config object, to tell Hazelcast to use the following chain of mechanisms to load a config:
+With this approach Hazelcast will use the following mechanism to configure itself:
 \begin{enumerate}
 \item checks if the 'hazelcast.config' system property is set. This is useful if you want to make use of an external configuration file that is not embedded in the project jar(s). This config option can be set by adding the following to the java command: '-Dhazelcast.config=<path to the hazelcast.xml>' 
 \item check if there is a 'hazelcast.xml' available on the classpath. 
@@ -104,17 +104,12 @@ public class Main {
 The Hazelcast Config objects have fluent interfaces; so the config object is returned when a config method is called, so that the next config method can be called. Programmatic configuration in my experience often is useful for testing purposes. For example, we want to configure a map that has a time to live of 10 seconds; so after 10 seconds the elements are dropped. We can configure it like this:
 
 \section{Configuring elements}
-
-
 [todo: does hazelcast provide some import?]
 
 \section{Wildcard configuration}
 The Hazelcast xml configuration can contain configuration elements for all kinds of distributed data-structures: sets, executors, maps etc. For example:
 \begin{lstlisting}[language=xml]
-<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config
-           hazelcast-config-2.0.xsd"
-           xmlns="http://www.hazelcast.com/schema/config"
-           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<hazelcast>
    <map name="testmap">
        <time-to-live-seconds>10</time-to-live-seconds>
    </map>
@@ -122,10 +117,7 @@ The Hazelcast xml configuration can contain configuration elements for all kinds
 \end{lstlisting}
 But what if we want to create multiple map instances using the same configuration? Do we need to define all these maps within the configuration file? This is impossible to do if you have a dynamic number of maps and you don't know up front how many need to be created. The solution to this problem is wildcard configuration. Hazelcast supports wildcard configuration for all datastructures. This makes it possible to use the single configuration for multiple instances. For example, we could configure the previous testmap example with a time using a wildcard configuration like this:
 \begin{lstlisting}[language=xml]
-<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config
-           hazelcast-config-2.0.xsd"
-           xmlns="http://www.hazelcast.com/schema/config"
-           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<hazelcast>
    <map name="testmap*">
        <time-to-live-seconds>10</time-to-live-seconds>
    </map>
@@ -156,13 +148,13 @@ import com.hazelcast.config.Config;
 import com.hazelcast.core.*;
 public class MultipleMembers {
     public static void main(String[] args){
-        HazelcastInstance hazelcastInstance1 = Hazelcast.newHazelcastInstance(null);
-        HazelcastInstance hazelcastInstance2 = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hazelcastInstance1 = Hazelcast.newHazelcastInstance();
+        HazelcastInstance hazelcastInstance2 = Hazelcast.newHazelcastInstance();
     }
 }
 \end{lstlisting}
 When you start this multiple members, you see something like this in the output:
-\begin{verbatim}
+\begin{lstlisting}
 Members [2] {
     Member [192.168.1.100]:5701 this
     Member [192.168.1.100]:5702
@@ -172,12 +164,12 @@ Members [2] {
     Member [192.168.1.100]:5701
     Member [192.168.1.100]:5702 this
 }
-\end{verbatim}
+\end{lstlisting}
 As you can see there is a 2 member cluster created.
 
 \section{Properties}
 In the Hazelcast xml file properties can be included like this:
-\begin{lstlisting}[language=java]
+\begin{lstlisting}[language=xml]
 <hazelcast>
     <properties>
         <property name="property-name">property-value</property>

@@ -4,6 +4,6 @@ import com.hazelcast.core.Hazelcast;
 //care of moving partitions to these slaves.
 public class SlaveMember {
     public static void main(String[] args){
-        Hazelcast.newHazelcastInstance(null);
+        Hazelcast.newHazelcastInstance();
     }
 }

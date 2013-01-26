@@ -2,7 +2,7 @@ import com.hazelcast.core.*;
 import java.util.concurrent.*;
 public class ConsumerMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         BlockingQueue<Integer> queue = hzInstance.getQueue("queue");
         while (true){
             int item = queue.take();

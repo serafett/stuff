@@ -1,8 +1,6 @@
-import com.hazelcast.config.XmlConfigBuilder;
-import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.*;
 public class Main {
-    public static void main(String[] args){
-        XmlConfigBuilder builder = new XmlConfigBuilder();
-        Hazelcast.newHazelcastInstance(builder.build());
+    public static void main(String[] args) {
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
     }
 }

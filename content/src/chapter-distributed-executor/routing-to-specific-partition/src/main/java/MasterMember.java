@@ -3,7 +3,7 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 public class MasterMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance defaultInstance = Hazelcast.newHazelcastInstance(null);
+        HazelcastInstance defaultInstance = Hazelcast.newHazelcastInstance();
         Map<String, String> map = defaultInstance.getMap("map");
         for (int k = 0; k < 10; k++)
             map.put(UUID.randomUUID().toString(), "");

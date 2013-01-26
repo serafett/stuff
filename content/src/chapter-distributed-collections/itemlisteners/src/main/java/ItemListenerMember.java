@@ -1,7 +1,7 @@
 import com.hazelcast.core.*;
 public class ItemListenerMember {
-    public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(null);
+    public static void main(String[] args){
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         ICollection<String> queue = hzInstance.getQueue("queue");
         queue.addItemListener(new ItemListenerImpl<String>(), true);
         System.out.println("ItemListener started");
