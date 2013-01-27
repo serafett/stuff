@@ -168,7 +168,7 @@ For a full listing of available properties see the 'Advanced configuration' chap
 [todo:hazelcast 3 is going to have variables] 
 
 \section{Configure logging}
-Hazelcast supports various logging mechanisms; 'jdk', 'log4', 'sl4j' or 'none' if you don't want to have any logging. The default is the logging is 'jdk': the logging that is part of the JRE. Logging can be set by using adding a property in the hazelcast configuration:
+Hazelcast supports various logging mechanisms; 'jdk', 'log4', 'sl4j' or 'none' if you don't want to have any logging. The default is the logging is 'jdk': the logging that is part of the JRE. Logging can be set by using adding a property in the hazelcast xml configuration:
 \begin{lstlisting}[language=xml]
 <hazelcast>
     <properties>
@@ -181,7 +181,7 @@ Or if you are using the programmatic configuration:
 Config cfg = new Config() ;
 cfg.setProperty("hazelcast.logging.type", "log4j");
 \end{lstlisting}
-But it can also be configured from the commandline 'java -Dhazelcast.logging.type=log4j'. If you are going to make use of 'log4j' or 'slf4j', make sure that the correct dependencies are included. [todo:does commandline override xml-properties/programmatic configuration?]
+But it can also be configured from the commandline 'java -Dhazelcast.logging.type=log4j'. If you are going to make use of 'log4j' or 'slf4j', make sure that the correct dependencies are included. One thing to watch out for; you can't override the logging configuration from the commandline if it already is specified in the Hazelcast configuration file.
 
 If for whatever reason you are not satisfied with the provided mechanisms, you can always implement your own logging implementation by implementing the 'com.hazelcast.logging.LogListener'. See the Hazelcast reference manual for more information.
 \section{Named Instances}
