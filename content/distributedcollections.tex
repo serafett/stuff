@@ -119,9 +119,7 @@ When we start a single producer, we'll see that 10 items are produced and then t
 
 But since the producer produces 5 times as fast as the consumer, the queue will reach its maximum capacity again quickly and it will block. We can can increase the capacity of the cluster by starting new consumers (both processing and the storage capacity increase) or just empty members (the storage capacity increases).
 
-\emph{max-size-per-jvm can be violated}. Imagine that there is a queue that is distributed over 2 members and each member contains the maximum number of 1 million queue items. If one member fails, the other member will gain all the queue items stored on the failing member, which leads to a total of 2 million. This is needed to provide failover so that no messages are lost. 
-
-Another reason for violation is that the name 'max-size-per-jvm' is confusing, It talks about max size per JVM, but it actually is max size per member. If you only have 1 member per JVM, then you can ignore this. But if you have multiple members per JVM, then the total size per JVM will be membercount * 'max-size-per-jvm'.
+\emph{max-size-per-jvm can be violated}. Imagine that there is a queue that is distributed over 2 members and each member contains the maximum number of 1 million queue items. If one member fails, the other member will gain all the queue items stored on the failing member, which leads to a total of 2 million. This is needed to provide failover so that no messages are lost. Another violation is that the name 'max-size-per-jvm' is confusing, It talks about max size per JVM, but it actually is max size per member. So if you have multiple members per JVM, then the total size per JVM will be membercount * 'max-size-per-jvm'.
 
 \subsection{Backing Map}
 Since Hazelcast 1.9.3, distributed queues are backed by distributed maps. So all the configuration options available to a map, for example storage, are indirectly available for the queue. The value in the map will be the value placed on the queue, and the key of the map (of type Long) will be a global unique id. By default the name to backing map will be the name of the queue prefixed with 'q:', example:
@@ -140,6 +138,7 @@ This naming convention can be overridden by setting the backingMapRef on the que
 \end{lstlisting}
 See the Distributed Map chapters for the options available.
 TODO: The map can't be retrieved by that name; so either a bug or I'm doing something wrong.
+[todo: since Hazelcast 3 the queue is not backed up by the map anymore]
 
 \section{Distributed List}
 After the distributed queue, we have the distributed com.hazelcast.core.IList that extends the java.util.List. As you most likely know, a list is a data-structure where the ordering and occurrence of the elements matters. The IList implementation in Hazelcast probably is not a structure you will on a day to day basis, but when you need it, is fine to have.
@@ -221,7 +220,7 @@ As you can see, the data added by the WriteMember is visible in the ReadMember. 
 
 TODO: Reference to equal/hash of Map.
 
-In Hazelcast the distributed Set is implemented based on the distributed Map functionality. Unfortunately it isn't very easy to retrieve the backing Map. So if you want a distributed Set that has the features of the distributed Map, then it probably is best create a Set implementation yourself that is backed by the Hazelcast Map. You can't use the keySet from the distributed Map because this will return a non distributable Set that contains a snapshot of the keys.
+In Hazelcast the distributed Set is implemented based on the distributed Map. Unfortunately it isn't very easy to retrieve the backing Map. So if you want a distributed Set that has the features of the distributed Map, then it probably is best create a Set implementation yourself that is backed by the Hazelcast Map. You can't use the keySet from the distributed Map because this will return a non distributable Set that contains a snapshot of the keys.
 
 \section{Collection Item Listeners}
 The IList, ISet and IQueue interfaces extend the com.hazelcast.core.ICollection interface. The nice thing is that Hazelcast enriches the existing collections api with the ability to listen to changes in the collections using the com.hazelcast.core.ItemListener. The ItemListener receives the ItemEvent which not only (potentially) contains the item, but also the member where the changed happened and the type of event (add or remove).
