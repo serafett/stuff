@@ -23,17 +23,14 @@ If your project is not relying on Maven, then make sure that the Hazelcast jar i
 Hazelcast is very easy to include in your Maven project without needing to install Hazelcast at all. Hazelcast can be found in the standard Maven repositories, so no need to added additional repositories to your Maven project. To include Hazelcast in your project, just add the following to your pom.xml:
 \begin{lstlisting}[language=xml]
 <dependencies>	
-   ...
-   <dependency>
+    <dependency>
       <groupId>com.hazelcast</groupId>
       <artifactId>hazelcast</artifactId>
       <version>2.5</version>
    </dependency>
 </dependencies>
 \end{lstlisting}
-That is it. Make sure that you check the Hazelcast website to make use of the most recent version. 
-
-After this dependency is added, Maven will automatically downloaded the dependencies needed.  The lack of needing to install Hazelcast is something I really like because it saves up quite a lot of time, so we can spend that time doing more useful things.
+That is it. Make sure that you check the Hazelcast website to make use of the most recent version. After this dependency is added, Maven will automatically downloaded the dependencies needed. The lack of needing to install Hazelcast is something I really like because it saves up quite a lot of time, so we can spend that time doing more useful things.
 
 \section{Configuring Hazelcast}
 Hazelcast can be configured in different ways:
@@ -71,11 +68,12 @@ public class Main {
     }
 }
 \end{lstlisting}
-This mechanism works like this:
+The mechanism uses the following configuration file resolution chain:
 \begin{enumerate}
-\item checks if the 'hazelcast.config' system property is set; if it is, then the value is used as path. This is useful if you want to choose on startup of the application which hazelcast configuration file should be used. The config option can be set by adding the following to the java command: '-Dhazelcast.config=<path to the hazelcast.xml>'. The value can be a normal file path, but can also be a classpath reference if it is prefixed with 'classpath:'. 
-\item check if there is a 'hazelcast.xml' available on the classpath. 
-\item loads the default hazelcast configuration based on the 'hazelcast-default.xml' that is part of the Hazelcast jar
+\item first checks if the 'hazelcast.config' system property is set; if it is, then the value is used as path. This is useful if you want to choose on startup of the application which hazelcast configuration file should be used. The config option can be set by adding the following to the java command: '-Dhazelcast.config=<path to the hazelcast.xml>'. The value can be a normal file path, but can also be a classpath reference if it is prefixed with 'classpath:'. 
+\item else it checks if there is a 'hazelcast.xml' in the working directory.
+\item after that it check if there is a 'hazelcast.xml' on the classpath. 
+\item and finally loads the default hazelcast configuration 'hazelcast-default.xml' that is part of the Hazelcast jar
 \end{enumerate}
 
 Another option to load a HazelcastInstance is to make use of programmatic configuration, e.g: 
@@ -83,27 +81,16 @@ Another option to load a HazelcastInstance is to make use of programmatic config
 public class Main {
     public static void main(String[] args){
         Config config = new Config();
-                
-        NetworkConfig newWorkConfig = config.getNetworkConfig();
-        Join join = newWorkConfig.getJoin();
-        join.getMulticastConfig().setEnabled(false);
-                
         MapConfig mapConfig = new MapConfig();
         mapConfig.setName("testMap");
-        mapConfig.setBackupCount(2);
-        mapConfig.getMaxSizeConfig().setSize(10000);
-        mapConfig.setTimeToLiveSeconds(300);             
         config.addMapConfig(mapConfig);
-
+        ...
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(config);
         ...
      }
 }
 \end{lstlisting}
-The Hazelcast Config objects have fluent interfaces; so the config object is returned when a config method is called, so that the next config method can be called. Programmatic configuration in my experience often is useful for testing purposes. For example, we want to configure a map that has a time to live of 10 seconds; so after 10 seconds the elements are dropped. We can configure it like this:
-
-\section{Configuring elements}
-[todo: does hazelcast provide some import?]
+The Hazelcast Config objects have fluent interfaces; meaning that the config object is returned when a config method is called, so that the next config method can be called. Programmatic configuration in my experience often is useful for testing purposes. 
 
 \section{Wildcard configuration}
 The Hazelcast xml configuration can contain configuration elements for all kinds of distributed data-structures: sets, executors, maps etc. For example:
@@ -114,7 +101,7 @@ The Hazelcast xml configuration can contain configuration elements for all kinds
    </map>
 </hazelcast>
 \end{lstlisting}
-But what if we want to create multiple map instances using the same configuration? Do we need to define all these maps within the configuration file? This is impossible to do if you have a dynamic number of maps and you don't know up front how many need to be created. The solution to this problem is wildcard configuration. Hazelcast supports wildcard configuration for all datastructures. This makes it possible to use the single configuration for multiple instances. For example, we could configure the previous testmap example with a time using a wildcard configuration like this:
+But what if we want to create multiple map instances using the same configuration? Do we need to define all these maps within the configuration file? This is impossible to do if you have a dynamic number of maps and you don't know up front how many need to be created. The solution to this problem is wildcard configuration. Hazelcast supports wildcard configuration for all data-structures. This makes it possible to use the single configuration for multiple instances. For example, we could configure the previous 'testmap' example with a time using a wildcard configuration like this:
 \begin{lstlisting}[language=xml]
 <hazelcast>
    <map name="testmap*">
@@ -122,25 +109,23 @@ But what if we want to create multiple map instances using the same configuratio
    </map>
 </hazelcast>
 \end{lstlisting}
-Using a single asterisk (*) character any place in the name, different instances of Hazelcast datastructures can be configured by a single configuration. The wildcard configuration can be used like this:
+Using a single asterisk (*) character any place in the name, different instances of Hazelcast data-structures can be configured by a single configuration. The wildcard configuration can be used like this:
 \begin{lstlisting}[language=java]
      Map map1 = hzInstance.getMap("testmap1");
      Map map2 = hzInstance.getMap("testmap2");
 \end{lstlisting}
 The maps 'testmap1' and 'testmap2' both match 'testmap*' so they will use the same configuration.
 
-One thing you need to watch out for are multiple configurations that match. Hazelcast will not thrown an error or log a warning. Also selecting the right configuration doesn't depend on the order of definition in the configuration file or based on the best fitting match. So really make sure that your wildcard configurations are very specific. One of the ways to do it is to include the package name within the wildcard configuration:
+One thing you need to watch out for are multiple configurations that match. Hazelcast will not thrown an error or log a warning. Also selecting the right configuration doesn't depend on the order of definition in the configuration file or based on the best fitting match. So really make sure that your wildcard configurations are very specific. One of the ways to do it is to include the package name:
 \begin{lstlisting}[language=xml]
     <map name="com.foo.testmap*">
         <time-to-live-seconds>10</time-to-live-seconds>
     </map>
 \end{lstlisting}
-Using this configuration, only maps in the com.foo.testmap* 
-And the map can be loaded calling 'Map map1 = hzInstance.getMap("com.foo.testmap1")'. 
+A map can be loaded calling 'Map map1 = hzInstance.getMap("com.foo.testmap1")'. 
 
 \section{Multiple Hazelcast instances}
-Normally you probably have a single Hazelcast Instance per JVM. But Multiple Hazelcast Instances can run in a single JVM. This is useful for testing.. Are there other usages?
-
+Normally you probably have a single Hazelcast Instance per JVM. But Multiple Hazelcast Instances can run in a single JVM. This is useful for testing.. [todo:Are there other usages?]
 \begin{lstlisting}[language=java]
 import com.hazelcast.config.Config;
 import com.hazelcast.core.*;
@@ -176,16 +161,31 @@ In the Hazelcast xml file properties can be included like this:
 \end{lstlisting}
 For a full listing of available properties see the 'Advanced configuration' chapter in the Hazelcast documentation.
 
-[todo: is it possible to make use of System properties or other form of 'variables'. So that the same config file can be used, but with different settings.. E.g. to dev/production]
+\section{Import}
+[todo:hazelcast 3 is going to have imports]
+
+\section{Variables}
+[todo:hazelcast 3 is going to have variables] 
 
 \section{Configure logging}
+Hazelcast supports various logging mechanisms; 'jdk', 'log4', 'sl4j' or 'none' if you don't want to have any logging. The default is the logging is 'jdk': the logging that is part of the JRE. Logging can be set by using adding a property in the hazelcast configuration:
+\begin{lstlisting}[language=xml]
+<hazelcast>
+    <properties>
+        <property name="hazelcast.logging.type">log4j</property>
+    </properties>
+</hazelcast>
+\end{lstlisting}
+Or if you are using the programmatic configuration:
+\begin{lstlisting}[language=java]
+Config cfg = new Config() ;
+cfg.setProperty("hazelcast.logging.type", "log4j");
+\end{lstlisting}
+But it can also be configured from the commandline 'java -Dhazelcast.logging.type=log4j'. If you are going to make use of 'log4j' or 'slf4j', make sure that the correct dependencies are included. [todo:does commandline override xml-properties/programmatic configuration?]
 
+If for whatever reason you are not satisfied with the provided mechanisms, you can always implement your own logging implementation by implementing the 'com.hazelcast.logging.LogListener'. See the Hazelcast reference manual for more information.
 \section{Named Instances}
 
 \section{Downloading example sources}
-
-
 If you want to play around with the example sources of this book, check the following link:
 TODO: Link to the source
-
-. Number of total partitions is default 271 and can be changed with configuration property hazelcast.map.partition.count. 

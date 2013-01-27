@@ -23,5 +23,6 @@
        <module>configure-programmatic</module>
        <module>configure-xml</module>
        <module>wildcard-configuration</module>
+       <module>configure-logging</module>
     </modules>
 </project>
