@@ -125,7 +125,7 @@ One thing you need to watch out for are multiple configurations that match. Haze
 A map can be loaded calling 'Map map1 = hzInstance.getMap("com.foo.testmap1")'. 
 
 \section{Multiple Hazelcast instances}
-Normally you probably have a single Hazelcast Instance per JVM. But Multiple Hazelcast Instances can run in a single JVM. This is useful for testing.. [todo:Are there other usages?]
+Normally you probably have a single Hazelcast Instance per JVM. But Multiple Hazelcast Instances can run in a single JVM. This is not only useful for testing but also for more complex setups e.g. application servers running multiple independent applications that rely on Hazelcast. Multiple Hazelcast instances can be started like this:
 \begin{lstlisting}[language=java]
 import com.hazelcast.config.Config;
 import com.hazelcast.core.*;
@@ -150,6 +150,10 @@ Members [2] {
 \end{lstlisting}
 As you can see there is a 2 member cluster created.
 
+\section{Named Instances}
+[todo: how to create a named instance from an xml based configuration?]
+[todo: it isn't possible to define the name in the xml based config]
+
 \section{Properties}
 In the Hazelcast xml file properties can be included like this:
 \begin{lstlisting}[language=xml]
@@ -167,8 +171,8 @@ For a full listing of available properties see the 'Advanced configuration' chap
 \section{Variables}
 [todo:hazelcast 3 is going to have variables] 
 
-\section{Configure logging}
-Hazelcast supports various logging mechanisms; 'jdk', 'log4', 'sl4j' or 'none' if you don't want to have any logging. The default is the logging is 'jdk': the logging that is part of the JRE. Logging can be set by using adding a property in the hazelcast xml configuration:
+\section{Logging}
+Hazelcast supports various logging mechanisms; 'jdk', 'log4', 'sl4j' or 'none' if you don't want to have any logging. The default is the logging is 'jdk': the logging that is part of the JRE so no additional dependencies are needed. Logging can be set by adding a property in the hazelcast xml configuration:
 \begin{lstlisting}[language=xml]
 <hazelcast>
     <properties>
@@ -181,11 +185,12 @@ Or if you are using the programmatic configuration:
 Config cfg = new Config() ;
 cfg.setProperty("hazelcast.logging.type", "log4j");
 \end{lstlisting}
-But it can also be configured from the commandline 'java -Dhazelcast.logging.type=log4j'. If you are going to make use of 'log4j' or 'slf4j', make sure that the correct dependencies are included. One thing to watch out for; you can't override the logging configuration from the commandline if it already is specified in the Hazelcast configuration file.
+But it can also be configured from the command line using: 'java -Dhazelcast.logging.type=log4j'. One thing to watch out for; you can't override the logging configuration from the command line because it has a lower priority than than the programmatic or xml configuration. If you are going to make use of 'log4j' or 'slf4j', make sure that the correct dependencies are included. See the examples for more information.
 
-If for whatever reason you are not satisfied with the provided mechanisms, you can always implement your own logging implementation by implementing the 'com.hazelcast.logging.LogListener'. See the Hazelcast reference manual for more information.
-\section{Named Instances}
+you can always implement your own logging implementation by implementing the 'com.hazelcast.logging.LogListener' if you are not satisfied with the provided mechanisms. See the Hazelcast reference manual for more information.
 
 \section{Downloading example sources}
 If you want to play around with the example sources of this book, check the following link:
 TODO: Link to the source
+todo: static hazelcastinstance has been removed
+programmatic is very useful if you don't want to get stuck with the static configuration.. e.g. from database
