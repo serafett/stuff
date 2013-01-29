@@ -71,7 +71,7 @@ INFO: [192.168.1.104]:5702 [dev] Address[192.168.1.104]:5702 is STARTED...
 As you can see the port of the second member is 5702. If you look carefully, at the end you see a warning about cluster size is 1. This is because the created members are currently not part of a cluster, but are standalone. To create a cluster, see the Member Discovery section.
 
 \section{Join Mechanism }
-Hazelcast supports 3 mechanisms for nodes to join the cluster: multicast, tcp/ip-cluster, Amazon EC2. Without these discovery mechanisms, the members's will not form a cluster, but will remain stand alone Hazelcast instances. After joining the cluster, Hazelcast relies on TCP for internal communication.
+Hazelcast supports 3 mechanisms for nodes to join the cluster: multicast, tcp/ip-cluster, Amazon EC2. Without these discovery mechanisms, the members's will not form a cluster, but will remain stand alone Hazelcast instances. After joining the cluster, Hazelcast relies on TCP for internal communication. [todo: what happens when the mechanisms are combined; there is no error from hazelcast]
 
 \subsection{Multicast}
 With multicast discovery a member will send a message to all members that listen on the multi-cast port. It is the easiest mechanism to configure, but not always available. 
@@ -129,8 +129,6 @@ Members [2] {
 \end{lstlisting}		
 We now have a 2 member Hazelcast cluster running on a single machine, but it starts to become more interesting if you start multiple members on different machines.
 
-If you don't see members joining, then it is likely because multicast has been disabled. On *NIX environments you can check if your network interface supports multicast by calling 'ifconfig | grep -i multicast', but it doesn't mean that it is available.
-
 The following properties are available:
 \begin{enumerate}
 \item multicast-group: With multicast a process is part of the multicast group. Only other processes that are part of the same group will receive each others messages. The multicast group ip address doesn't conflict with normal unicast ip addresses since they have a specific range that is excluded from normal unicast usage. 224.0.0.0 to 239.255.255.255 (inclusive) defaults:224.2.2.3. The address 224.0.0.0 is reserved and should not be used.  So by setting the multicast-group or the multicast-port, you can have separate Hazelcast clusters within the same network. We highly recommend using different <multicast-group> IP for your production, development and test clusters for clean separation.
@@ -140,10 +138,16 @@ The following properties are available:
 \item trusted-interfaces:[todo]
 \end{enumerate}
 
+\subsubsection{Debugging multicast}
+If you don't see members joining, then it is likely because multicast is not available. A cause can be the firewall; you can test this by disabling the firewall or enable multicast in the firewall [see firewall section]. Another cause can be that it is disabled on the network or the network doesn't support it. On *NIX environments you can check if your network interface supports multicast by calling 'ifconfig | grep -i multicast', but it doesn't mean that it is available. To check if multicast is available, iperf is a useful tool which is available for Windows/*NIX/OSX. To test multicast using multicast-group '224.2.2.3', open 2 terminals and run the following in the first terminal 'iperf -s -u -B 224.2.2.3 -i 1' and 'iperf -c 224.2.2.3 -u -T 32 -t 3 -i 1' in the other terminal. If data is being transferred then multicast is working.
+
+todo: make reference to tcp/ip cluster if testing locally and multicast isn't working.
+https://community.jboss.org/wiki/RunningAHornetQClusterUsingDiscoveryDoesntWork
+
 \subsection{TCP/IP cluster}
 In the previous section we made use of multicast, but this is not always an option because in production environments it often is prohibited and in cloud environments it often is not supported. That is why there is another discovery mechanism: the TCP/IP cluster. The idea is that there should be a one or more well known members to connect to. Once members have connected to these well known members and joined the cluster, they will keep each other up to date with all member addresses.
 
-Underneath is an example of a TCP/IP cluster configuration where such a well known member is configured using an IP:
+Underneath is an example of a TCP/IP cluster configuration where such a well known member with IP '192.168.1.104':
 \begin{lstlisting}[language=xml]
 <hazelcast>
     <network>
@@ -156,16 +160,17 @@ Underneath is an example of a TCP/IP cluster configuration where such a well kno
     </network>
 </hazelcast>
 \end{lstlisting}
-Multiple members can be configured using a comma or semi colon separated list, or multiple interface entries. A range of IP's can be defined using the following syntax '192.168.1.100-200'. If depending on IP addresses is not desirable, it also is possible to provide the hostname using one or more '<hostname>foo</hostname>' sections. If no port is provided, Hazelcast will automatically try port 5701..5703. 
+Multiple members can be configured using a comma or semi colon separated list, or multiple interface entries. A range of IP's can be defined using syntax '192.168.1.100-200'. If no port is provided, Hazelcast will automatically try port 5701..5703. If depending on IP addresses is not desirable, it also is possible to provide the hostname. Instead of using the '<interface>' you can also use '<member>' or a single '<members>', but it doesn't change the meaning of the configuration. 
+
+By default Hazelcast will 'bind' (so accept incoming traffic) to all local network interfaces. If this is unwanted behavior the 'hazelcast.socket.bind.any' can be set to false. In that case Hazelcast will first use the interfaces configured in the 'interfaces/interfaces' to resolve one?[todo] interface to bind to. If none is found, it will use the interfaces in the 'tcp-ip/interfaces' to resolve one?[todo] interface to bind to. If no interface is found, it will default to one of the non loop back network interfaces. 
 
 When there is a large number of IP's listed and members can't build up a cluster, the 'conn-timeout-seconds' attribute, which defaults to 5, can be set to a higher value. The first scan and delay between scans can be configured using property 'hazelcast.merge.first.run.delay.seconds' and respectively 'hazelcast.merge.next.run.delay.seconds'. By default Hazelcast will scan every 5 seconds.
-[todo]
-hazelcast.socket.bind.any =false
-This will make sure that at least the TCP/IP communication is binding to the specified network address.
+
+[todo: localhost or 127.0.0.1?]
+[todo: what happens when no interface is found: according to my tests even without wifi (or ethernet), so no router, multicast examples still work.
 
 \subsection{EC2 Auto Discovery}
-
-Hazelcast supports EC2 Auto Discovery as of 1.9.4. It is useful when you don't want or can't provide the list of possible IP addresses. Here is a sample configuration: Disable join over multicast and tcp/ip and enable aws. Also provide the credentials. The aws tag accepts an attribute called "conn-timeout-seconds". The default value is 5. Increasing this value is recommended if you have many IP's listed and members can not properly build up the cluster.
+Apart from multicast and the tcp/ip-cluster join mechanisms, there a third mechanism: Amazon EC2. It only works for a single region; so machines over different regions can't discover each other. This could be an issue. todo: how are the members discovered? I guess a aws call is done to read all members (filtered based on some property). I guess that a tcp/ip cluster is used behind the screens. This also shows the power of the programmatic api; because you can easily retrieve the member information from any cloud (e.g. using jclouds) and build up the TcpIpConfig on the fly based on that information. So you don't need Hazelcast support to integrate with other cloud providers.
 
 \begin{lstlisting}[language=xml]
 <hazelcast>
@@ -175,15 +180,21 @@ Hazelcast supports EC2 Auto Discovery as of 1.9.4. It is useful when you don't w
            <aws enabled="true">
                <access-key>my-access-key</access-key>
                <secret-key>my-secret-key</secret-key>
-               <region>us-west-1</region>                              <!-- optional, default is us-east-1 -->
-               <security-group-name>hazelcast-sg</security-group-name> <!-- optional -->
-               <tag-key>type</tag-key>                                  <!-- optional -->
-               <tag-value>hz-nodes</tag-value>                          <!-- optional -->
-            </aws>
+           </aws>
        </join>
     </network>
 </hazelcast>
 \end{lstlisting}
+
+The aws tag accepts an attribute called "conn-timeout-seconds". The default value is 5. Increasing this value is recommended if you have many IP's listed and members can not properly build up the cluster.
+
+The aws section also has a few optional arguments:
+\begin{enumerate}
+\item region: the region where the machines are running. Defaults to 'us-east-1'.
+\item security-group-name: [todo] defaults to?
+\item tag-key:
+\item tag-value:
+\end{enumerate}
 
 \section{Specifying network interfaces}
 Most server machines can have multiple network interfaces. 
@@ -345,6 +356,10 @@ iptables -A OUTPUT -p TCP --dport 33000:31000 -m state --state NEW -j ACCEPT
 and to control incoming traffic from any address to port 5701:
 \begin{lstlisting}
 iptables -A INPUT -p tcp -d 0/0 -s 0/0 --dport 5701 -j ACCEPT
+\end{lstlisting}
+and to allow incoming multicast traffic:
+\begin{lstlisting}
+iptables -A INPUT -m pkttype --pkt-type multicast -j ACCEPT
 \end{lstlisting}
 
 \section{Creating Separate Clusters}

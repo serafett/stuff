@@ -277,19 +277,18 @@ age not in (60, 70)
 \end{enumerate}
 
 \section{Indices}
-To speed up queries, just like in databases, the Hazelcast map implementation supports indexes. Using an index prevents from iterating over all values (in database terms this is called a full table scan), but directly jump to the interesting ones. There are 2 types of indexes:
+To speed up queries, just like in databases, the Hazelcast map supports indices. Using an index prevents from iterating over all values (in database terms this is called a full table scan), but directly jump to the interesting ones. There are 2 types of indexes:
 \begin{enumerate}
 \item Ordered: e.g. a numeric field where you want to do searches like bigger than.
 \item Unordered: e.g. a name field.
 \end{enumerate}
 In the previous chapter we talked a Person class which has a name, age etc. To speed up searching on these fields, we can place an unordered index on name and ordered index on age. 
 
-To retrieve the index field of an Object, first an accessor method will be tried and if that doesn't exist, direct field access will be used. With the index accessor method you are not limited to returning a field, you could have a synthetic accessor method where some value is calculated on the fly. The index field also supports object traversal, so you could create an index on the street of the address of a person using 'address.street'. There is no limitation on the depth of the traversal. Hazelcast doesn't care about the accessibility of the index field or an index accessor method, so you are not forced to make them public. An index field also is allowed to return null.
+To retrieve the index field of an Object, first an accessor method will be tried and if that doesn't exist, direct field access will be used. With the index accessor method you are not limited to returning a field, you could have a synthetic accessor method where some value is calculated on the fly. The index field also supports object traversal, so you could create an index on the street of the address of a person using 'address.street'. There is no limitation on the depth of the traversal. Hazelcast doesn't care about the accessibility of the index field or accessor method, so you are not forced to make them public. An index field or an object containing an field, for the 'x.y' notation, is allowed to be null.
 
-The indexes on the personMap can be configured through the hazelcast configuration file. 
+The indices on the personMap can be configured like this:
 \begin{lstlisting}[language=xml]
 <hazelcast>
-   ...
    <map name="persons">
       <indexes>
          <index ordered="false">name</index>
@@ -298,9 +297,11 @@ The indexes on the personMap can be configured through the hazelcast configurati
    </map>
 </hazelcast>
 \end{lstlisting}
-It also is possible to call the 'IMap.addIndex(String name,boolean ordered)' method directly, but adding the index should be done before an item is placed in the map otherwise the index is ignored. Sometimes by design adding an index to a map may be impossible before any value is added. For example if a map has a MapLoader that loads entries during map creation. Another disadvantage of doing it in code is that it can become hard to figure out if a field has an index, because it could be spread over the code.
+The ordered attribute defaults to 'false'. It also is possible to call the 'IMap.addIndex(String name,boolean ordered)' method directly, but adding the index should be done before an item is placed in the map otherwise the index is ignored. Sometimes by design adding an index to a map may be impossible before any value is added. For example if a map has a MapLoader that loads entries during map creation. Another disadvantage of doing it in code is that it can become hard to figure out if a field has an index, because it could be spread over the code.
 
 The performance impact of using one or more indices depends on a lot of factors; among them are the size of the map, the chance of finding the element with a full table scan etc. Also adding one or more indices make mutations to the map more expensive since the index needs to be updated as well. Therefor you need to test in a production like environment and a representative size/quality of the dataset, which configuration is best for you. In the source code you can 2 very rudimentary index benchmarks, one for updating and one for searching. 
+
+In Hazelcast versions prior to 3.0, indexing for String fields was done only for the first the 4 characters. With Hazelcast version 3.0+ indexing is done on the entire String.
 
 [todo: how is the ordering implemented, for numeric values is can be simple, but what about strings?]
 
@@ -321,9 +322,7 @@ And imagine that each customer can have orders:
 \begin{lstlisting}[language=java]
 import java.io.Serializable;
 public final class Order implements Serializable {
-    public final long orderId;
-    public final long customerId;
-    public final long articleId;
+    public final long orderId, customerId, articleId;
     public Order(long orderId, long customerId, long articleId) {
         this.orderId = orderId;
         this.customerId = customerId;
@@ -338,7 +337,6 @@ And imagine that customers and orders are stored in a map like this:
     long articleId = 300;
     Customer customer = new Customer(customerId);
     customerMap.put(customer.id, customer);
-
     Order order = new Order(orderId,customer.id,articleId)
 	orderMap.put(order.id, order)
 \end{lstlisting}
@@ -349,8 +347,7 @@ Luckily Hazelcast provides a way of storing the Customer and the Order in the sa
 import com.hazelcast.core.PartitionAware;
 import java.io.Serializable;
 public final class OrderKey implements PartitionAware, Serializable {
-    public final long orderId;
-    public final long customerId;
+    public final long orderId, customerId;
     public OrderKey(long orderId, long customerId) {
         this.orderId = orderId;
         this.customerId = customerId;
@@ -370,23 +367,18 @@ public class DataLocalityMember {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         Map<Long, Customer> customerMap = hzInstance.getMap("customers");
         Map<OrderKey, Order> orderMap = hzInstance.getMap("orders");
-
         long customerId = 100;
         long orderId = 200;
         long articleId = 300;
-
         Customer customer = new Customer(customerId);
         customerMap.put(customer.id, customer);
-
         OrderKey orderKey = new OrderKey(orderId,customer.id);
         Order order = new Order(orderKey.orderId,customer.id,articleId);
         orderMap.put(orderKey, order);
-
         PartitionService pService = hzInstance.getPartitionService();
         Partition cPartition = pService.getPartition(customerId);
         Partition kPartition = pService.getPartition(new OrderKey(orderId, customerId));
         Partition oPartition = pService.getPartition(orderId);
-
         System.out.printf("Partition for customer: %s\n", cPartition.getPartitionId());
         System.out.printf("Partition for order with OrderKey: %s\n", kPartition.getPartitionId());
         System.out.printf("Partition for order without OrderKey: %s\n", oPartition.getPartitionId());
@@ -501,7 +493,7 @@ public class PersonMapStore implements MapStore<Long, Person> {
     }
 }
 \end{lstlisting}
-As you can see the implementation is quite simple, but certainly can be improved, e.g. transactions, prevention against sql injection etc. To connect the PersonMapStore to the persons map, we can configure it using the 'map-store' setting:
+As you can see the implementation is quite simple and certainly can be improved, e.g. transactions, prevention against sql injection etc. To connect the PersonMapStore to the persons map, we can configure it using the 'map-store' setting:
 \begin{lstlisting}[language=xml]
 <hazelcast>
     <map name="persons">
@@ -668,7 +660,7 @@ public class RacyUpdateMember {
         map.put(key, new Value());
         System.out.println("Starting");
         for (int k = 0; k < 1000; k++) {
-            if(k%100 == 0)System.out.println("At: "+k);
+            if(k%100 == 0) System.out.println("At: "+k);
             Value value = map.get(key);
             Thread.sleep(10);
             value.field++;

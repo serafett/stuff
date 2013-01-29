@@ -30,7 +30,7 @@ Hazelcast is very easy to include in your Maven project without needing to insta
    </dependency>
 </dependencies>
 \end{lstlisting}
-That is it. Make sure that you check the Hazelcast website to make use of the most recent version. After this dependency is added, Maven will automatically downloaded the dependencies needed. The lack of needing to install Hazelcast is something I really like because it saves up quite a lot of time, so we can spend that time doing more useful things.
+That is it. Make sure that you check the Hazelcast website to make use of the most recent version. After this dependency is added, Maven will automatically downloaded the dependencies needed. The lack of an installation process for Hazelcast is something I really like because it saves quite a lot of time. And this time can be used to solve actual problems instead of environmental issues.
 
 \section{Configuring Hazelcast}
 Hazelcast can be configured in different ways:
@@ -47,7 +47,7 @@ The programmatic configuration is the most rudimentary, the other mechanisms are
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 </hazelcast>
 \end{lstlisting}
-This example also imports an XML schema (XSD) for validation and if you are using an IDE, you probably get code completion. To reduce the size of the examples in the book, the XSD import is left out.
+This example also imports an XML schema (XSD) for validation and if you are using an IDE, you probably get code completion. But to reduce the size of the examples in the book, the XSD import is left out.
 
 In most of our examples we rely on multicast being enabled for member discovery. So if an XML configuration file is going to be used, it contains the following network configuration:
 \begin{lstlisting}[language=xml]
@@ -68,7 +68,7 @@ public class Main {
     }
 }
 \end{lstlisting}
-The mechanism uses the following configuration file resolution chain:
+The mechanism uses the following alternatives to resolve the configuration file:
 \begin{enumerate}
 \item first checks if the 'hazelcast.config' system property is set; if it is, then the value is used as path. This is useful if you want to choose on startup of the application which hazelcast configuration file should be used. The config option can be set by adding the following to the java command: '-Dhazelcast.config=<path to the hazelcast.xml>'. The value can be a normal file path, but can also be a classpath reference if it is prefixed with 'classpath:'. 
 \item else it checks if there is a 'hazelcast.xml' in the working directory.
@@ -90,7 +90,9 @@ public class Main {
      }
 }
 \end{lstlisting}
-The Hazelcast Config objects have fluent interfaces; meaning that the config object is returned when a config method is called, so that the next config method can be called. Programmatic configuration in my experience often is useful for testing purposes. 
+The Hazelcast Config object has a fluent interface; meaning that the config object is returned when a config method is called, so that the next config method can be called. Programmatic configuration is not only very useful for testing, but it also a solution for the static nature of the XML file. The content of the programmatic configuration can easily be created on the fly, e.g. based on database content. 
+
+In Hazelcast releases prior to 3.0, there was functionality for a static default HazelcastInstance, so you could say: 'Queue q = Hazelcast.getQueue("foo")'. This functionality has been removed because it lead to confusion when explicit created HazelcastInstances are combined with calls to the implicit default HazelcastInstance.
 
 \section{Wildcard configuration}
 The Hazelcast xml configuration can contain configuration elements for all kinds of distributed data-structures: sets, executors, maps etc. For example:
@@ -101,7 +103,7 @@ The Hazelcast xml configuration can contain configuration elements for all kinds
    </map>
 </hazelcast>
 \end{lstlisting}
-But what if we want to create multiple map instances using the same configuration? Do we need to define all these maps within the configuration file? This is impossible to do if you have a dynamic number of maps and you don't know up front how many need to be created. The solution to this problem is wildcard configuration. Hazelcast supports wildcard configuration for all data-structures. This makes it possible to use the single configuration for multiple instances. For example, we could configure the previous 'testmap' example with a time using a wildcard configuration like this:
+But what if we want to create multiple map instances using the same configuration? Do we need to repeat all these maps configuration? This is impossible to do if you have a dynamic number of maps and you don't know up front how many need to be created. The solution to this problem is wildcard configuration. Hazelcast supports wildcard configuration for all data-structures. This makes it possible to use the single configuration for multiple instances. For example, we could configure the previous 'testmap' example with a 10 'time-to-live-seconds' using a wildcard configuration like this:
 \begin{lstlisting}[language=xml]
 <hazelcast>
    <map name="testmap*">
@@ -116,7 +118,7 @@ Using a single asterisk (*) character any place in the name, different instances
 \end{lstlisting}
 The maps 'testmap1' and 'testmap2' both match 'testmap*' so they will use the same configuration.
 
-One thing you need to watch out for are multiple configurations that match. Hazelcast will not thrown an error or log a warning. Also selecting the right configuration doesn't depend on the order of definition in the configuration file or based on the best fitting match. So really make sure that your wildcard configurations are very specific. One of the ways to do it is to include the package name:
+One thing you need to watch out for are multiple configurations that match. Hazelcast will not thrown an error or log a warning. Also selecting the right configuration doesn't depend on the order of definition in the configuration file or is based on the best fitting match. So really make sure that your wildcard configurations are very specific. One of the ways to do it is to include the package name:
 \begin{lstlisting}[language=xml]
     <map name="com.foo.testmap*">
         <time-to-live-seconds>10</time-to-live-seconds>
@@ -149,10 +151,6 @@ Members [2] {
 }
 \end{lstlisting}
 As you can see there is a 2 member cluster created.
-
-\section{Named Instances}
-[todo: how to create a named instance from an xml based configuration?]
-[todo: it isn't possible to define the name in the xml based config]
 
 \section{Properties}
 In the Hazelcast xml file properties can be included like this:
@@ -187,10 +185,10 @@ cfg.setProperty("hazelcast.logging.type", "log4j");
 \end{lstlisting}
 But it can also be configured from the command line using: 'java -Dhazelcast.logging.type=log4j'. One thing to watch out for; you can't override the logging configuration from the command line because it has a lower priority than than the programmatic or xml configuration. If you are going to make use of 'log4j' or 'slf4j', make sure that the correct dependencies are included. See the examples for more information.
 
-you can always implement your own logging implementation by implementing the 'com.hazelcast.logging.LogListener' if you are not satisfied with the provided mechanisms. See the Hazelcast reference manual for more information.
+You can always implement your own logging implementation by implementing the 'com.hazelcast.logging.LogListener', if you are not satisfied with the provided mechanisms. See the Hazelcast reference manual for more information.
 
 \section{Downloading example sources}
-If you want to play around with the example sources of this book, check the following link:
-TODO: Link to the source
-todo: static hazelcastinstance has been removed
-programmatic is very useful if you don't want to get stuck with the static configuration.. e.g. from database
+If you want to play around with the example sources of this book, check the following link:[todo: link to source]. 
+
+\section{What is next?}
+Hazelcast supports a lot of functionality, so we cover only the most used functionality. Some things like named HazelcastInstances have been left out.

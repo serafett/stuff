@@ -1,3 +1,4 @@
 #!/bin/sh
 
-java -cp target/lib/*:target/classes Member
+#-Dhazelcast.socket.bind.any=false
+java -cp target/lib/*:target/classes  Member
