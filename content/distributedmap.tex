@@ -429,12 +429,12 @@ By default Hazelcast provides sequential consistency, meaning that when a map en
 In this example you can see a person map with a single asynchronous backup and where read backup data is enabled. This property defaults to false.
 
 \section{Persistence}
-In the previous section we talked about backups that protect against member failure, so if one member goes down, another member takes over. But it does not protect you against cluster failure, e.g. when a cluster is hosted in a single datacenter, and it goes down. Luckily Hazelcast provides a solutionby allowing to load and store data externally, e.g. in a database. This can be done using:
+In the previous section we talked about backups that protect against member failure, so if one member goes down, another member takes over. But it does not protect you against cluster failure, e.g. when a cluster is hosted in a single datacenter, and it goes down. Luckily Hazelcast provides a solution loading and storing data externally, e.g. in a database. This can be done using:
 \begin{enumerate}
 \item com.hazelcast.core.MapLoader: useful for reading entries from an external datasource, but changes don't need to be written back.
 \item com.hazelcast.core.MapStore: useful for reading and writing map entries from and to an external datasource. The MapStore interface extends the MapLoader interface.
 \end{enumerate}
-One word of caution: the MapLoader/MapStore should NOT call Map/Queue/MultiMap/List/Set operations, otherwise you might run into deadlocks.
+ And one instance per Map per Node will be created.
 
 The following example shows an extremely basic HSQLDB implementation of the MapStore where we load/store a simple Person object with a name field:
 \begin{lstlisting}[language=java]
@@ -451,26 +451,26 @@ public class PersonMapStore implements MapStore<Long, Person> {
                     "create table if not exists person (id bigint, name varchar(45))");
         } catch (SQLException e) {throw new RuntimeException(e);}
     }
-    public void delete(Long key) {
+    public synchronized void delete(Long key) {
         try {
             con.createStatement().executeUpdate(
                     format("delete from person where id = %s", key));
         } catch (SQLException e) {throw new RuntimeException(e);}
     }
-    public void store(Long key, Person value) {
+    public synchronized void store(Long key, Person value) {
         try {
             con.createStatement().executeUpdate(
                     format("insert into person values(%s,'%s')", key, value.name));
         } catch (SQLException e) {throw new RuntimeException(e);}
     }
-    public void storeAll(Map<Long, Person> map) {
+    public synchronized void storeAll(Map<Long, Person> map) {
         for (Map.Entry<Long, Person> entry : map.entrySet())
             store(entry.getKey(), entry.getValue());
     }
-    public void deleteAll(Collection<Long> keys) {
+    public synchronized void deleteAll(Collection<Long> keys) {
        for(Long key: keys) delete(key);
     }
-    public Person load(Long key) {
+    public synchronized Person load(Long key) {
         try {
             ResultSet resultSet = con.createStatement().executeQuery(
                     format("select name from person where id =%s", key));
@@ -483,7 +483,7 @@ public class PersonMapStore implements MapStore<Long, Person> {
             }
         } catch (SQLException e) {throw new RuntimeException(e);}
     }
-    public Map<Long, Person> loadAll(Collection<Long> keys) {
+    public synchronized Map<Long, Person> loadAll(Collection<Long> keys) {
         Map<Long, Person> result = new HashMap<Long, Person>();
         for (Long key : keys) result.put(key, load(key));
         return result;
@@ -493,17 +493,18 @@ public class PersonMapStore implements MapStore<Long, Person> {
     }
 }
 \end{lstlisting}
-As you can see the implementation is quite simple and certainly can be improved, e.g. transactions, prevention against sql injection etc. To connect the PersonMapStore to the persons map, we can configure it using the 'map-store' setting:
+As you can see the implementation is quite simple and certainly can be improved, e.g. transactions, prevention against sql injection etc. Because the MapStore/MapLoader can be called by threads concurrently, this implementation make use of synchronization to deal with that correctly. Currently it relies on a course grained locked, but you could perhaps apply finer grained locking based on the key and a striped lock.
+
+To connect the PersonMapStore to the persons map, we can configure it using the 'map-store' setting:
 \begin{lstlisting}[language=xml]
 <hazelcast>
     <map name="persons">
         <map-store enabled="true">
            <class-name>PersonMapStore</class-name>
-         </map-store>
+        </map-store>
     </map>
 </hazelcast>
 \end{lstlisting}
-
 In the following code fragment you can see a member that writes a person to the map exits the JVM. And you can see a member that loads the person and prints it. 
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
@@ -526,7 +527,9 @@ public class ReadMember {
     }
 }
 \end{lstlisting}
-With the WriteMember you can see that the System.exit(0) is called at the end. This is done to release the HSQLDB so that it can be opened by the ReadMember. Calling System.exit is a safe way for Hazelcast to leave the cluster since due to a shutdown hook, and waits for all backup operations to complete.
+With the WriteMember you can see that the System.exit(0) is called at the end. This is done to release the HSQLDB so that it can be opened by the ReadMember. Calling System.exit is a safe way for Hazelcast to leave the cluster  due to a shutdown hook, and it waits for all backup operations to complete.
+
+A word of caution: the MapLoader/MapStore should NOT call Map/Queue/MultiMap/List/Set/etc operations, otherwise you might run into deadlocks. 
 
 \subsubsection{Pre-Populating the map}
 With the MapLoader it is possible to pre-populate the Map so that when it is created, the important entries are loaded in memory. This can be done by letting the 'loadAllKeys' method return the Set of all 'hot' keys that need to be loaded for the partitions owned by the member. This also makes parallel loading possible, since each member can load its own keys.  If the 'loadAll' method return null, as we did in the example, then the map will not be pre-populated. Also important to know is that Map is created lazily by Hazelcast, so only when one of the members calls the 'HazelcastInstance.getMap(name)' the map is actually created and the MapLoader called. If your application requires that Map up front without really needing the content, you could wrap the map in a lazy proxy that calls the getMap method only when really needed.

@@ -1,9 +1,9 @@
 <hazelcast>
     <network>
         <join>
-            <multicast enabled="true"/>
-            <tcp-ip enabled="true" conn-timeout-seconds="10">
-                <!-- interface>127.0.0.1</interface -->
+            <multicast enabled="false"/>
+            <tcp-ip enabled="true">
+                <member>127.0.0.1</member>
             </tcp-ip>
         </join>
     </network>

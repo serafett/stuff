@@ -26,6 +26,5 @@
         <module>groups</module>
         <module>firewall</module>
         <module>encryption</module>
-        <module>ipv6</module>
     </modules>
 </project>
