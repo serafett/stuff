@@ -8,8 +8,8 @@
             <aws enabled="true" >
                 <access-key>my-access-key</access-key>
                 <secret-key>my-secret-key</secret-key>
-                <region>us-west-1</region>
-                <security-group-name>hazelcast-sg</security-group-name>
+                <region>us-east-1</region>
+                <security-group-name>peter</security-group-name>
                 <tag-key>type</tag-key>
                 <tag-value>hz-nodes</tag-value>
             </aws>

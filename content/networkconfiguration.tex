@@ -180,8 +180,9 @@ When there is a large number of IP's listed [todo: especially in virtualized env
 [talip:.....]
 
 \subsection{EC2 Auto Discovery}
-Apart from multicast and the tcp/ip-cluster join mechanisms, there a third mechanism: Amazon EC2. It only works for a single region; so machines over different regions can't discover each other. This could be an issue. todo: how are the members discovered? I guess a aws call is done to read all members (filtered based on some property). I guess that a tcp/ip cluster is used behind the screens. This also shows the power of the programmatic api; because you can easily retrieve the member information from any cloud (e.g. using jclouds) and build up the TcpIpConfig on the fly based on that information. So you don't need Hazelcast support to integrate with other cloud providers.
+Apart from multicast and the tcp/ip-cluster join mechanisms, there a third mechanism: Amazon EC2. This mechanism, which makes use of tcp/ip discovery behind the scenes, sees all nodes within a particular region and have certain tag keys/values, as well known members. So a single region is used to lets new nodes discover the cluster, but the cluster can span multiple regions (it can even span multiple cloud providers).
 
+So lets start with a very simple setup:
 \begin{lstlisting}[language=xml]
 <hazelcast>
     <network>
@@ -195,6 +196,8 @@ Apart from multicast and the tcp/ip-cluster join mechanisms, there a third mecha
     </network>
 </hazelcast>
 \end{lstlisting}
+And start 
+
 
 The aws tag accepts an attribute called "conn-timeout-seconds". The default value is 5. Increasing this value is recommended if you have many IP's listed and members can not properly build up the cluster.
 
@@ -205,6 +208,8 @@ The aws section also has a few optional arguments:
 \item tag-key:
 \item tag-value:
 \end{enumerate}
+
+s. This also shows the power of the programmatic api; because you can easily retrieve the member information from any cloud (e.g. using jclouds) and build up the TcpIpConfig on the fly based on that information. So you don't need Hazelcast support to integrate with other cloud providers.
 
 \section{Specifying network interfaces}
 Most server machines can have multiple network interfaces and by default will bind (listen) to all interfaces.
@@ -228,33 +233,28 @@ You can also specify which network interfaces that Hazelcast should use. Servers
 [todo: every machine could have different interfaces. So should all the interfaces be listed of all machines? Or should an hazelcast config per machine be 'generated'?]
 
 \section{Partition Group Configuration}
-Normally Hazelcast prevents the master and the backup partitions to be stored on the same JVM to guarantee high availability and Hazelcast will evenly distibutes the partitions (the master and backups) among the machines. But in some cases you want to control this behavior e.g. when the machines have different capacity or when multiple JVM's run on the same machine and you want to prevent that master and backup are being stored on the same machine because this prevents high availability.
-
-Luckily Hazelcast provides a solution for that in the form of partition groups; in single group a master and backup are not allowed. The simplest configuration is when each machine has its own partition group:
-\begin{lstlisting}[language=xml]
-<partition-group enabled="true" group-type="HOST_AWARE" />
-\end{lstlisting}
-Using this configuration if multiple JVM's are started on the same machine they will not share the master AND the backup. 
-
-todo: the partitiongroup is only to prevent master/backup issues. Or can you also control the number of partitions each group ges
-
-You can group members in same JVM (or physical machine) or members located in the same chassis. Or you can group members to create identical capacity. We call these groups as partition groups. This way partitions are assigned to those partition groups instead of single members. And backups of these partitions are located in another partition group.
-
-When you enable partition grouping, Hazelcast presents two choices to configure partition groups at the moments. First one is to group members automatically using IP addresses of members, so members sharing same network interface will be grouped together. 
-
-Second one is custom grouping using Hazelcast's interface matching configuration. This way, you can add different and multiple interfaces to a group. You can also use wildcards in interface addresses.
+Normally Hazelcast prevents the master and the backup partitions to be stored on the same JVM to guarantee high availability. But it can be that multiple Hazelcast members of the same cluster are running on the same machine; so when the machine fails it can still happen that both master and backup fail. Luckily Hazelcast provides a solution for this problem in the form of partition groups:
 \begin{lstlisting}[language=xml]
 <hazelcast>
-<partition-group enabled="true" group-type="CUSTOM">
-    <member-group>
-        <interface>10.10.0.*</interface>
-    </member-group>
-    <member-group>
-        <interface>10.10.2.*</interface>
-    </member-group
-</partition-group>
+   <partition-group enabled="true" group-type="HOST_AWARE"/>
 </hazelcast>
 \end{lstlisting}
+Using this configuration all members that share the same hostname/host-IP, will be part of the same group and therefor will not host both master and backup(s). [todo: what happens when there are no other members?] 
+
+Another reason partition groups can be useful is that normally Hazelcast considers all machines to be equal and therefor will distribute the partitions evenly. But in some cases machines are not equal, e.g. different amount of memory available or slower cpu's, so could lead to a load imbalance. With a partition group you can make member-groups where each member-group is considered to have the same capacity and where each member is considered to have the same capacity as the other members in the same member-group. In the future perhaps a balance-factor will be added to relax these constraints. Underneath is an example where we define multiple member groups based on matching ip-addresses:
+\begin{lstlisting}[language=xml]
+<hazelcast>
+    <partition-group enabled="true" group-type="CUSTOM">
+        <member-group>
+            <interface>10.10.1.*</interface>
+        </member-group>
+        <member-group>
+            <interface>10.10.2.*</interface>
+        </member-group
+    </partition-group>
+</hazelcast>
+\end{lstlisting}
+In this example there are 2 member groups, where the first member-group contains all member with an IP 10.10.1.0-255 and the second member-group contains all member with an IP of 10.10.2.0-255. You can also this approach to create different groups for each data-center so that when the primary datacenter goes offline, the backup datacenter can take over.
 
 \section{Creating Separate Clusters}
 Sometimes it desirable to have multiple isolated clusters on the same network instead of a single cluster. For example when a network is used for different environments or different applications. Luckily this can be done using groups:
@@ -309,14 +309,11 @@ Apart from supporting SSL, Hazelcast also supports symmetric encryption based on
 
 SSL and symmetric encryption solutions will roughly have the same CPU and network bandwidth overhead since for the main data  they rely on symmetric encryption (only the public key is encrypted using asymmetric encryption). Compared to non encrypted data, the performance degradation will be roughly 50%. [todo: increased latency]
 
-Hazelcast used to have support for asymmetric encryption, but due its complex setup, this feature has been removed from Hazelcast 3.0. Currently there is no support for encryption between a native client and a cluster member.
-
+The demonstrate the encryption, lets have a look at the following configuration:
 \begin{lstlisting}[language=xml]
 <hazelcast>
     <network>
-        <join>
-            <multicast enabled="true"/>
-        </join>
+        <join><multicast enabled="true"/></join>
         <symmetric-encryption enabled="true">
             <algorithm>PBEWithMD5AndDES</algorithm>
             <salt>somesalt</salt>
@@ -326,14 +323,15 @@ Hazelcast used to have support for asymmetric encryption, but due its complex se
     </network>
 </hazelcast>
 \end{lstlisting}
-When we start 2 members using the configuration, we'll see that the symmetric encryption is activated:
+When we start 2 members using this configuration, we'll see that the symmetric encryption is activated:
 \begin{lstlisting}
 Jan 20, 2013 9:22:08 AM com.hazelcast.nio.SocketPacketWriter
 INFO: [192.168.1.104]:5702 [dev] Writer started with SymmetricEncryption
 Jan 20, 2013 9:22:08 AM com.hazelcast.nio.SocketPacketReader
 INFO: [192.168.1.104]:5702 [dev] Reader started with SymmetricEncryption
 \end{lstlisting}
-Since encryption relies on the JCA, additional algorithms can be used by enabling the Bouncy Castle JCA provider through property 'hazelcast.security.bouncy.enabled'.
+
+Since encryption relies on the JCA, additional algorithms can be used by enabling the Bouncy Castle JCA provider through property 'hazelcast.security.bouncy.enabled'. Hazelcast used to have support for asymmetric encryption, but due its complex setup, this feature has been removed from Hazelcast 3.0. Currently there is no support for encryption between a native client and a cluster member.
 
 \section{Firewall}
 When a Hazelcast member connects to another Hazelcast member, it binds to server port 5701 (see the port configuration section) to receive the inbound traffic. On the client side also a port needs to be opened for the outbound traffic. By default this will be an 'ephemeral' port since we it doesn't matter which port is being used as long as it is free. The problem is that the lack of control on the outbound port, can be a security issues, because the firewall needs to expose all ports for outbound traffic. 
