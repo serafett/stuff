@@ -1,3 +1,3 @@
 #!/bin/sh
 
-java -cp target/lib/*:target/classes SerializationMember
+java -cp target/lib/*:target/classes PortableMember

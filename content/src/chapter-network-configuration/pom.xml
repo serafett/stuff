@@ -26,5 +26,6 @@
         <module>groups</module>
         <module>firewall</module>
         <module>encryption</module>
+        <module>partitiongroup</module>
     </modules>
 </project>

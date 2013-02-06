@@ -207,7 +207,7 @@ The aws section also has a few optional arguments:
 \end{enumerate}
 
 \section{Specifying network interfaces}
-Most server machines can have multiple network interfaces. 
+Most server machines can have multiple network interfaces and by default will bind (listen) to all interfaces.
 
 You can also specify which network interfaces that Hazelcast should use. Servers mostly have more than one network interface so you may want to list the valid IPs. Range characters ('*' and '-') can be used for simplicity. So 10.3.10.*, for instance, refers to IPs between 10.3.10.0 and 10.3.10.255. Interface 10.3.10.4-18 refers to IPs between 10.3.10.4 and 10.3.10.18 (4 and 18 included). If network interface configuration is enabled (disabled by default) and if Hazelcast cannot find an matching interface, then it will print a message on console and won't start on that member.
 
@@ -228,39 +228,45 @@ You can also specify which network interfaces that Hazelcast should use. Servers
 [todo: every machine could have different interfaces. So should all the interfaces be listed of all machines? Or should an hazelcast config per machine be 'generated'?]
 
 \section{Partition Group Configuration}
-Hazelcast distributes key objects into partitions (blocks) using a consistent hashing algorithm and those partitions are assigned to members. That means an entry is stored in a member which is owner of partition to that entry's key is assigned. Number of total partitions is default 271 and can be changed with configuration property 'hazelcast.map.partition.count'. Along with those partitions, there are also copies of them as backups. Backup partitions can have multiple copies due to backup count defined in configuration, such as first backup partition, second backup partition etc. As a rule, a member can not hold more than one copy of a partition (ownership or backup). By default Hazelcast distributes partitions and their backup copies randomly and equally among cluster members assuming all members in the cluster are identical.
+Normally Hazelcast prevents the master and the backup partitions to be stored on the same JVM to guarantee high availability and Hazelcast will evenly distibutes the partitions (the master and backups) among the machines. But in some cases you want to control this behavior e.g. when the machines have different capacity or when multiple JVM's run on the same machine and you want to prevent that master and backup are being stored on the same machine because this prevents high availability.
 
-What if some members share same JVM or physical machine or chassis and you want backups of these members to be assigned to members in another machine or chassis? What if processing or memory capacities of some members are different and you do not want equal number of partitions to be assigned to all members?
+Luckily Hazelcast provides a solution for that in the form of partition groups; in single group a master and backup are not allowed. The simplest configuration is when each machine has its own partition group:
+\begin{lstlisting}[language=xml]
+<partition-group enabled="true" group-type="HOST_AWARE" />
+\end{lstlisting}
+Using this configuration if multiple JVM's are started on the same machine they will not share the master AND the backup. 
+
+todo: the partitiongroup is only to prevent master/backup issues. Or can you also control the number of partitions each group ges
 
 You can group members in same JVM (or physical machine) or members located in the same chassis. Or you can group members to create identical capacity. We call these groups as partition groups. This way partitions are assigned to those partition groups instead of single members. And backups of these partitions are located in another partition group.
 
-When you enable partition grouping, Hazelcast presents two choices to configure partition groups at the moments.
-
-First one is to group members automatically using IP addresses of members, so members sharing same network interface will be grouped together.
-
-\begin{lstlisting}
-<partition-group enabled="true" group-type="HOST_AWARE" />
-Config config = ...;
-PartitionGroupConfig partitionGroupConfig = config.getPartitionGroupConfig();
-partitionGroupConfig.setEnabled(true).setGroupType(MemberGroupType.HOST_AWARE);
-\end{lstlisting}
+When you enable partition grouping, Hazelcast presents two choices to configure partition groups at the moments. First one is to group members automatically using IP addresses of members, so members sharing same network interface will be grouped together. 
 
 Second one is custom grouping using Hazelcast's interface matching configuration. This way, you can add different and multiple interfaces to a group. You can also use wildcards in interface addresses.
-
-\begin{lstlisting}
+\begin{lstlisting}[language=xml]
+<hazelcast>
 <partition-group enabled="true" group-type="CUSTOM">
     <member-group>
         <interface>10.10.0.*</interface>
-        <interface>10.10.3.*</interface>
-        <interface>10.10.5.*</interface>
     </member-group>
     <member-group>
-        <interface>10.10.10.10-100</interface>
-        <interface>10.10.1.*</interface>
         <interface>10.10.2.*</interface>
     </member-group
 </partition-group>
+</hazelcast>
 \end{lstlisting}
+
+\section{Creating Separate Clusters}
+Sometimes it desirable to have multiple isolated clusters on the same network instead of a single cluster. For example when a network is used for different environments or different applications. Luckily this can be done using groups:
+\begin{lstlisting}[language=xml]
+<hazelcast>
+    <group>
+        <name>application1</name>
+        <password>somepassword</password>
+    </group>
+</hazelcast>
+\end{lstlisting}
+The password is optional and defaults to 'drowssap'. A group is something else than a partition-group; with the former you create isolated clusters and with the latter you control how partitions are being mapped to machines.
 
 \section{SSL}
 In a production environment often you want to prevent that the communication between Hazelcast members can be tampered or can be read, with ... because it could contains sensitive information. Luckily Hazelcast provides a solution for that: SSL encryption.
@@ -303,9 +309,7 @@ Apart from supporting SSL, Hazelcast also supports symmetric encryption based on
 
 SSL and symmetric encryption solutions will roughly have the same CPU and network bandwidth overhead since for the main data  they rely on symmetric encryption (only the public key is encrypted using asymmetric encryption). Compared to non encrypted data, the performance degradation will be roughly 50%. [todo: increased latency]
 
-Hazelcast used to have support for asymmetric encryption, but due its complex setup, this feature has been removed from Hazelcast 3.0. 
-
-There is currently no support for encryption between a native client and a cluster member. [todo: is there a solution?]not yet
+Hazelcast used to have support for asymmetric encryption, but due its complex setup, this feature has been removed from Hazelcast 3.0. Currently there is no support for encryption between a native client and a cluster member.
 
 \begin{lstlisting}[language=xml]
 <hazelcast>
@@ -370,17 +374,7 @@ and to allow incoming multicast traffic:
 iptables -A INPUT -m pkttype --pkt-type multicast -j ACCEPT
 \end{lstlisting}
 
-\section{Creating Separate Clusters}
-Sometimes it desirable to have multiple clusters on the same network instead of a single cluster. For example when a network is used for different environments or different applications. Luckily this can be done using groups:
-\begin{lstlisting}[language=xml]
-<hazelcast>
-    <group>
-        <name>application1</name>
-        <password>somepassword</password>
-    </group>
-</hazelcast>
-\end{lstlisting}
-The password is optional and defaults to 'drowssap'.
+
 
 \section{What is next}
 The network configuration for Hazelcast is very extensive. There are some features like IPv6,  Network Partitioning (Split-Brain Syndrome), Socket Interceptors, WAN Replication, that have been left out, but can be found on the Hazelcast manual. Also the mailing-list is a very valuable source of information.

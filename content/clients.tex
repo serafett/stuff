@@ -6,7 +6,7 @@ Hazelcast provides multiple client solutions and in this chapter the following 2
 \item native client
 \item lite member
 \end{enumerate}
-The clients are thread-safe and you don't need to pool them.
+The clients are thread-safe so you don't need to pool them.
 
 We are going to implement a native and lite member client implementation in this chapter. Both are going to put a message on a queue and the message will be taken by the following full member:
 \begin{lstlisting}[language=java]
@@ -64,13 +64,11 @@ Although the native client is a very simple mechanism to access the cluster, it 
 
 In the example underneath you can see see how the lite member works:
 \begin{lstlisting}[language=java]
-import com.hazelcast.config.Config;
 import com.hazelcast.core.*;
 import java.util.concurrent.BlockingQueue;
 public class LiteMember {
     public static void main(String[] args) throws Exception {
-        Config config = new Config().setLiteMember(true);
-        HazelcastInstance hazelcastInstance = Hazelcast.newHazelcastInstance(config);
+        HazelcastInstance hzInstance = Hazelcast.newLiteMemberHazelcastInstance();
         BlockingQueue<String> queue = hazelcastInstance.getQueue("queue");
         queue.put("echo");
         System.out.println("Message send from lite member!");
