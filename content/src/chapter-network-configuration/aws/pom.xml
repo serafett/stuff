@@ -3,11 +3,11 @@
     <modelVersion>4.0.0</modelVersion>
     <packaging>jar</packaging>
 
-    <artifactId>ec2</artifactId>
-    <name>Chapter Network Configuration - Ec2</name>
+    <artifactId>aws</artifactId>
+    <name>Chapter Network Configuration - AWS</name>
 
     <description>
-        Chapter Network Configuration - Ec2
+        Chapter Network Configuration - AWS
     </description>
 
     <parent>

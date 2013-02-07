@@ -196,20 +196,17 @@ So lets start with a very simple setup:
     </network>
 </hazelcast>
 \end{lstlisting}
-And start 
+And 'my-access-key' and 'my-secret-key' need to be replaced with your access key and secret key. Make sure that the started machines have a security group where the correct ports are opened (see firewall).
 
-
-The aws tag accepts an attribute called "conn-timeout-seconds". The default value is 5. Increasing this value is recommended if you have many IP's listed and members can not properly build up the cluster.
-
-The aws section also has a few optional arguments:
+The AWS section also has a few configuration options:
 \begin{enumerate}
 \item region: the region where the machines are running. Defaults to 'us-east-1'.
 \item security-group-name: [todo] defaults to?
-\item tag-key:
-\item tag-value:
+\item tag-key,tag-value: allows you to limit the numbers of machines to look at by providing them with a unique tag-key/tag-value. This makes it possible to create multiple cluster in a single data center.
 \end{enumerate}
+And the aws tag accepts an attribute called "conn-timeout-seconds". The default value is 5 and can be increased  if you have many IP's listed and members can not properly build up the cluster.
 
-s. This also shows the power of the programmatic api; because you can easily retrieve the member information from any cloud (e.g. using jclouds) and build up the TcpIpConfig on the fly based on that information. So you don't need Hazelcast support to integrate with other cloud providers.
+In case you are using a different cloud provider than Amazon EC2, you can still make use of Hazelcast. What you can do it to use the programmatic api to configure a tcp-ip cluster and the well known members need to be retrieved from your cloud provider (e.g. using jclouds).
 
 \section{Specifying network interfaces}
 Most server machines can have multiple network interfaces and by default will bind (listen) to all interfaces.

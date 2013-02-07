@@ -19,13 +19,13 @@
 
     <modules>
         <module>port</module>
-        <module>ssl</module>
         <module>multicast</module>
-        <module>ec2</module>
         <module>tcpip</module>
+        <module>aws</module>
         <module>groups</module>
-        <module>firewall</module>
-        <module>encryption</module>
         <module>partitiongroup</module>
+        <module>encryption</module>
+        <module>ssl</module>
+        <module>firewall</module>
     </modules>
 </project>
