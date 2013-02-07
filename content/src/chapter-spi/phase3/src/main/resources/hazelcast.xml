@@ -3,15 +3,12 @@
            xmlns="http://www.hazelcast.com/schema/config"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <network>
-        <join>
-            <multicast enabled="true"/>
-        </join>
+        <join><multicast enabled="true"/></join>
     </network>
-
     <services>
         <service enabled="true">
-            <name>FooService</name>
-            <class-name>FooService</class-name>
+            <name>DistributedCounterService</name>
+            <class-name>DistributedCounterService</class-name>
          </service>
     </services>
 </hazelcast>

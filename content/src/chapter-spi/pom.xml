@@ -27,8 +27,8 @@
     </dependencies>
 
     <modules>
-        <module>managed-service</module>
-        <module>remote-service</module>
-        <module>example3</module>
+        <module>phase1</module>
+        <module>phase2</module>
+        <module>phase3</module>
     </modules>
 </project>

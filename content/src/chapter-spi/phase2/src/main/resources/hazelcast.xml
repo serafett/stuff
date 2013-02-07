@@ -2,13 +2,11 @@
                                http://www.hazelcast.com/schema/config/hazelcast-config-3.0.xsd"
            xmlns="http://www.hazelcast.com/schema/config"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-    <network>
-        <join><multicast enabled="true"/></join>
-    </network>
+
     <services>
         <service enabled="true">
-            <name>EchoService</name>
-            <class-name>EchoService</class-name>
-         </service>
+            <name>DistributedCounterService</name>
+            <class-name>DistributedCounterService</class-name>
+        </service>
     </services>
 </hazelcast>

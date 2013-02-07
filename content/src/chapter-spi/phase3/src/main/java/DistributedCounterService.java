@@ -9,7 +9,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class DistributedCounterService implements ManagedService, RemoteService {
     private NodeEngine nodeEngine;
     DistributedMapContainer[] containers;
-
     public void init(NodeEngine nodeEngine, Properties properties) {
         this.nodeEngine = nodeEngine;
         containers = new  DistributedMapContainer[nodeEngine.getPartitionService().getPartitionCount()];
@@ -22,12 +21,10 @@ public class DistributedCounterService implements ManagedService, RemoteService 
         return new DistributedCounterProxy(String.valueOf(objectId),nodeEngine);
     }
     public String getServiceName() {
-        return "DistributedMapService";
+        return "DistributedCounterService";
     }
-
     public class DistributedMapContainer{
         private ConcurrentMap<String,AtomicInteger> maps = new ConcurrentHashMap<>();
-
         public int inc(String id,  int amount) {
             AtomicInteger integer = maps.get(id);
             if(integer == null){
@@ -38,11 +35,8 @@ public class DistributedCounterService implements ManagedService, RemoteService 
             return integer.addAndGet(amount);
         }
     }
-
-    @Override
     public DistributedObject createDistributedObjectForClient(Object objectId) {
         return null;
     }
-    @Override
     public void destroyDistributedObject(Object objectId) {}
 }
