@@ -1,1 +1,151 @@
 \chapter{SPI}
+
+One of the most exiting new features of Hazelcast 3 is the new SPI module (see the 'com.hazelcast.spi' package). The cool thing about this package is that it makes it possible to write first class distributed services/data-structures yourself. They pulled out this API into user space, but it also the core of all the Hazelcast functionality like the Map or the distributed executor relies on the same functionality. So with the SPI you can write your own data-structures if you are unhappy with the ones provides by Hazelcast. You also could write more complex services like an Actor library; I have build a POC actor library on top of Hazelcast where the actors automatically scale and are highly available. The only limiting factor is your imagination.
+
+\section{Basic Service}
+In this section we are going to show you a very basic service that will be started when Hazelcast starts and will be shutdown when Hazelcast is shutdown. In itself not extremely interesting, but it is needed for the the more advanced sections.
+
+\begin{lstlisting}[language=java]
+import com.hazelcast.spi.*;
+import java.util.Properties;
+public class FooService implements ManagedService {
+    public void init(NodeEngine nodeEngine, Properties properties) {
+        System.out.println("FooService.init");
+    }
+    public void shutdown() {
+        System.out.println("FooService.shutdown");
+    }
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=xml]
+<hazelcast>
+    <services>
+        <service enabled="true">
+            <name>FooService</name>
+            <class-name>FooService</class-name>
+         </service>
+    </services>
+</hazelcast>
+\end{lstlisting}
+If you need to set additional properties on the Service, a '<properties>' section can be added to the service.
+
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.Hazelcast;
+public class Member {
+    public static void main(String[] args) {
+        Hazelcast.newHazelcastInstance();
+    }
+}
+\end{lstlisting}
+If we start it we'll see:
+\begin{lstlisting}
+FooService.init
+\end{lstlisting}
+
+\section{Routing Requests}
+This example shows invoke operations on potentially a machine. The basis will be an Echo Service, that accepts a routing id and a message that needs to be echoed.
+
+So lets start with the Echoer interface; it extends the 'DistributedObject' which provides name?/id/destroy
+\begin{lstlisting}[language=java]
+import import com.hazelcast.core.*;
+public interface Echoer extends DistributedObject{
+    void echo(String routingId, String msg);
+}
+\end{lstlisting}
+The echo method takes 2 parameters: the routingId and the msg. The routingId is used to find the correct partition. 
+
+The next step is the EchoService. Apart from implementing the 'ManagedService' interface, it now also implements the 'RemoteService' interface. Through this interface a client will be able to get a handle of an Echoer instance.
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.*;
+import com.hazelcast.spi.*;
+import java.util.Properties;
+public class EchoService implements ManagedService, RemoteService {
+    private NodeEngine nodeEngine;
+    public void init(NodeEngine nodeEngine, Properties properties) {
+        this.nodeEngine = nodeEngine;
+    }
+    public void shutdown() {
+    }
+    public DistributedObject createDistributedObject(Object objectId) {
+        return new EchoerProxy(String.valueOf(objectId),nodeEngine);
+    }
+    public String getServiceName() {
+        return "EchoService";
+    }
+    public DistributedObject createDistributedObjectForClient(Object objectId) {
+        return null;
+    }
+    public void destroyDistributedObject(Object objectId) {}
+}
+\end{lstlisting}
+
+
+\begin{lstlisting}[language=java]
+import com.hazelcast.spi.*;
+import java.util.concurrent.*;
+public class EchoerProxy implements Echoer,DistributedObject {
+    private final NodeEngine nodeEngine;
+    private final String objectId;
+    public EchoerProxy(String objectId, NodeEngine nodeEngine) {
+        this.nodeEngine = nodeEngine;
+        this.objectId = objectId;
+    }
+    public Object getId() {return objectId;}
+    public String getName() {
+        return null;
+    }
+    public void echo(String routingId, String msg) {
+        EchoOperation operation = new EchoOperation();
+        int partitionId = nodeEngine.getPartitionService().getPartitionId(routingId);
+        InvocationBuilder builder = nodeEngine.getOperationService()
+                .createInvocationBuilder("FooService",operation,partitionId);
+        try {
+            builder.build().invoke().get();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    static class EchoOperation extends AbstractOperation {
+        public void run() throws Exception {
+            System.out.println("Echo");
+        }
+    }
+    public void destroy() {
+    }
+}
+\end{lstlisting}
+
+
+We need to wire up the EchoService in the Hazelcast.xml
+\begin{lstlisting}[language=xml]
+<hazelcast>
+    <network>
+        <join><multicast enabled="true"/></join>
+    </network>
+    <services>
+        <service enabled="true">
+            <name>EchoService</name>
+            <class-name>EchoService</class-name>
+         </service>
+    </services>
+</hazelcast>
+\end{lstlisting}
+
+Of course we also want to run the EchoService; the following example shows how it is run:
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.*;
+public class Member {
+    public static void main(String[] args) {
+        HazelcastInstance instance = Hazelcast.newHazelcastInstance();
+        Echoer echoer = (Echoer)instance.getDistributedObject("FooService","bla");
+        echoer.echo("bla","bla");
+    }
+}
+\end{lstlisting}
+
+\section{Replication}
+
+\section{What is next}
