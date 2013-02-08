@@ -3,6 +3,7 @@ import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.spi.AbstractOperation;
 import com.hazelcast.spi.InvocationBuilder;
 import com.hazelcast.spi.NodeEngine;
+import com.hazelcast.spi.PartitionAwareOperation;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
@@ -36,7 +37,13 @@ public class DistributedCounterProxy implements DistributedCounter {
         }
     }
 
-    static class IncOperation extends AbstractOperation {
+    // [mehmet: Added 'implements PartitionAwareOperation' 
+    // Implementing PartitionAwareOperation forces operation to acquire partition read-lock before running.
+    // This ensures one of two; 
+    //      1- If operation acquires partition lock before migration, migration process waits until operation releases the lock.
+    //      2- If migration starts before operation execution, a retry exception is returned to the caller to redirect operation to the new partition owner.
+    // ]
+    static class IncOperation extends AbstractOperation implements PartitionAwareOperation {
         private String objectId;
         private int amount, returnValue;
 
@@ -62,7 +69,9 @@ public class DistributedCounterProxy implements DistributedCounter {
         public void run() throws Exception {
             DistributedCounterService service = getService();
             System.out.println("Executing "+objectId+".inc() on: "+getNodeEngine().getThisAddress());
-            int partitionId = getNodeEngine().getPartitionService().getPartitionId(objectId);
+            // [mehmet: operation already knows its partition id]
+            // int partitionId = getNodeEngine().getPartitionService().getPartitionId(objectId);
+            int partitionId = getPartitionId();
             returnValue = service.containers[partitionId].inc(objectId, amount);
         }
 

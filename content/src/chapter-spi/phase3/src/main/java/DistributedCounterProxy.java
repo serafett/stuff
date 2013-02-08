@@ -48,7 +48,9 @@ public class DistributedCounterProxy implements DistributedCounter {
         public void run() throws Exception {
             System.out.println("Executing "+objectId+".inc() on: "+getNodeEngine().getThisAddress());
             DistributedCounterService service = getService();
-            int partitionId = getNodeEngine().getPartitionService().getPartitionId(objectId);
+            // [mehmet: operation already knows its partition id]
+            // int partitionId = getNodeEngine().getPartitionService().getPartitionId(objectId);
+            int partitionId = getPartitionId();
             returnValue = service.containers[partitionId].inc(objectId, amount);
         }
         public boolean returnsResponse() {return true;}

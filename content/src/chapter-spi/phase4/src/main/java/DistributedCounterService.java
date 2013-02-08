@@ -34,7 +34,7 @@ public class DistributedCounterService implements ManagedService, RemoteService,
     }
 
     public class Container {
-        private ConcurrentMap<String, AtomicInteger> counterMap = new ConcurrentHashMap<>();
+        private final ConcurrentMap<String, AtomicInteger> counterMap = new ConcurrentHashMap<>();
 
         public int inc(String id, int amount) {
             AtomicInteger counter = counterMap.get(id);
@@ -45,6 +45,10 @@ public class DistributedCounterService implements ManagedService, RemoteService,
             }
             return counter.addAndGet(amount);
         }
+
+        private void clear() {
+            counterMap.clear();
+        }
     }
 
     @Override
@@ -54,6 +58,11 @@ public class DistributedCounterService implements ManagedService, RemoteService,
 
     @Override
     public Operation prepareMigrationOperation(MigrationServiceEvent migrationServiceEvent) {
+        // [mehmet: migrate only master and first backup data, since DistributedCounterService supports only 1 backup.]
+        if (migrationServiceEvent.getReplicaIndex() > 1) {
+            return null;
+        }
+
         Map<String, Integer> migrationData = new HashMap<>();
 
         Container container = containers[migrationServiceEvent.getPartitionId()];
@@ -104,16 +113,33 @@ public class DistributedCounterService implements ManagedService, RemoteService,
         }
     }
 
-    //is this method called on both the primary and backup?
+    //is this method called on both the primary and backup? [mehmet: yes]
     @Override
     public void commitMigration(MigrationServiceEvent migrationServiceEvent) {
-        //To change body of implemented methods use File | Settings | File Templates.
+        // [mehmet:
+        // if this node is source side of migration (means partition is migrating FROM this node) 
+        // and migration type is MOVE (means partition is migrated completely not copied to a backup node)
+        // then remove partition data from this node.
+        //
+        // If this node is destination or migration type is copy then nothing to do.
+        // ]
+        if (migrationServiceEvent.getMigrationEndpoint() == MigrationEndpoint.SOURCE
+                && migrationServiceEvent.getMigrationType() == MigrationType.MOVE) {
+            containers[migrationServiceEvent.getPartitionId()].clear();
+        }
     }
 
-    //is this method called on both the primary and backup?
+    //is this method called on both the primary and backup? [mehmet: yes]
     @Override
     public void rollbackMigration(MigrationServiceEvent migrationServiceEvent) {
-        //To change body of implemented methods use File | Settings | File Templates.
+        // [mehmet: if this node is destination side of migration (means partition is migrating TO this node) 
+        // then remove partition data from this node.
+        // 
+        // If this node is source then nothing to do.
+        // ]
+        if (migrationServiceEvent.getMigrationEndpoint() == MigrationEndpoint.DESTINATION) {
+            containers[migrationServiceEvent.getPartitionId()].clear();
+        }
     }
 
     @Override
