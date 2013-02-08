@@ -40,6 +40,8 @@ public class DistributedCounterProxy implements DistributedCounter {
         private String objectId;
         private int amount, returnValue;
 
+        public IncOperation(){}
+
         public IncOperation(String objectId, int amount) {
             this.amount = amount;
             this.objectId = objectId;
@@ -59,6 +61,7 @@ public class DistributedCounterProxy implements DistributedCounter {
 
         public void run() throws Exception {
             DistributedCounterService service = getService();
+            System.out.println("Executing "+objectId+".inc() on: "+getNodeEngine().getThisAddress());
             int partitionId = getNodeEngine().getPartitionService().getPartitionId(objectId);
             returnValue = service.containers[partitionId].inc(objectId, amount);
         }

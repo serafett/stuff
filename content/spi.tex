@@ -104,6 +104,7 @@ public class DistributedCounterProxy implements DistributedCounter {
     static class IncOperation extends AbstractOperation {
         private String objectId;
         private int amount,returnValue;
+        public IncOperation(){}
         public IncOperation(String objectId, int amount) {
             this.amount = amount;
             this.objectId = objectId;
@@ -119,7 +120,8 @@ public class DistributedCounterProxy implements DistributedCounter {
             amount = in.readInt();
         }
         public void run() throws Exception {
-            returnValue = 0;
+           System.out.println("Executing "+objectId+".inc() on: "+getNodeEngine().getThisAddress());            
+           returnValue = 0;
         }
         public boolean returnsResponse() {return true;}
         public Object getResponse() {return returnValue;}
@@ -127,6 +129,7 @@ public class DistributedCounterProxy implements DistributedCounter {
     public void destroy() {}
 }
 \end{lstlisting}
+todo: the operations always need to have a no arg constructor for deserialization purposes.
 
 Of course we also want to run the EchoService; the following example shows how it is run:
 \begin{lstlisting}[language=java]
@@ -186,6 +189,7 @@ public class DistributedCounterProxy implements DistributedCounter {
     ... 
     static class IncOperation extends AbstractOperation {
         public void run() throws Exception {
+            System.out.println("Executing "+objectId+".inc() on: "+getNodeEngine().getThisAddress());
             DistributedCounterService service = getService();
             int partitionId = getNodeEngine().getPartitionService().getPartitionId(objectId);
             returnValue = service.containers[partitionId].inc(objectId, amount);

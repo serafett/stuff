@@ -54,7 +54,7 @@ public class DistributedCounterService implements ManagedService, RemoteService,
 
     @Override
     public Operation prepareMigrationOperation(MigrationServiceEvent migrationServiceEvent) {
-        Map<String, Integer> migrationData = new HashMap<String, Integer>();
+        Map<String, Integer> migrationData = new HashMap<>();
 
         Container container = containers[migrationServiceEvent.getPartitionId()];
 
@@ -69,7 +69,7 @@ public class DistributedCounterService implements ManagedService, RemoteService,
         return new MigrationOperation(migrationData);
     }
 
-    public class MigrationOperation extends AbstractOperation {
+    public static class MigrationOperation extends AbstractOperation {
 
         Map<String, Integer> migrationData;
 
@@ -78,11 +78,6 @@ public class DistributedCounterService implements ManagedService, RemoteService,
 
         public MigrationOperation(Map<String, Integer> migrationData) {
             this.migrationData = migrationData;
-        }
-
-        public void run() throws Exception {
-            DistributedCounterService service = getService();
-            service.insertMigrationData(migrationData);
         }
 
         protected void writeInternal(ObjectDataOutput out) throws IOException {
@@ -95,21 +90,27 @@ public class DistributedCounterService implements ManagedService, RemoteService,
 
         protected void readInternal(ObjectDataInput in) throws IOException {
             int size = in.readInt();
-            migrationData = new HashMap<>(size);
+            migrationData = new HashMap<>();
             for (int i = 0; i < size; i++)
                 migrationData.put(in.readUTF(), in.readInt());
         }
+
+        public void run() throws Exception {
+            DistributedCounterService service = getService();
+            Container container = service.containers[getPartitionId()];
+            for (Map.Entry<String, Integer> entry : migrationData.entrySet()) {
+                container.counterMap.put(entry.getKey(), new AtomicInteger(entry.getValue()));
+            }
+        }
     }
 
-    private void insertMigrationData(Map<String, Integer> migrationData) {
-        //To change body of created methods use File | Settings | File Templates.
-    }
-
+    //is this method called on both the primary and backup?
     @Override
     public void commitMigration(MigrationServiceEvent migrationServiceEvent) {
         //To change body of implemented methods use File | Settings | File Templates.
     }
 
+    //is this method called on both the primary and backup?
     @Override
     public void rollbackMigration(MigrationServiceEvent migrationServiceEvent) {
         //To change body of implemented methods use File | Settings | File Templates.
@@ -117,7 +118,7 @@ public class DistributedCounterService implements ManagedService, RemoteService,
 
     @Override
     public int getMaxBackupCount() {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return 1;
     }
 
     public DistributedObject createDistributedObjectForClient(Object objectId) {
