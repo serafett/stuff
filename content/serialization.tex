@@ -122,7 +122,11 @@ In practice it can happen that multiple versions of same class are serialized an
     </serialization>
 </hazelcast>
 \end{lstlisting}
-When an Transportable instance is deserialized, next to the deserialized fields of that Portable also the class id and the portable-version will be stored. So every time you make a change to the class, the version should be incremented. Adding fields to a class is simple, removing fields can lead to problem if a new version of that class (with the removed field) is deserialized on a client which depends on that field. Changing the type of a field is the most problematic. Although using the Portable interface is more work because of explicit mapping fields, it suffers less from field renaming, since name of the field in the class can be named independently of the name of the field when is deserialized.
+When an Transportable instance is deserialized, next to the deserialized fields of that Portable also the class id and the portable-version will be stored. So every time you make a change to the class, the version should be incremented. 
+
+Adding fields to a class is simple, removing fields can lead to problem if a new version of that class (with the removed field) is deserialized on a client which depends on that field. Although using the Portable interface is more work because of explicit mapping fields, it suffers less from field renaming, since name of the field in the class can be named independently of the name of the field when is deserialized. Another issue to watch out for is changing the field type, although although Hazelcast can do some basic type upgrading (e.g. int to long or float to double). 
+
+Luckily Hazelcast provides access to the metadata of the to deserialize object through the PortableReader; the  version, available fields, the type of the fields etc can be retrieved. So you have full control on how the deserialization should take place. 
 
 [todo: serializers]
 
