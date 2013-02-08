@@ -2,17 +2,19 @@
 
 One of the most exiting new features of Hazelcast 3 is the new SPI module (see the 'com.hazelcast.spi' package). The cool thing about this package is that it makes it possible to write first class distributed services/data-structures yourself. They pulled out this API into user space, but it also the core of all the Hazelcast functionality like the Map or the distributed executor relies on the same functionality. So with the SPI you can write your own data-structures if you are unhappy with the ones provides by Hazelcast. You also could write more complex services like an Actor library; I have build a POC actor library on top of Hazelcast where the actors automatically scale and are highly available. The only limiting factor is your imagination.
 
-In this chapter we are going to build a distributed counter, so a counter that stored somewhere in the datagrid.
+In this chapter we are going to build a distributed counter, so a counter that stored somewhere in the datagrid. The full sources can be found ...
 
-\section{Basic Service}
+\section{Phase 1}
 In this section we are going to show you a very basic service that will be started when Hazelcast starts and will be shutdown when Hazelcast is shutdown. In itself not extremely interesting, but it is needed for the the more advanced sections.
 
 \begin{lstlisting}[language=java]
 import com.hazelcast.spi.*;
 import java.util.Properties;
 public class DistributedCounterService implements ManagedService {
+    private NodeEngine nodeEngine;
     public void init(NodeEngine nodeEngine, Properties properties) {
         System.out.println("DistributedCounterService.init");
+        this.nodeEngine = nodeEngine;
     }
     public void shutdown() {
         System.out.println("DistributedCounterService.shutdown");
@@ -45,36 +47,26 @@ If we start it we'll see:
 DistributedCounterService.init
 \end{lstlisting}
 
-\section{Routing Requests}
+\section{Phase 2}
 This example shows invoke operations on potentially a machine. The basis will be an Echo Service, that accepts a routing id and a message that needs to be echoed.
 
 So lets start with the Echoer interface; it extends the 'DistributedObject' which provides name?/id/destroy
 \begin{lstlisting}[language=java]
-import import com.hazelcast.core.*;
-public interface Echoer extends DistributedObject{
-    void echo(String routingId, String msg);
+import com.hazelcast.core.DistributedObject;
+public interface DistributedCounter extends DistributedObject {
+    int inc(int amount);
 }
 \end{lstlisting}
 The echo method takes 2 parameters: the routingId and the msg. The routingId is used to find the correct partition. 
 
 The next step is the EchoService. Apart from implementing the 'ManagedService' interface, it now also implements the 'RemoteService' interface. Through this interface a client will be able to get a handle of an Echoer instance.
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
-import com.hazelcast.spi.*;
-import java.util.Properties;
-public class EchoService implements ManagedService, RemoteService {
-    private NodeEngine nodeEngine;
-    public void init(NodeEngine nodeEngine, Properties properties) {
-        this.nodeEngine = nodeEngine;
-    }
-    public void shutdown() {
-    }
+public class DistributedCounterService implements ManagedService, RemoteService {
+    ...  
     public DistributedObject createDistributedObject(Object objectId) {
-        return new EchoerProxy(String.valueOf(objectId),nodeEngine);
+        return new DistributedCounterProxy(String.valueOf(objectId),nodeEngine);
     }
-    public String getServiceName() {
-        return "EchoService";
-    }
+    public String getServiceName() {return "DistributedCounterProxy";}
     public DistributedObject createDistributedObjectForClient(Object objectId) {
         return null;
     }
@@ -84,117 +76,11 @@ public class EchoService implements ManagedService, RemoteService {
 [todo: destroyDistributedObject]
 [todo: createDistributedObjectForClient]
 
-
-\begin{lstlisting}[language=java]
-import com.hazelcast.spi.*;
-import java.util.concurrent.*;
-public class EchoerProxy implements Echoer,DistributedObject {
-    private final NodeEngine nodeEngine;
-    private final String objectId;
-    public EchoerProxy(String objectId, NodeEngine nodeEngine) {
-        this.nodeEngine = nodeEngine;
-        this.objectId = objectId;
-    }
-    public Object getId() {return objectId;}
-    public String getName() {
-        return null;
-    }
-    public void echo(String routingId, String msg) {
-        EchoOperation operation = new EchoOperation();
-        int partitionId = nodeEngine.getPartitionService().getPartitionId(routingId);
-        InvocationBuilder builder = nodeEngine.getOperationService()
-                .createInvocationBuilder("FooService",operation,partitionId);
-        try {
-            builder.build().invoke().get();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        } catch (ExecutionException e) {
-            throw new RuntimeException(e);
-        }
-    }
-    static class EchoOperation extends AbstractOperation {
-        public void run() throws Exception {
-            System.out.println("Echo");
-        }
-    }
-    public void destroy() {
-    }
-}
-\end{lstlisting}
-We need to wire up the EchoService in the Hazelcast.xml
-\begin{lstlisting}[language=xml]
-<hazelcast>
-    <network>
-        <join><multicast enabled="true"/></join>
-    </network>
-    <services>
-        <service enabled="true">
-            <name>EchoService</name>
-            <class-name>EchoService</class-name>
-         </service>
-    </services>
-</hazelcast>
-\end{lstlisting}
-Of course we also want to run the EchoService; the following example shows how it is run:
-\begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
-public class Member {
-    public static void main(String[] args) {
-        HazelcastInstance instance = Hazelcast.newHazelcastInstance();
-        Echoer echoer = (Echoer)instance.getDistributedObject("FooService","bla");
-        echoer.echo("bla","bla");
-    }
-}
-\end{lstlisting}
-
-\section{Foo}
-
-\begin{lstlisting}[language=java]
-import com.hazelcast.core.DistributedObject;
-public interface DistributedCounter extends DistributedObject {
-    int inc(int amount);
-}
-\end{lstlisting}
-
-\begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
-import com.hazelcast.spi.*;
-import java.util.Properties;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
-public class DistributedCounterService implements ManagedService, RemoteService {
-    private NodeEngine nodeEngine;
-    DistributedMapContainer[] containers;
-    public void init(NodeEngine nodeEngine, Properties properties) {
-        this.nodeEngine = nodeEngine;
-        containers = new  DistributedMapContainer[nodeEngine.getPartitionService().getPartitionCount()];
-        for(int k=0;k<containers.length;k++) containers[k]=new DistributedMapContainer();
-    }
-    public void shutdown() {}
-    public DistributedObject createDistributedObject(Object objectId) {
-       return new DistributedCounterProxy(String.valueOf(objectId),nodeEngine);
-    }
-    public String getServiceName() {return "DistributedCounterService";}
-    public class DistributedMapContainer{
-        private ConcurrentMap<String,AtomicInteger> maps = new ConcurrentHashMap<>();
-        public int inc(String id,  int amount) {
-            AtomicInteger integer = maps.get(id);
-            if(integer == null){
-                integer = new AtomicInteger();
-                AtomicInteger found = maps.putIfAbsent(id, integer);
-                integer = found == null?integer : found;
-            }
-            return integer.addAndGet(amount);
-        }
-    }
-    public DistributedObject createDistributedObjectForClient(Object objectId) {return null;}
-    public void destroyDistributedObject(Object objectId) {}}
-\end{lstlisting}
-
 \begin{lstlisting}[language=java]
 import com.hazelcast.nio.*;
+import com.hazelcast.spi.*;
 import java.io.IOException;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.*;
 public class DistributedCounterProxy implements DistributedCounter {
     private final NodeEngine nodeEngine;
     private final String objectId;
@@ -233,9 +119,7 @@ public class DistributedCounterProxy implements DistributedCounter {
             amount = in.readInt();
         }
         public void run() throws Exception {
-            DistributedCounterService service = getService();
-            int partitionId = getNodeEngine().getPartitionService().getPartitionId(objectId);
-            returnValue = service.containers[partitionId].inc(objectId, amount);
+            returnValue = 0;
         }
         public boolean returnsResponse() {return true;}
         public Object getResponse() {return returnValue;}
@@ -244,6 +128,7 @@ public class DistributedCounterProxy implements DistributedCounter {
 }
 \end{lstlisting}
 
+Of course we also want to run the EchoService; the following example shows how it is run:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
 public class Member {
@@ -256,6 +141,70 @@ public class Member {
 }
 \end{lstlisting}
 
-\section{Migration}
+The output will show
+\begin{lstlisting}
+0
+0
+\end{lstlisting}
+This is because the IncOperation.run method doesn't do any real logic yet.
+
+\section{Phase 3}
+In this section we are going to make use of real DistributedCounter; so some kind of data-structure that will hold an integer value (an AtomicInteger) and can be incremented. The first thing we do is for every partition we have, we are going to create a Container. And this contains will contain all AtomicIntegers for that given partition:
+\begin{lstlisting}[language=java]
+import com.hazelcast.core.*;
+import com.hazelcast.spi.*;
+import java.util.Properties;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+public class DistributedCounterService implements ManagedService, RemoteService {
+    private NodeEngine nodeEngine;
+    DistributedMapContainer[] containers;
+    public void init(NodeEngine nodeEngine, Properties properties) {
+        this.nodeEngine = nodeEngine;
+        containers = new Container[nodeEngine.getPartitionService().getPartitionCount()];
+        for(int k=0;k<containers.length;k++) containers[k]=new Container();
+    }
+    public class Container{
+        private final ConcurrentMap<String,AtomicInteger> counterMap = new ConcurrentHashMap<>();
+        public int inc(String id,  int amount) {
+            AtomicInteger counter = counterMap.get(id);
+            if(counter == null){
+                counter = new AtomicInteger();
+                AtomicInteger found = counterMap.putIfAbsent(id, counter);
+                counter = found == null ? counter : found;
+            }
+            return counter.addAndGet(amount);
+        }
+    }
+\end{lstlisting}
+As you can see the partitions are created in the init method. The Container also has an inc method, that looks up the AtomicInteger based on the id and increments it. Of course we need to connect the IncOperation.run method to the Container.inc method:
+\begin{lstlisting}[language=java]
+import com.hazelcast.nio.*;
+import java.io.IOException;
+import java.util.concurrent.ExecutionException;
+public class DistributedCounterProxy implements DistributedCounter {
+    ... 
+    static class IncOperation extends AbstractOperation {
+        public void run() throws Exception {
+            DistributedCounterService service = getService();
+            int partitionId = getNodeEngine().getPartitionService().getPartitionId(objectId);
+            returnValue = service.containers[partitionId].inc(objectId, amount);
+        }
+        ...
+    }
+}
+\end{lstlisting}
+When we run the code, we'll see:
+\begin{lstlisting}
+1
+2
+\end{lstlisting}
+This means that we now have a basic distributed counter up and running!
+
+\section{Phase 4}
+In our previous phase we managed to create real distributed counters. The problem is that if a node goes down, there will not be any backups because the values are not replicated to another machine. This means that the DistributedCounters are not highly available. In this phase we are going to add replication.
+
+\section{Phase 4}
+Migration
 
 \section{What is next}

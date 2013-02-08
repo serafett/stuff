@@ -4,10 +4,10 @@
     <packaging>jar</packaging>
 
     <artifactId>example3</artifactId>
-    <name>Chapter SPI: Example 3</name>
+    <name>Chapter SPI: Phase 3</name>
     <groupId>book.hazelcast.spi</groupId>
     <description>
-        The code example for the Example3.
+        The code example for Phase 3
     </description>
 
     <parent>

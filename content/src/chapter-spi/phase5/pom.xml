@@ -3,11 +3,11 @@
     <modelVersion>4.0.0</modelVersion>
     <packaging>jar</packaging>
 
-    <artifactId>phase2</artifactId>
-    <name>Chapter SPI: Phase 2</name>
+    <artifactId>phase5</artifactId>
+    <name>Chapter SPI: Phase 5</name>
     <groupId>book.hazelcast.spi</groupId>
     <description>
-        The code example for Phase 2
+        The code example for the Phase 5
     </description>
 
     <parent>

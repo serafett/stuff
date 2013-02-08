@@ -8,12 +8,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class DistributedCounterService implements ManagedService, RemoteService {
     private NodeEngine nodeEngine;
-    DistributedMapContainer[] containers;
+    Container[] containers;
     public void init(NodeEngine nodeEngine, Properties properties) {
         this.nodeEngine = nodeEngine;
-        containers = new  DistributedMapContainer[nodeEngine.getPartitionService().getPartitionCount()];
+        containers = new Container[nodeEngine.getPartitionService().getPartitionCount()];
         for(int k=0;k<containers.length;k++)
-            containers[k]=new DistributedMapContainer();
+            containers[k]=new Container();
     }
     public void shutdown() {
     }
@@ -23,16 +23,16 @@ public class DistributedCounterService implements ManagedService, RemoteService 
     public String getServiceName() {
         return "DistributedCounterService";
     }
-    public class DistributedMapContainer{
-        private ConcurrentMap<String,AtomicInteger> maps = new ConcurrentHashMap<>();
+    public class Container {
+        private final ConcurrentMap<String,AtomicInteger> counterMap = new ConcurrentHashMap<>();
         public int inc(String id,  int amount) {
-            AtomicInteger integer = maps.get(id);
-            if(integer == null){
-                integer = new AtomicInteger();
-                AtomicInteger found = maps.putIfAbsent(id, integer);
-                integer = found == null?integer : found;
+            AtomicInteger counter = counterMap.get(id);
+            if(counter == null){
+                counter = new AtomicInteger();
+                AtomicInteger found = counterMap.putIfAbsent(id, counter);
+                counter = found == null?counter : found;
             }
-            return integer.addAndGet(amount);
+            return counter.addAndGet(amount);
         }
     }
     public DistributedObject createDistributedObjectForClient(Object objectId) {
