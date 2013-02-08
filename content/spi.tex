@@ -25,6 +25,9 @@ public class DistributedCounterService implements ManagedService {
 \begin{lstlisting}[language=xml]
 <hazelcast>
     <services>
+         <network>
+            <join><multicast enabled="true"/> </join>
+        </network>
         <service enabled="true">
             <name>DistributedCounterService</name>
             <class-name>DistributedCounterService</class-name>
@@ -32,7 +35,7 @@ public class DistributedCounterService implements ManagedService {
     </services>
 </hazelcast>
 \end{lstlisting}
-If you need to set additional properties on the Service, a '<properties>' section can be added to the service.
+If you need to set additional properties on the Service, a '<properties>' section can be added to the service. We also enabled multicast discovery since we'll rely on that later.
 
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.Hazelcast;
@@ -96,7 +99,8 @@ public class DistributedCounterProxy implements DistributedCounter {
         InvocationBuilder builder = nodeEngine.getOperationService()
                 .createInvocationBuilder("DistributedCounterService", operation, partitionId);
         try {
-            return (Integer)builder.build().invoke().get();
+            final Future<Integer> future = builder.build().invoke();
+            return future.get();
         } catch (InterruptedException | ExecutionException e) {
             throw new RuntimeException(e);
         }
@@ -129,27 +133,41 @@ public class DistributedCounterProxy implements DistributedCounter {
     public void destroy() {}
 }
 \end{lstlisting}
-todo: the operations always need to have a no arg constructor for deserialization purposes.
+todo: the operations always need to have a no arg constructor for deserialization purposes. You can also see that the right hazelcast partition to send the inc operation to is based on the object id. Of course you are free to route on any other field, or not route at all [todo: confirm that without the routing id, it will be a random machine]. Also a future is used as a handle to the operation completion. Currently I don't use any timeout, but you are free to add timouts. Instead of returning the value, you could expose the Future in the api, e.g. Future<Integer> inc(). In the example I do no deal correctly with the ExecutionException, it is best to get the cause and throw that. There is one thing you need to watch out for in that case, the stacktrace of that exception will represent the callstack of the thread executing the remote operation, not the callstack on the client side. An easy way to fix that is to prepend  the client side stacktrace in the stacktrace (the stacktrace is just an array of StackTraceElements)
 
 Of course we also want to run the EchoService; the following example shows how it is run:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
 public class Member {
     public static void main(String[] args) {
-        HazelcastInstance instance = Hazelcast.newHazelcastInstance();
-        DistributedCounter counter = (DistributedCounter)instance.getDistributedObject("DistributedCounterService","counter1");
-        System.out.println(counter.inc(1));
-        System.out.println(counter.inc(1));
+        HazelcastInstance[] instances = new HazelcastInstance[2];
+        for (int k = 0; k < instances.length; k++) 
+            instances[k] = Hazelcast.newHazelcastInstance();
+        DistributedCounter[] counters = new DistributedCounter[4];
+        for (int k = 0; k < counters.length; k++) {
+            DistributedCounter counter = (DistributedCounter) instances[0]
+               .getDistributedObject("DistributedCounterService", "counter" + k);
+            counters[k] = counter;
+            System.out.println(counter.inc(1));
+        }
+       System.out.println("Finished");
     }
 }
 \end{lstlisting}
 
-The output will show
+The output will show something like this:
 \begin{lstlisting}
+Executing counter0.inc() on: Address[192.168.1.101]:5702
 0
+Executing counter1.inc() on: Address[192.168.1.101]:5701
 0
+Executing counter2.inc() on: Address[192.168.1.101]:5701
+0
+Executing counter3.inc() on: Address[192.168.1.101]:5701
+0
+Finished
 \end{lstlisting}
-This is because the IncOperation.run method doesn't do any real logic yet.
+We can see that our counters are being stored in different members (check the different port numbers). We can also see that the increment doesn't do any real logic yet since the value remains 0.
 
 \section{Phase 3}
 In this section we are going to make use of real DistributedCounter; so some kind of data-structure that will hold an integer value (an AtomicInteger) and can be incremented. The first thing we do is for every partition we have, we are going to create a Container. And this contains will contain all AtomicIntegers for that given partition:

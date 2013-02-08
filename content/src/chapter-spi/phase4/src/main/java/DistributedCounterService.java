@@ -55,7 +55,6 @@ public class DistributedCounterService implements ManagedService, RemoteService,
     @Override
     public Operation prepareMigrationOperation(MigrationServiceEvent migrationServiceEvent) {
         Map<String, Integer> migrationData = new HashMap<>();
-
         Container container = containers[migrationServiceEvent.getPartitionId()];
 
         for (Map.Entry<String, AtomicInteger> entry : container.counterMap.entrySet()) {
@@ -107,6 +106,7 @@ public class DistributedCounterService implements ManagedService, RemoteService,
     //is this method called on both the primary and backup?
     @Override
     public void commitMigration(MigrationServiceEvent migrationServiceEvent) {
+        //migrationServiceEvent.getMigrationType().
         //To change body of implemented methods use File | Settings | File Templates.
     }
 

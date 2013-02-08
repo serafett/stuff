@@ -6,6 +6,7 @@ import com.hazelcast.spi.NodeEngine;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 public class DistributedCounterProxy implements DistributedCounter {
     private final NodeEngine nodeEngine;
@@ -22,14 +23,18 @@ public class DistributedCounterProxy implements DistributedCounter {
         InvocationBuilder builder = nodeEngine.getOperationService()
                 .createInvocationBuilder("DistributedCounterService", operation, partitionId);
         try {
-            return (Integer)builder.build().invoke().get();
+            final Future<Integer> future = builder.build().invoke();
+            System.out.println("future.class:"+future.getClass());
+            return future.get();
         } catch (InterruptedException | ExecutionException e) {
+            System.out.println("ExecutionException or InterruptedException is thrown");
             throw new RuntimeException(e);
         }
     }
     static class IncOperation extends AbstractOperation {
         private String objectId;
         private int amount,returnValue;
+        public IncOperation(){}
         public IncOperation(String objectId, int amount) {
             this.amount = amount;
             this.objectId = objectId;
@@ -45,7 +50,9 @@ public class DistributedCounterProxy implements DistributedCounter {
             amount = in.readInt();
         }
         public void run() throws Exception {
+            System.out.println("Executing "+objectId+".inc() on: "+getNodeEngine().getThisAddress());
             returnValue = 0;
+            throw new IllegalStateException();
         }
         public boolean returnsResponse() {return true;}
         public Object getResponse() {return returnValue;}
