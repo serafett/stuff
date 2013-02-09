@@ -2,7 +2,7 @@
 
 Hazelcast can run perfectly within a single JVM and this is excellent for development and to speed up testing. But Hazelcast true strength becomes apparent when a cluster of JVM's running on multiple machines is created. Having a cluster of machines makes Hazelcast resilient to failure; if one machine fails, the data will failover to another machine as if nothing happened. It also makes Hazelcast scalable; just add extra machines to the cluster, to gain additional capacity. Creating clusters can be done by configuring the network settings.
 
-To configure the networking settings, we are going to make use of the following minimalistic Hazelcast member.
+To test the networking settings, we are going to make use of the following minimalistic Hazelcast member unless specified otherwise:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.Hazelcast;
 public class Member {
@@ -11,8 +11,7 @@ public class Member {
     }
 }
 \end{lstlisting}
-
-In this chapter we are going to rely on the hazelcast.xml config file to set the networking options, but it can also be done programmatically. Within the config file there is a network section that can be configured:
+In this chapter we are going to rely on the hazelcast.xml config file to set the networking options:
 \begin{lstlisting}[language=xml]
 <hazelcast>
     ...
@@ -24,7 +23,7 @@ In this chapter we are going to rely on the hazelcast.xml config file to set the
 \end{lstlisting}
 
 \section{Port}
-One of the most basic configuration settings is the port Hazelcast is going to use for communication between the members. This can be done by the 'port' property in the network configuration which defaults to 5701. If the port is already in use and if auto-increment property is true, it is the default, Hazelcast will automatically try to find next port. Example:
+One of the most basic configuration settings is the port Hazelcast is going to use for communication between the members. This can be done by the 'port' property in the network configuration which defaults to 5701. If the port is already in use and if auto-increment property is true, which is the default, Hazelcast will automatically try to find next free port, example:
 \begin{lstlisting}[language=xml]
 <hazelcast>
     <network>
@@ -32,51 +31,17 @@ One of the most basic configuration settings is the port Hazelcast is going to u
    </network>
 </hazelcast>
 \end{lstlisting}
-In this example you can see the explicit set values, but you don't need to specify them since they are also the default. If you start the member, you will get output like:
+If you start the member, you will get output like:
 \begin{lstlisting}
-...
-Jan 19, 2013 10:58:46 AM com.hazelcast.impl.AddressPicker
-INFO: Prefer IPv4 stack is true.
-Jan 19, 2013 10:58:46 AM com.hazelcast.impl.AddressPicker
 INFO: Picked Address[192.168.1.104]:5701, using socket ServerSocket[addr=/0.0.0.0,localport=5701], bind any local is true
-Jan 19, 2013 10:58:47 AM com.hazelcast.system
-INFO: [192.168.1.104]:5701 [dev] Hazelcast Community Edition 2.5 (20130116) starting at Address[192.168.1.104]:5701
-Jan 19, 2013 10:58:47 AM com.hazelcast.system
-INFO: [192.168.1.104]:5701 [dev] Copyright (C) 2008-2012 Hazelcast.com
-Jan 19, 2013 10:58:47 AM com.hazelcast.impl.LifecycleServiceImpl
-INFO: [192.168.1.104]:5701 [dev] Address[192.168.1.104]:5701 is STARTING
-Jan 19, 2013 10:58:47 AM com.hazelcast.impl.Node
-WARNING: [192.168.1.104]:5701 [dev] No join method is enabled! Starting standalone.
-...
 \end{lstlisting}
-As you can see, the port is 5701. If another member is started, you will get output like this:
-\begin{lstlisting}
-...
-INFO: Prefer IPv4 stack is true.
-Jan 19, 2013 11:01:09 AM com.hazelcast.impl.AddressPicker
-INFO: Picked Address[192.168.1.104]:5702, using socket ServerSocket[addr=/0.0.0.0,localport=5702], bind any local is true
-Jan 19, 2013 11:01:09 AM com.hazelcast.system
-INFO: [192.168.1.104]:5702 [dev] Hazelcast Community Edition 2.5 (20130116) starting at Address[192.168.1.104]:5702
-Jan 19, 2013 11:01:09 AM com.hazelcast.system
-INFO: [192.168.1.104]:5702 [dev] Copyright (C) 2008-2012 Hazelcast.com
-Jan 19, 2013 11:01:09 AM com.hazelcast.impl.LifecycleServiceImpl
-INFO: [192.168.1.104]:5702 [dev] Address[192.168.1.104]:5702 is STARTING
-Jan 19, 2013 11:01:09 AM com.hazelcast.impl.Node
-WARNING: [192.168.1.104]:5702 [dev] No join method is enabled! Starting standalone.
-Jan 19, 2013 11:01:09 AM com.hazelcast.impl.Node
-WARNING: [192.168.1.104]:5702 [dev] Config seed port is 5701 and cluster size is 1. Some of the ports seem occupied!
-Jan 19, 2013 11:01:09 AM com.hazelcast.impl.LifecycleServiceImpl
-INFO: [192.168.1.104]:5702 [dev] Address[192.168.1.104]:5702 is STARTED...
-\end{lstlisting}
-As you can see the port of the second member is 5702. If you look carefully, at the end you see a warning about cluster size is 1. This is because the created members are currently not part of a cluster, but are standalone. To create a cluster, see the Member Discovery section.
+As you can see, the port is 5701. If another member is started, you will see that port 5702 is assigned. If you look carefully at the end of the logging, you'll see a warning about cluster size is 1. This is because the created members are currently not part of a cluster, but are standalone. To create a cluster, see the next chapter.
 
 \section{Join Mechanism }
-Hazelcast supports 3 mechanisms for nodes to join the cluster: multicast, tcp/ip-cluster, Amazon EC2. Without these discovery mechanisms, the members's will not form a cluster, but will remain stand alone Hazelcast instances. After joining the cluster, Hazelcast relies on TCP for internal communication. [todo: what happens when the mechanisms are combined; there is no error from hazelcast]
+Hazelcast supports 3 mechanisms for members to join the cluster: multicast, tcp/ip-cluster, Amazon EC2. Without these discovery mechanisms, the members's will not form a cluster, but will remain stand alone Hazelcast instances. After joining the cluster, Hazelcast relies on TCP for internal communication. [todo: what happens when the mechanisms are combined; there is no error from hazelcast]
 
 \subsection{Multicast}
-With multicast discovery a member will send a message to all members that listen on the multi-cast group. It is the easiest mechanism to configure, but not always available. 
-
-Underneath you can see a very minimalistic multicast configuration:
+With multicast discovery a member will send a message to all members that listen on the multi-cast group. It is the easiest mechanism to configure, but is not always available. Underneath you can see a very minimalistic multicast configuration:
 \begin{lstlisting}[language=xml]
 <hazelcast>
     <network>
@@ -86,16 +51,6 @@ Underneath you can see a very minimalistic multicast configuration:
 \end{lstlisting}
 If you start one member, you will see output like this:
 \begin{lstlisting}
-Jan 22, 2013 2:06:28 PM com.hazelcast.impl.AddressPicker
-INFO: Prefer IPv4 stack is true.
-Jan 22, 2013 2:06:28 PM com.hazelcast.impl.AddressPicker
-INFO: Picked Address[192.168.1.104]:5701, using socket ServerSocket[addr=/0.0.0.0,localport=5701], bind any local is true
-Jan 22, 2013 2:06:28 PM com.hazelcast.system
-INFO: [192.168.1.104]:5701 [dev] Hazelcast Community Edition 2.5 (20130116) starting at Address[192.168.1.104]:5701
-Jan 22, 2013 2:06:28 PM com.hazelcast.system
-INFO: [192.168.1.104]:5701 [dev] Copyright (C) 2008-2012 Hazelcast.com
-Jan 22, 2013 2:06:28 PM com.hazelcast.impl.LifecycleServiceImpl
-INFO: [192.168.1.104]:5701 [dev] Address[192.168.1.104]:5701 is STARTING
 Jan 22, 2013 2:06:30 PM com.hazelcast.impl.MulticastJoiner
 INFO: [192.168.1.104]:5701 [dev] 
 
@@ -108,13 +63,6 @@ INFO: [192.168.1.104]:5701 [dev] Address[192.168.1.104]:5701 is STARTED
 \end{lstlisting}	
 As you can see the member is started and currently the cluster only has a single member. If you start another member on the same machine, on the console of the first member the following will be added to the output:
 \begin{lstlisting}
-Jan 22, 2013 2:07:14 PM com.hazelcast.nio.SocketAcceptor
-INFO: [192.168.1.104]:5701 [dev] 5701 is accepting socket connection from /192.168.1.104:54199
-Jan 22, 2013 2:07:14 PM com.hazelcast.nio.ConnectionManager
-INFO: [192.168.1.104]:5701 [dev] 5701 accepted socket connection from /192.168.1.104:54199
-Jan 22, 2013 2:07:19 PM com.hazelcast.cluster.ClusterManager
-INFO: [192.168.1.104]:5701 [dev] 
-
 Members [2] {
 	Member [192.168.1.104]:5701 this
 	Member [192.168.1.104]:5702
@@ -127,12 +75,12 @@ Members [2] {
 	Member [192.168.1.104]:5702 this
 }
 \end{lstlisting}		
-We now have a 2 member Hazelcast cluster running on a single machine, but it starts to become more interesting if you start multiple members on different machines.
+We now have a 2 member Hazelcast cluster running on a single machine. It starts to become more interesting if you start multiple members on different machines.
 
-The following properties are available:
+The multicast configuration can be tuned using the following attributes:
 \begin{enumerate}
-\item multicast-group: With multicast a process is part of the multicast group. Only other processes that are part of the same group will receive each others messages. The multicast group ip address doesn't conflict with normal unicast ip addresses since they have a specific range that is excluded from normal unicast usage. 224.0.0.0 to 239.255.255.255 (inclusive) defaults:224.2.2.3. The address 224.0.0.0 is reserved and should not be used.  So by setting the multicast-group or the multicast-port, you can have separate Hazelcast clusters within the same network. We highly recommend using different <multicast-group> IP for your production, development and test clusters for clean separation.
-\item multicast-port: The port of the multicast socket where the Hazelcast member listens and sends discovery messages on. Unlike normal unicast sockets where only a single process can listen to a port, with multicast sockets multiple processes can listen to the same port. So you don't need to be worried about having multiple Hazelcast members that run on the same JVM are going to conflict. defaults:54327
+\item multicast-group: With multicast a member is part of the multicast group and will not receive multicast messages from other group. So by setting the multicast-group or the multicast-port, you can have separate Hazelcast clusters within the same network and it is a best practice to use separate groups if the same network is used for different purposes. The multicast group ip address doesn't conflict with normal unicast ip addresses since they have a specific range that is excluded from normal unicast usage: 224.0.0.0 to 239.255.255.255 (inclusive) and defaults:224.2.2.3. The address 224.0.0.0 is reserved and should not be used.   
+\item multicast-port: The port of the multicast socket where the Hazelcast member listens and sends discovery messages to. Unlike normal unicast sockets where only a single process can listen to a port, with multicast sockets multiple processes can listen to the same port. So you don't need to be worried about having multiple Hazelcast members that run on the same JVM are going to conflict. This property defaults to 54327
 \item multicast-time-to-live-seconds: Set the default time-to-live for multicast packets sent out on this in order to control the scope of the multicasts. Defaults to 32 and a maximum of 255.
 \item multicast-timeout-seconds:defaults:2: [todo: property of hazelcast, when to give up to find a master.]
 \item trusted-interfaces:[todo]it defines who to trust; so you can list the interfaces that are good and responses from no good 'interfaces' will be prevented.
@@ -141,9 +89,7 @@ The following properties are available:
 \subsubsection{Debugging multicast}
 If you don't see members joining, then it is likely because multicast is not available. A cause can be the firewall; you can test this by disabling the firewall or enable multicast in the firewall [see firewall section]. Another cause can be that it is disabled on the network or the network doesn't support it. On *NIX environments you can check if your network interface supports multicast by calling 'ifconfig | grep -i multicast', but it doesn't mean that it is available. To check if multicast is available, 'iperf' is a useful tool which is available for Windows/*NIX/OSX. To test multicast using multicast-group '224.2.2.3', open a terminal one 2 machines within the network and run the following in the first terminal 'iperf -s -u -B 224.2.2.3 -i 1' and 'iperf -c 224.2.2.3 -u -T 32 -t 3 -i 1' in the other terminal. If data is being transferred then multicast is working.
 
-todo: make reference to tcp/ip cluster if testing locally and multicast isn't working.
-https://community.jboss.org/wiki/RunningAHornetQClusterUsingDiscoveryDoesntWork
-
+If you want to use multicast for local development and it isn't working, you can try the following unicast configuration:
 \begin{lstlisting}[language=xml]
 <hazelcast>
     <network>
@@ -173,7 +119,7 @@ Underneath is an example of a TCP/IP cluster configuration where such a well kno
 \end{lstlisting}
 Multiple members can be configured using a comma or semicolon separated list, or multiple '<member>' entries. A range of IP's can be defined using syntax '192.168.1.100-200'. If no port is provided, Hazelcast will automatically try port 5701..5703 [todo: starts from the configured port]. If depending on IP addresses is not desirable, it also is possible to provide the hostname. Instead of using multiple '<member>' you can also use '<members>', but it doesn't change the meaning of the configuration. 
 
-By default Hazelcast will 'bind' (so accept incoming traffic) to all local network interfaces. If this is unwanted behavior the 'hazelcast.socket.bind.any' [todo: hazelcast.server.socket.bind.any/hazelcast.client.socket.bind.any.] can be set to false. In that case Hazelcast will first use the interfaces configured in the 'interfaces/interfaces' to resolve one interface to bind to. If none is found, it will use the interfaces in the 'tcp-ip/members' to resolve one interface to bind to. If no interface is found, it will default to localhost.
+By default Hazelcast will 'bind' (so accept incoming traffic) to all local network interfaces. If this is unwanted behavior the 'hazelcast.socket.bind.any' [todo:hazelcast.server.socket.bind.any/hazelcast.client.socket.bind.any.] can be set to false. In that case Hazelcast will first use the interfaces configured in the 'interfaces/interfaces' to resolve one interface to bind to. If none is found, it will use the interfaces in the 'tcp-ip/members' to resolve one interface to bind to. If no interface is found, it will default to localhost.
 
 When there is a large number of IP's listed [todo: especially in virtualized environments] and members can't build up a cluster, the 'conn-timeout-seconds' attribute, which defaults to 5, can be set to a higher value. The first scan and delay between scans can be configured using property 'hazelcast.merge.first.run.delay.seconds' and respectively 'hazelcast.merge.next.run.delay.seconds'. By default Hazelcast will scan every 5 seconds.
 
@@ -201,8 +147,8 @@ And 'my-access-key' and 'my-secret-key' need to be replaced with your access key
 The AWS section also has a few configuration options:
 \begin{enumerate}
 \item region: the region where the machines are running. Defaults to 'us-east-1'.
-\item security-group-name: [todo] defaults to?
 \item tag-key,tag-value: allows you to limit the numbers of machines to look at by providing them with a unique tag-key/tag-value. This makes it possible to create multiple cluster in a single data center.
+\item security-group-name: just like the tag-key,tag-value, it filters out machines. Doesn't need to be specified.
 \end{enumerate}
 And the aws tag accepts an attribute called "conn-timeout-seconds". The default value is 5 and can be increased  if you have many IP's listed and members can not properly build up the cluster.
 
@@ -368,8 +314,6 @@ and to allow incoming multicast traffic:
 \begin{lstlisting}
 iptables -A INPUT -m pkttype --pkt-type multicast -j ACCEPT
 \end{lstlisting}
-
-
 
 \section{What is next}
 The network configuration for Hazelcast is very extensive. There are some features like IPv6,  Network Partitioning (Split-Brain Syndrome), Socket Interceptors, WAN Replication, that have been left out, but can be found on the Hazelcast manual. Also the mailing-list is a very valuable source of information.
