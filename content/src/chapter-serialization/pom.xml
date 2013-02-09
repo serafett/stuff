@@ -1,11 +1,11 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <packaging>jar</packaging>
+    <packaging>pom</packaging>
 
     <artifactId>chapter-serialization</artifactId>
-    <name>Chapter Serialization</name>
     <groupId>book.hazelcast.serialization</groupId>
+    <name>Chapter Serialization</name>
     <description>
         All the code samples for the serialization chapter
     </description>
@@ -25,4 +25,9 @@
             <version>3.0-SNAPSHOT</version>
         </dependency>
     </dependencies>
+
+    <modules>
+        <module>portable</module>
+        <module>type-serializer</module>
+    </modules>
 </project>
