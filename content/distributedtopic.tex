@@ -5,21 +5,17 @@ Hazelcast provides a publish/subscribe mechanism in the form of the com.hazelcas
 
 I'll show how the distributed topic works based on a very simple example; there is a single topic that is shared between a publisher and a subscriber. The publisher publishes the current date on the topic:
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
-import java.util.Date;
 public class PublisherMember {
     public static void main(String[] args){
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         ITopic<Date> topic = hzInstance.getTopic("topic");
         topic.publish(new Date());
         System.out.println("Published");
-    }
-}
+        System.exit(0);
+    }}
 \end{lstlisting}
 And the subscriber acquires the same topic and adds a MessageListener to subscribe itself to the topic:
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
-import java.util.*;
 public class SubscribedMember {
     public static void main(String[] args){
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
@@ -31,8 +27,7 @@ public class SubscribedMember {
         public void onMessage(Message<Date> m) {
             System.out.println("Received: "+m.getMessageObject());
         }
-    }
-}
+    }}
 \end{lstlisting}
 We first start up the subscriber, and we'll see: "Subscribed" in the console. Then we start the publisher, and after it has published the message "Published", the subscriber will output something like:
 \begin{lstlisting}
@@ -42,14 +37,11 @@ To make it a bit more interesting, you can start multiple subscribers. If you ru
 
 In the 'SubscribedMember' example we programmatically subscribe to a topic. But you can move this responsibility to the  Hazelcast configuration file:
 \begin{lstlisting}[language=xml]
-<hazelcast>
-    ...
-    <topic name="topic">
-        <message-listeners>
-            <message-listener>MessageListenerImpl</message-listener>
-        </message-listeners>
-    </topic>
-</hazelcast>
+<topic name="topic">
+    <message-listeners>
+        <message-listener>MessageListenerImpl</message-listener>
+    </message-listeners>
+</topic>
 \end{lstlisting}
 
 \section{Scaling up the MessageListener}

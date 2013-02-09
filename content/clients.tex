@@ -15,11 +15,10 @@ import com.hazelcast.core.*;
 import java.util.concurrent.BlockingQueue;
 public class FullMember {
     public static void main(String[] args)throws Exception{
-        HazelcastInstance hazelcastInstance = Hazelcast.newHazelcastInstance();
-        BlockingQueue<String> queue = hazelcastInstance.getQueue("queue");
+        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
+        BlockingQueue<String> queue = hzInstance.getQueue("queue");
         for(;;) System.out.println(queue.take());
-    }
-}
+    }}
 \end{lstlisting}
 
 \section{Native client}
@@ -35,8 +34,7 @@ public class NativeClient {
         BlockingQueue<String> queue = client.getQueue("queue");
         queue.put("Hello");
         System.out.println("Message send by native member!");
-    }
-}
+    }}
 \end{lstlisting}
 The client HazelcastInstance is created based on the com.hazelcast.client.ClientConfig. This config is configured with 127.0.0.1 as address since the full member will be running on the same machine as the client.
 
@@ -72,8 +70,7 @@ public class LiteMember {
         BlockingQueue<String> queue = hazelcastInstance.getQueue("queue");
         queue.put("echo");
         System.out.println("Message send from lite member!");
-    }
-}
+    }}
 \end{lstlisting}
 Lets first start the full member and then start the lite member. In the logging we can see that the members have found each other and in case of the lite member, we'll see something like this:
 \begin{verbatim}

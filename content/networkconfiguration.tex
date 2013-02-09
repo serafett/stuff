@@ -4,12 +4,10 @@ Hazelcast can run perfectly within a single JVM and this is excellent for develo
 
 To test the networking settings, we are going to make use of the following minimalistic Hazelcast member unless specified otherwise:
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.Hazelcast;
 public class Member {
     public static void main(String[] args) {
         Hazelcast.newHazelcastInstance();
-    }
-}
+    }}
 \end{lstlisting}
 In this chapter we are going to rely on the hazelcast.xml config file to set the networking options:
 \begin{lstlisting}[language=xml]
@@ -112,8 +110,6 @@ By default Hazelcast will 'bind' (so accept incoming traffic) to all local netwo
 
 When there is a large number of IP's listed [todo: especially in virtualized environments] and members can't build up a cluster, the 'conn-timeout-seconds' attribute, which defaults to 5, can be set to a higher value. The first scan and delay between scans can be configured using property 'hazelcast.merge.first.run.delay.seconds' and respectively 'hazelcast.merge.next.run.delay.seconds'. By default Hazelcast will scan every 5 seconds.
 
-[talip:.....]
-
 \subsection{EC2 Auto Discovery}
 Apart from multicast and the tcp/ip-cluster join mechanisms, there a third mechanism: Amazon EC2. This mechanism, which makes use of tcp/ip discovery behind the scenes, sees all nodes within a particular region and have certain tag keys/values, as well known members. So a single region is used to lets new nodes discover the cluster, but the cluster can span multiple regions (it can even span multiple cloud providers).
 
@@ -205,10 +201,10 @@ The basic functionality is provided by 'com.hazelcast.nio.ssl.SSLContextFactory'
     <join><multicast enabled="true"/></join>
     <ssl enabled="true">
         <factory-class-name>com.hazelcast.nio.ssl.BasicSSLContextFactory</factory-class-name>
-            <properties>
-                <property name="keyStore">keyStore.jks</property>
-                <property name="keyStorePassword">password</property>
-            </properties>
+        <properties>
+            <property name="keyStore">keyStore.jks</property>
+            <property name="keyStorePassword">password</property>
+        </properties>
     </ssl>
 </network>
 \end{lstlisting}
@@ -216,7 +212,6 @@ The 'keyStore' is the path to the keyStore. [todo: is it possible to provide a c
 
 When you start a member, you will see that SSL is enabled:
 \begin{lstlisting}
-Jan 19, 2013 4:00:43 PM com.hazelcast.nio.ConnectionManager
 INFO: [192.168.1.104]:5701 [dev] SSL is enabled
 \end{lstlisting}
 
@@ -226,9 +221,7 @@ There are some additional properties that can be set on the BasicSSLContextFacto
 \item trustManagerAlgorithm: defaults to 'SunX509'.
 \item protocol: defaults to 'TLS'
 \end{enumerate}
-Another way to configure the keyStore/keyStorePassword is through the 'javax.net.ssl.keyStore' and 'javax.net.ssl.keyStorePassword' system properties.
-
-The recommended practice is to make a single keyStore file that is shared between all instances. It isn't possible to include the keystore within the jar.
+Another way to configure the keyStore/keyStorePassword is through the 'javax.net.ssl.keyStore' and 'javax.net.ssl.keyStorePassword' system properties. The recommended practice is to make a single keyStore file that is shared between all instances. It isn't possible to include the keystore within the jar.
 
 \section{Encryption}
 Apart from supporting SSL, Hazelcast also supports symmetric encryption based on the Java Cryptography Architecture (JCA). The main advantage of using the latter is that it is easier to set up because you don't need to deal with the keystore. The main disadvantage is that its less secure, because SSL relies on an on the fly created public/private key pair and the symmetric encryption relies on a constant password/salt.
@@ -295,5 +288,5 @@ iptables -A INPUT -m pkttype --pkt-type multicast -j ACCEPT
 \end{lstlisting}
 
 \section{What is next}
-The network configuration for Hazelcast is very extensive. There are some features like IPv6,  Network Partitioning (Split-Brain Syndrome), Socket Interceptors, WAN Replication, that have been left out, but can be found on the Hazelcast manual. Also the mailing-list is a very valuable source of information.
+The network configuration for Hazelcast is very extensive. There are some features like IPv6,  network partitioning (split-brain syndrome), socket interceptors, WAN replication, that have been left out, but can be found on the Hazelcast reference manual. Also the mailing-list is a very valuable source of information.
 

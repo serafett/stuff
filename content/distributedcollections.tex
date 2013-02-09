@@ -18,8 +18,6 @@ A BlockingQueue is one of the work horses for concurrent system because it allow
 
 As an example we'll create a producer/consumer implementation that is connected by a distributed queue. The producer is going to put a total of 100 messages (an Integer) on the queue with a rate of 1 message/second.
 \begin{lstlisting}[language=java]
-import com.hazelcast.
-import java.util.concurrent.BlockingQueue;
 public class ProducerMember {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
@@ -38,8 +36,6 @@ To make sure that the consumers are going to terminate when the producer is fini
 
 The consumer will take the message from the queue, print it and waits 5 seconds before consuming the next message and stops when it receives the poison pill:
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
-import java.util.concurrent.BlockingQueue;
 public class ConsumerMember {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
@@ -102,18 +98,14 @@ In the previous example we showed a basic producer/consumer solution based on a 
 
 With the traditional BlockingQueue implementations, like the LinkedBlockingQueue, a capacity can be set. When this is set and the maximum capacity is reached, placement of new items either fail or block, depending on type of the put operation. This prevents the queue from growing beyond a healthy capacity and the JVM from failing.
 
-The Hazelcast queue also provided capacity control, but instead of having a fixed capacity for the whole cluster, Hazelcast provides a scalable capacity by setting the queue capacity per member using the queue property 'max-size-per-jvm'. So if the capacity per member is 1000 and there are 5 members's, the total capacity is 5000. Therefor the capacity depends on the size of the cluster.
-
-To give our queue a capacity of 10 per member, we add the following to the hazelcast.xml file:
+The Hazelcast queue also provided capacity control, but instead of having a fixed capacity for the whole cluster, Hazelcast provides a scalable capacity by setting the queue capacity per member using the queue property 'max-size-per-jvm'. So if the capacity per member is 1000 and there are 5 members's, the total capacity is 5000. Therefor the capacity depends on the size of the cluster. To give our queue a capacity of 10 per member, we set the 'max-size-per-jvm':
 \begin{lstlisting}
-<hazelcast>
-    <network>
-        <join><multicast enabled="true"/></join>
-   </network>
-    <queue name="queue">
-        <max-size-per-jvm>10</max-size-per-jvm>
-    </queue>
-</hazelcast>
+<network>
+    <join><multicast enabled="true"/></join>
+</network>
+<queue name="queue">
+    <max-size-per-jvm>10</max-size-per-jvm>
+</queue>
 \end{lstlisting}
 When we start a single producer, we'll see that 10 items are produced and then the producer blocks. If we then start a single consumer, we'll immediately see that the producer will continue since the total capacity for the queue has doubled to 20 (2 JVM's times 10 items per JVM). 
 
@@ -124,17 +116,17 @@ But since the producer produces 5 times as fast as the consumer, the queue will 
 \subsection{Backing Map}
 Since Hazelcast 1.9.3, distributed queues are backed by distributed maps. So all the configuration options available to a map, for example storage, are indirectly available for the queue. The value in the map will be the value placed on the queue, and the key of the map (of type Long) will be a global unique id. By default the name to backing map will be the name of the queue prefixed with 'q:', example:
 \begin{lstlisting}
-    <queue name="queue">...</queue>
-    <map name="q:queue">...</map>
+<queue name="queue">...</queue>
+<map name="q:queue">...</map>
 \end{lstlisting}
 
 This naming convention can be overridden by setting the backingMapRef on the queue explicitly, e.g:
 \begin{lstlisting}
-    <queue name="queue">
-       <backingMapRef>somemap</backingMapRef>
-       ... 
-    </queue>
-    <map name="somemap">...</map>
+<queue name="queue">
+    <backingMapRef>somemap</backingMapRef>
+    ... 
+</queue>
+<map name="somemap">...</map>
 \end{lstlisting}
 See the Distributed Map chapters for the options available.
 TODO: The map can't be retrieved by that name; so either a bug or I'm doing something wrong.
@@ -145,8 +137,6 @@ After the distributed queue, we have the distributed com.hazelcast.core.IList th
 
 We'll demonstrate the IList by adding items to a list on one member and on another member we print the elements from that list:
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
-import java.util.*;
 public class WriteMember {
     public static void main(String[] args) {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
@@ -157,9 +147,6 @@ public class WriteMember {
         System.out.println("Putting finished!");
     }
 }
-
-import com.hazelcast.core.*;
-import java.util.List;
 public class ReadMember {
     public static void main(String[] args) {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
@@ -187,8 +174,6 @@ A Set is a collection where every element only occurs ones and where the order o
 
 We'll demonstrate the set by adding items in a Set on one member, and on another member we are going to print all the elements from that Set:
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
-import java.util.Set;
 public class WriteMember {
     public static void main(String[] args) {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
@@ -197,17 +182,14 @@ public class WriteMember {
         set.add("Paris");
         set.add("New York");
         System.out.println("Putting finished");
-    }
-}
-
+    }}
 public class ReadMember {
     public static void main(String[] args) {
          HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
          Set<String> set = hzInstance.getSet("set");
          for(String s: set) System.out.println(s);
          System.out.println("Reading finished!");
-     }
-}
+     }}
 \end{lstlisting}
 If you first start the WriteMember and waiting for completion, you start the ReadMember; it will output the following:
 \begin{lstlisting}
@@ -227,7 +209,6 @@ The IList, ISet and IQueue interfaces extend the com.hazelcast.core.ICollection 
 
 The following example shows an ItemListener that listens to all changes made in an IQueue:
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
 public class ItemListenerMember {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
@@ -242,15 +223,12 @@ public class ItemListenerMember {
         public void itemRemoved(ItemEvent<E> itemEvent) {
             System.out.println("Item removed:" + itemEvent.getItem());
         }
-    }
-}
+    }}
 \end{lstlisting}
 We registered the ItemListenerImpl with the addItemListener method using the value 'true'. This is done to make sure that our ItemListenerImpl will get the value that has been added/removed. The reason why this configuration option is available, is that in some cases you only want to be notified that a change happened, but you're not interested in the actual change and don't want to pay for sending the value over the line.
 
 To see that the ItemListener really is working, we'll create a member that makes a change in the queue:
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
-import java.util.concurrent.BlockingQueue;
 public class CollectionChangeMember{
     public static void main(String[] args) throws Exception {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
@@ -259,8 +237,7 @@ public class CollectionChangeMember{
         queue.put("bar");
         queue.take();
         queue.take();
-    }
-}
+    }}
 \end{lstlisting}
 First start up the ItemListenerMember and wait till it displays "ItemListener started". After that start the CollectionChangeMember and you will see the following output in the ItemListenerMember:
 \begin{lstlisting}

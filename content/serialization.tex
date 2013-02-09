@@ -10,15 +10,11 @@ Serialization in Hazelcast works like this: when an object is placed in a Hazelc
 
 To demonstrate how Portable mechanism works, lets start with a simple Portable Person class: 
 \begin{lstlisting}[language=java]
-import com.hazelcast.nio.serialization.*;
-import java.io.IOException;
 public class Person implements Portable {
     private String name;
-    private int age;
     Person(){}
-    public Person(String name, int age) {
+    public Person(String name) {
         this.name = name;
-        this.age = age;
     }
     public int getClassId() {
         return PortableFactoryImpl.PERSON_CLASS_ID;
@@ -26,19 +22,17 @@ public class Person implements Portable {
     public void writePortable(PortableWriter writer) throws IOException {
         System.out.println("Serialize");
         writer.writeUTF("name", name);
-        writer.writeInt("age", age);
     }
     public void readPortable(PortableReader reader) throws IOException {
         System.out.println("Deserialize");
         this.name = reader.readUTF("name");
-        this.age = reader.readInt("age");
     }
     public String toString() {
-        return String.format("Person(name=%s,age=%s)",name,age);
+        return String.format("Person(name=%s)",name);
     }
 }
 \end{lstlisting}
-As you can see the Portable interface is implemented. When a Person is serialized, the writePortable method is called and all fields are written to the PortableWriter. As you can see, the write of the name/age include the field names, making it possible to read particular fields without being forced to read all. When an object is deserialized, the readPortable method is called and the age/name field are read from the reader. Unlike the DataSerializable, the order in which fields are being read/written isn't important since reading/writing is based  on name. The last interesting method is the 'getClassId' which returns the identifier of that class; each Portable class needs to have a unique class id (a non zero value).
+As you can see the Portable interface is implemented. When a Person is serialized, the writePortable method is called and all fields are written to the PortableWriter. As you can see, the write of the name include the field name, making it possible to read particular fields without being forced to read all. When an object is deserialized, the readPortable method is called and the name field is read from the reader. Unlike the DataSerializable, the order in which fields are being read/written isn't important since reading/writing is based  on name. The last interesting method is the 'getClassId' which returns the identifier of that class; each Portable class needs to have a unique class id (a non zero value).
 
 The next step is the 'PortableFactory' which is responsible for creating a new Portable instance based on the class id. In our case the implementation is very simple since we only have a single Portable class:
 \begin{lstlisting}[language=java]
@@ -55,23 +49,18 @@ public class PortableFactoryImpl implements PortableFactory {
 \end{lstlisting}
 But in practice the switch case probably will be a lot bigger. If an unmatched classId is encountered, an exception should be thrown [todo: which exception]. The cool thing about the PortableFactory is that object creation is pulled into userspace, so you control the initialization of the Portable instances. For example you could inject dependencies or you could even decide to move the construction of the Portable to a prototype bean in a Spring container. The last step is to connect the PortableFactory to the Hazelcast configuration:
 \begin{lstlisting}[language=xml]
-<hazelcast>
-    <serialization>
-        <portable-factory-class>PortableFactoryImpl</portable-factory-class>
-    </serialization>
-</hazelcast>
+<serialization>
+    <portable-factory-class>PortableFactoryImpl</portable-factory-class>
+</serialization>
 \end{lstlisting}
 Of course we also want to see it in action:
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
-import java.util.Map;
 public class PortableMember {
     public static void main(String[] args) {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         Map<String, Person> map = hzInstance.getMap("map");
-        map.put("Peter", new Person("Peter", 37));
-        Person p = map.get("Peter");
-        System.out.println(p);
+        map.put("Peter", new Person("Peter"));
+        System.out.println(map.get("Peter"));
     }
 }
 \end{lstlisting}
@@ -80,7 +69,7 @@ When we run this PortableMember, we'll see the following output:
 Serialize
 Serialize
 Deserialize
-Person(name=Peter,age=37)
+Person(name=Peter)
 \end{lstlisting}
 As you can see the Person is serialized when it is stored in the map and it is deserialized when it is read. You might ask why Serialize is called twice. This is because for every Portable class that is serialized for the first time, Hazelcast generates a new class that supports the serialization/deserialization process. 
 
@@ -93,12 +82,10 @@ If a Portable, has a Portable field, the write and read operations need to be fo
 \begin{lstlisting}[language=java]
     public void writePortable(PortableWriter writer) throws IOException {
         writer.writeUTF("name", name);
-        writer.writeInt("age",age);
         writer.writePortable("address", address);
     }
     public void readPortable(PortableReader reader) throws IOException {
         this.name = reader.readUTF("name");
-        this.age = reader.readInt("age");
         this.address = reader.readPortable("address");
     }
 \end{lstlisting}
@@ -115,20 +102,26 @@ Subtyping with the Portable functionality is easy, let every subclass have its o
 \section{Versioning}
 In practice it can happen that multiple versions of same class are serialized and deserialized; imagine a Hazelcast client with an older Person class compared to the cluster. Luckily the Portable functionality supports versioning. In the configuration you can explicitly pass a version using the '<portable-version>' tag (defaults to 0):
 \begin{lstlisting}[language=xml]
-<hazelcast>
-    <serialization>
-        <portable-factory-class>PortableFactoryImpl</portable-factory-class>
-        <portable-version>1</portable-version>
-    </serialization>
-</hazelcast>
+<serialization>
+    <portable-factory-class>PortableFactoryImpl</portable-factory-class>
+    <portable-version>1</portable-version>
+</serialization>
 \end{lstlisting}
 When an Transportable instance is deserialized, next to the deserialized fields of that Portable also the class id and the portable-version will be stored. So every time you make a change to the class, the version should be incremented. 
 
-Adding fields to a class is simple, removing fields can lead to problem if a new version of that class (with the removed field) is deserialized on a client which depends on that field. Although using the Portable interface is more work because of explicit mapping fields, it suffers less from field renaming, since name of the field in the class can be named independently of the name of the field when is deserialized. Another issue to watch out for is changing the field type, although although Hazelcast can do some basic type upgrading (e.g. int to long or float to double). 
+Adding fields to a class is simple, removing fields can lead to problem if a new version of that class (with the removed field) is deserialized on a client which depends on that field. Although using the Portable interface is more work because of explicit mapping fields, it suffers less from field renaming, since name of the field in the class can be named independently of field name in the class. Another issue to watch out for is changing the field type, although although Hazelcast can do some basic type upgrading (e.g. int to long or float to double). 
 
 Luckily Hazelcast provides access to the metadata of the to deserialize object through the PortableReader; the  version, available fields, the type of the fields etc can be retrieved. So you have full control on how the deserialization should take place. 
 
-[todo: serializers]
+\section{TypeSerializers}
+[todo: this section needs to be written; waiting for info from Mehmet]
+\begin{lstlisting}[language=xml]
+<serialization>
+    <portable-factory-class>PortableFactoryImpl</portable-factory-class>
+    <serializers>
+    </serializers>
+</serialization>
+\end{lstlisting}
 
 \section{Externalizable vs Portable}
 The java.io.Externalizable can also be used for serialization/deserialization since it extends Serializable. So when Hazelcast defaults to the standard Java serialization mechanism, the Externalizable mechanism works without a problem. Although Externalizable provides more control compared to Serializable, it still isn't as flexible and performant as the Portable.
@@ -140,6 +133,5 @@ When your class implements java.io.Serializable, make sure that it get a serialV
 
 \emph{Caution}  Unlike the DataSerializable, the Portable functionality is allowed to call operations on Hazelcast that leads to new serialize/deserialize operations and doesn't run into StackOverflowErrors.
 
-\emph{The DataSerializable} also makes it possible to delegate to completely different serialization mechanisms like Protobuf, JSON etc.
-
 \section{What is next}
+In this chapter java Serialization and the new Portable serialization functionality is explained. [todo: better what is next]

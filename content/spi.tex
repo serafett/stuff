@@ -8,8 +8,6 @@ In this chapter we are going to build a distributed counter, so a counter that s
 In this section we are going to show you a very basic service that will be started when Hazelcast starts and will be shutdown when Hazelcast is shutdown. In itself not extremely interesting, but it is needed for the the more advanced sections.
 
 \begin{lstlisting}[language=java]
-import com.hazelcast.spi.*;
-import java.util.Properties;
 public class DistributedCounterService implements ManagedService {
     private NodeEngine nodeEngine;
     public void init(NodeEngine nodeEngine, Properties properties) {
@@ -23,27 +21,23 @@ public class DistributedCounterService implements ManagedService {
 \end{lstlisting}
 
 \begin{lstlisting}[language=xml]
-<hazelcast>
-    <services>
-         <network>
-            <join><multicast enabled="true"/> </join>
-        </network>
-        <service enabled="true">
-            <name>DistributedCounterService</name>
-            <class-name>DistributedCounterService</class-name>
-         </service>
-    </services>
-</hazelcast>
+<services>
+     <network>
+        <join><multicast enabled="true"/> </join>
+    </network>
+    <service enabled="true">
+        <name>DistributedCounterService</name>
+         <class-name>DistributedCounterService</class-name>
+     </service>
+</services>
 \end{lstlisting}
 If you need to set additional properties on the Service, a '<properties>' section can be added to the service. We also enabled multicast discovery since we'll rely on that later.
 
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.Hazelcast;
 public class Member {
     public static void main(String[] args) {
         Hazelcast.newHazelcastInstance();
-    }
-}
+    }}
 \end{lstlisting}
 If we start it we'll see:
 \begin{lstlisting}
@@ -80,10 +74,6 @@ public class DistributedCounterService implements ManagedService, RemoteService 
 [todo: createDistributedObjectForClient]
 
 \begin{lstlisting}[language=java]
-import com.hazelcast.nio.*;
-import com.hazelcast.spi.*;
-import java.io.IOException;
-import java.util.concurrent.*;
 public class DistributedCounterProxy implements DistributedCounter {
     private final NodeEngine nodeEngine;
     private final String objectId;
@@ -137,7 +127,6 @@ todo: the operations always need to have a no arg constructor for deserializatio
 
 Of course we also want to run the EchoService; the following example shows how it is run:
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
 public class Member {
     public static void main(String[] args) {
         HazelcastInstance[] instances = new HazelcastInstance[2];
@@ -172,11 +161,6 @@ We can see that our counters are being stored in different members (check the di
 \section{Phase 3}
 In this section we are going to make use of real DistributedCounter; so some kind of data-structure that will hold an integer value (an AtomicInteger) and can be incremented. The first thing we do is for every partition we have, we are going to create a Container. And this contains will contain all AtomicIntegers for that given partition:
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
-import com.hazelcast.spi.*;
-import java.util.Properties;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 public class DistributedCounterService implements ManagedService, RemoteService {
     private NodeEngine nodeEngine;
     DistributedMapContainer[] containers;
@@ -200,9 +184,6 @@ public class DistributedCounterService implements ManagedService, RemoteService 
 \end{lstlisting}
 As you can see the partitions are created in the init method. The Container also has an inc method, that looks up the AtomicInteger based on the id and increments it. Of course we need to connect the IncOperation.run method to the Container.inc method:
 \begin{lstlisting}[language=java]
-import com.hazelcast.nio.*;
-import java.io.IOException;
-import java.util.concurrent.ExecutionException;
 public class DistributedCounterProxy implements DistributedCounter {
     ... 
     static class IncOperation extends AbstractOperation {

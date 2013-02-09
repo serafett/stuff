@@ -6,5 +6,6 @@ public class PublisherMember {
         ITopic<Date> topic = hzInstance.getTopic("topic");
         topic.publish(new Date());
         System.out.println("Published");
+        System.exit(0);
     }
 }

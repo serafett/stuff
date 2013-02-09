@@ -1,3 +1,3 @@
 #!/bin/sh
 
-java -cp target/lib/*:target/classes MasterMember
+java -cp target/lib/*:target/classes MasterMember 10

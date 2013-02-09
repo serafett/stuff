@@ -20,4 +20,12 @@
     <modules>
         <module>basic-pub-sub</module>
     </modules>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.hazelcast</groupId>
+            <artifactId>hazelcast</artifactId>
+            <version>3.0-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
 </project>

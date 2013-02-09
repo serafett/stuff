@@ -11,7 +11,7 @@ Hazelcast is a clustering and highly scalable data distribution platform for Jav
   \item Providing high availability; so if one node in the cluster fails anther node will take over.
 \end{enumerate}
 
-In this chapter we
+In this chapter we learns the basics 
 
 \section{Installing Hazelcast}
 Hazelcast relies on Java 5, but the examples rely on Java 7. So if you want to compile the examples, make sure Java 7 is installed. If not installed, it can be downloaded from the Oracle site: http://java.com/en/download/index.jsp.
@@ -66,8 +66,7 @@ public class Main {
     public static void main(String[] args){
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         ...
-    }
-}
+    }}
 \end{lstlisting}
 The mechanism uses the following alternatives to resolve the configuration:
 \begin{enumerate}
@@ -131,14 +130,11 @@ A map can be loaded calling 'Map map1 = hzInstance.getMap("com.foo.testmap1")'.
 \section{Multiple Hazelcast instances}
 In most cases you will have a single Hazelcast Instance per JVM. But Multiple Hazelcast Instances can run in a single JVM. This is not only useful for testing, but also for more complex setups e.g. application servers running multiple independent applications that rely on Hazelcast. Multiple Hazelcast instances can be started like this:
 \begin{lstlisting}[language=java]
-import com.hazelcast.config.Config;
-import com.hazelcast.core.*;
 public class MultipleMembers {
     public static void main(String[] args){
         HazelcastInstance hzInstance1 = Hazelcast.newHazelcastInstance();
         HazelcastInstance hzInstance2 = Hazelcast.newHazelcastInstance();
-    }
-}
+    }}
 \end{lstlisting}
 When you start this multiple members, you see something like this in the output:
 \begin{lstlisting}

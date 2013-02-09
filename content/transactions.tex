@@ -10,8 +10,6 @@ Hazelcast provides a transaction api that can be enabled when we need it. The Ha
 
 Underneath you can find an example of the transaction api in practice:
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
-import java.util.Map;
 public class PutWithTransaction {
     public static void main(String[] args) {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();

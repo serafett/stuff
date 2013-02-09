@@ -16,8 +16,6 @@ The Hazelcast Map implements the ConcurrentMap/Map interface, so reading/writing
 
 To demonstrate this basic behavior a distributed is created in a member and some entries are written to this map. In another member these entries are going to be read and printed:
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
-import java.util.Map;
 public class FillMapMember {
     public static void main(String[] args) {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
@@ -30,8 +28,6 @@ public class FillMapMember {
 \end{lstlisting}
 As you can see the Map is retrieved using the hzInstance.getMap(mapName) and then some entries are stored in that map. Reading the entries can be done like this:
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
-import java.util.Map;
 public class PrintAllMember {
     public static void main(String[] args) {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
@@ -66,11 +62,9 @@ Apart from writing the update back to the map, there is another very important s
 
 This works very fine if the value is an immutable object, but if the value is a mutable object, it can lead to unexpected sharing. This can cause all kinds of problems like race problems and JMM problems. By default 'cache-value' is set to true, so if you store mutable objects in your map, you need to explicitly set 'cache-value' to false, e.g:
 \begin{lstlisting}[language=xml]
-<hazelcast>
-    <map name="employees">
-       <cache-value>false</cache-value>
-    </map>
-</hazelcast>
+<map name="employees">
+    <cache-value>false</cache-value>
+</map>
 \end{lstlisting}
 This only need to be done with the map, the other data structures that are build on top of the map like the Queue do not cache the value. The cashed value is stored directly in local map entry, so the size of the cache will always be equal or smaller than the number of local map entries. This means that there will be extra memory usage, but it will not grow uncontrollable.
 
@@ -118,10 +112,9 @@ Imagine that we have a Hazelcast IMap where the key is some id and the value is 
 \begin{lstlisting}[language=java]
    public Set<Person> getWithNameNaive(String name){
         Set<Person> result = new HashSet<Person>();
-        for(Person person: personMap.values()){
+        for(Person person: personMap.values())
             if(person.name.equals(name))
                 result.add(person);
-        }
         return result;
     }
 \end{lstlisting}
@@ -171,7 +164,6 @@ public interface Expression<T> extends Serializable {
 \subsubsection*{And, Or and Not predicates}
 Predicates can be joined using the 'and' and 'or' predicate:
 \begin{lstlisting}[language=java]
-import static com.hazelcast.query.Predicates.*;
    ...
    public Set<Person> getWithNameAndAge(String name, int age) {
       Predicate namePredicate = equal(get("name"), name);
@@ -288,14 +280,12 @@ To retrieve the index field of an Object, first an accessor method will be tried
 
 The indices on the personMap can be configured like this:
 \begin{lstlisting}[language=xml]
-<hazelcast>
-   <map name="persons">
-      <indexes>
-         <index ordered="false">name</index>
-         <index ordered="true">age</index>
-      </indexes>
-   </map>
-</hazelcast>
+<map name="persons">
+    <indexes>
+        <index ordered="false">name</index>
+        <index ordered="true">age</index>
+    </indexes>
+</map>
 \end{lstlisting}
 The ordered attribute defaults to 'false'. It also is possible to call the 'IMap.addIndex(String name,boolean ordered)' method directly, but adding the index should be done before an item is placed in the map otherwise the index is ignored. Sometimes by design adding an index to a map may be impossible before any value is added. For example if a map has a MapLoader that loads entries during map creation. Another disadvantage of doing it in code is that it can become hard to figure out if a field has an index, because it could be spread over the code.
 
@@ -310,7 +300,6 @@ In some cases you want data to be stored in the same partition to have improved 
 
 To explain data locality, imagine that you have a Customer:
 \begin{lstlisting}[language=java]
-import java.io.Serializable;
 public class Customer implements Serializable {
     public final long id;
     public Customer(long id) {
@@ -320,7 +309,6 @@ public class Customer implements Serializable {
 \end{lstlisting}
 And imagine that each customer can have orders:
 \begin{lstlisting}[language=java]
-import java.io.Serializable;
 public final class Order implements Serializable {
     public final long orderId, customerId, articleId;
     public Order(long orderId, long customerId, long articleId) {
@@ -344,8 +332,6 @@ The problem with this approach is that it is very likely that the customer is go
 
 Luckily Hazelcast provides a way of storing the Customer and the Order in the same partition, using of the PartitionAware interface. If a key implements this interface, instead of using the key to determine the correct partition, the PartitionAware.getPartitionKey() will be used. In our case we introduce an intermediate object: the OrderKey that implements this PartitionAware interface and returns the customerId as the partitionKey:
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.PartitionAware;
-import java.io.Serializable;
 public final class OrderKey implements PartitionAware, Serializable {
     public final long orderId, customerId;
     public OrderKey(long orderId, long customerId) {
@@ -359,9 +345,6 @@ public final class OrderKey implements PartitionAware, Serializable {
 \end{lstlisting}
 The equals/hashcode don't need to be implemented, since the equals/hash are determined based on the byte-array representation of the OrderKey. It can be integrate it in code and verified that the partition of the customer is the same as the partition of the order like this:
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
-import com.hazelcast.partition.*;
-import java.util.Map;
 public class DataLocalityMember {
     public static void main(String[] args) {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
@@ -398,33 +381,27 @@ Being able to collocate data in the same partition, is a very powerful feature a
 \section{High availability}
 In production a environment all kinds of things can go wrong. A machine could break down due to disk failure, the operating system crashes, it could get disconnected from the network. To prevent that the failure of a single member leads to failure of the cluster, by default Hazelcast synchronously backs up all map entries on another JVM, so if a member fails, the backup still contain the data. The backup-count can be configured using the 'backup-count' property:
 \begin{lstlisting}[language=xml]
-<hazelcast> 
-    <map name="persons"> 
-         <backup-count>1</backup-count>
-    </map> 
-</hazelcast>
+<map name="persons"> 
+    <backup-count>1</backup-count>
+</map> 
 \end{lstlisting}
 The backup-count can be set to 0, if you favor performance over high availability, but you can also specify a higher value than 1 of you want to have more backups. The default is 1, so in a lot of cases you don't need to specify it.
 
 By default the backup operations are synchronous; so you have the guarantee that the backup(s) are updated before continuing. But this guarantee comes at the cost of blocking and therefor the latency increases. In some cases having a low latency is more important, but working without a backup is not an option as long as the window for failure is small. That is why Hazelcast also supports asynchronous backups; so the backups are made at some point in time. This can be configured through the 'async-backup-count' property:
 \begin{lstlisting}[language=xml]
-<hazelcast> 
-    <map name="persons"> 
-         <async-backup-count>1<async-backup-count>
-    </map> 
-</hazelcast>
+<map name="persons"> 
+    <async-backup-count>1<async-backup-count>
+</map> 
 \end{lstlisting}
 This property defaults to 0. 
 
 By default Hazelcast provides sequential consistency, meaning that when a map entry is read, always the most recent change will be seen. This is done by routing the get request to the member that owns the key. But sequential consistency comes at a price since remoting is involved when the key is owned by a different member. Hazelcast provides the option to reduce consistency by allowing to read from backup data instead and potentially see stale data. This feature only is available when there is at least 1 backup (doesn't matter if it a synchronous or asynchronous backup) and can be enabled by setting the read-backup-data property:
 \begin{lstlisting}[language=xml]
-<hazelcast>
-    <map name="persons">
-        <backup-count>0</backup-count>
-        <async-backup-count>1</async-backup-count>
-        <read-backup-data>true</read-backup-data>
-    </map>
-</hazelcast>
+<map name="persons">
+    <backup-count>0</backup-count>
+    <async-backup-count>1</async-backup-count>
+    <read-backup-data>true</read-backup-data>
+</map>
 \end{lstlisting}
 In this example you can see a person map with a single asynchronous backup and where read backup data is enabled. This property defaults to false.
 
@@ -434,14 +411,10 @@ In the previous section we talked about backups that protect against member fail
 \item com.hazelcast.core.MapLoader: useful for reading entries from an external datasource, but changes don't need to be written back.
 \item com.hazelcast.core.MapStore: useful for reading and writing map entries from and to an external datasource. The MapStore interface extends the MapLoader interface.
 \end{enumerate}
- And one instance per Map per Node will be created.
+And one instance per Map per Node will be created.
 
 The following example shows an extremely basic HSQLDB implementation of the MapStore where we load/store a simple Person object with a name field:
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.MapStore;
-import java.sql.*;
-import java.util.*;
-import static java.lang.String.format;
 public class PersonMapStore implements MapStore<Long, Person> {
     private final Connection con;
     public PersonMapStore() {
@@ -478,9 +451,7 @@ public class PersonMapStore implements MapStore<Long, Person> {
                 if (!resultSet.next()) return null;
                 String name = resultSet.getString(1);
                 return new Person(name);
-            } finally {
-                resultSet.close();
-            }
+            } finally {resultSet.close();}
         } catch (SQLException e) {throw new RuntimeException(e);}
     }
     public synchronized Map<Long, Person> loadAll(Collection<Long> keys) {
@@ -497,17 +468,14 @@ As you can see the implementation is quite simple and certainly can be improved,
 
 To connect the PersonMapStore to the persons map, we can configure it using the 'map-store' setting:
 \begin{lstlisting}[language=xml]
-<hazelcast>
-    <map name="persons">
-        <map-store enabled="true">
-           <class-name>PersonMapStore</class-name>
-        </map-store>
-    </map>
-</hazelcast>
+<map name="persons">
+    <map-store enabled="true">
+        <class-name>PersonMapStore</class-name>
+    </map-store>
+</map>
 \end{lstlisting}
 In the following code fragment you can see a member that writes a person to the map exits the JVM. And you can see a member that loads the person and prints it. 
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
 public class WriteMember {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
@@ -516,8 +484,6 @@ public class WriteMember {
         System.exit(0);
     }
 }
-
-import com.hazelcast.core.*;
 public class ReadMember {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
@@ -581,13 +547,11 @@ The eviction configuration can be done using the following parameters:
 
 An example configuration:
 \begin{lstlisting}[language=xml]
-<hazelcast>
-    <map name="articles">
-        <max-size policy="map_size_per_jvm">10000</max-size>
-        <eviction-policy>LRU</eviction-policy>
-        <max-idle-seconds>60</max-idle-seconds>
-    </map>
-</hazelcast>
+<map name="articles">
+    <max-size policy="map_size_per_jvm">10000</max-size>
+    <eviction-policy>LRU</eviction-policy>
+    <max-idle-seconds>60</max-idle-seconds>
+</map>
 \end{lstlisting}
 This configures an articles Map that will start to evict map entries from a member, as soon as the map size within that member exceeds 10000. It will then start to remove map entries that are least recently used. Also when map entries are not used for more than 60 seconds, they will be evicted as well.
 
@@ -598,12 +562,9 @@ Till so far all the map entries are owned by a single member, so if a value is n
 
 Imagine that we have a web-shop where articles can be ordered and where these articles are stored in a Hazelcast map. To enable local caching of frequently used articles, the near cache needs to be configured like this:
 \begin{lstlisting}[language=xml]
-<hazelcast>
-    ...
-    <map name="articles">
-      <near-cache/>
-    </map>
-</hazelcast>
+<map name="articles">
+    <near-cache/>
+</map>
 \end{lstlisting}
 On the near cache the following properties can be configured:
 \begin{enumerate}
@@ -621,15 +582,13 @@ On the near cache the following properties can be configured:
 
 An example configuration:
 \begin{lstlisting}[language=xml]
-<hazelcast>
-    <map name="articles">
-        <near-cache/>
-            <max-size>10000</max-size>
-            <eviction-policy>LRU</eviction-policy>
-            <max-idle-seconds>60</max-idle-seconds>
-        </near-cache>
-    </map>
-</hazelcast>
+<map name="articles">
+    <near-cache/>
+        <max-size>10000</max-size>
+        <eviction-policy>LRU</eviction-policy>
+        <max-idle-seconds>60</max-idle-seconds>
+    </near-cache>
+</map>
 \end{lstlisting}
 This configures an articles Map with a near-cache, that will start to evict near-cache entries from a member, as soon as the near-cache size within that member exceeds 10000. It will then start to remove near-cache entries that are least recently used. Also when near cache entries are not used for more than 60 seconds, they will be evicted as well.
 
@@ -653,8 +612,6 @@ The Hazelcast map itself is thread-safe just like the ConcurrentHashMap or the C
 
 Take a look at the following example; if run by multiple members in parallel the total amount would be 
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
-import java.io.Serializable;
 public class RacyUpdateMember {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
@@ -685,8 +642,6 @@ The classic way to solve the race problem is to use a lock. In Hazelcast there a
 [also the regular locking rules apply, don't lock too long, don't lock too much.]
 
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
-import java.io.Serializable;
 public class PessimisticUpdateMember {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
@@ -722,8 +677,6 @@ TODO: Does optimistic rely on a lock or is truly using cas?
 It is important to implement equals on the value, because this is used to determine of 2 objects are equal. With the ConcurrentHashMap it is based on object reference. On the keys the byte-array equals is used, but on the replace(key,oldValue,newValue) the equals is used. If you fail to forget it, your code will not work!
 
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
-import java.io.Serializable;
 //This code is broken on purpose.
 public class OptimisticMember {
     public static void main(String[] args) throws Exception {
@@ -772,7 +725,6 @@ The MultiMap doesn't implement the java.util.Map interface since the signatures 
 
 To demonstrate the MultiMap where are going to create 2 member; in one member dummy data is created and in the other member it is read and written to the console.
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
 public class PutMember {
     public static void main(String[] args){
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
@@ -782,11 +734,6 @@ public class PutMember {
         map.put("Talip","Turkey");
     }
 }
-\end{lstlisting}
-
-\begin{lstlisting}[language=java]
-import com.hazelcast.core.*;
-import java.util.Collection;
 public class PrintMember {
     public static void main(String[] args) {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
@@ -809,6 +756,11 @@ The value collection is set based, so no duplicates and there is no ordering.Nul
 
 One thing worth knowing; if a value collection with K is stored on member1 because K is owned by that member1, and member2 does a map.get(K), then the whole collection will transported from member1 to member 2. So if that value collection is big, it could lead to performance problems. A solution would be to send the whole operation to member1, so send the logic to the data instead of the data to the logic.
 
+\section{executeOnKey}
+[todo]
+EntryProcessor
+EntryBackupProcessor
+
 \section{Gotcha's}
 When Map.entrySet(), Map.keySet() or Map.values() is called, a snapshot of the current state of the map is returned. Changes that are made in the map, so not reflect into changes these maps. Also when changes are made on these collections, an UnsupportedOperationException is thrown.
 
@@ -821,7 +773,6 @@ In this chapter a lot of the basic operations on the Distributed Map were explai
 [todo: local entry listener]
 [todo: local entry set.. makes it easy to create a clustered solution where each member takes care of some parts of the tasks.. no central coordination needed]
 [TODO: ConcurrentMap operations never throw java.util.ConcurrentModificationException. Add somewhere.]
-[todo: hazelcast 3 has 'executor on key']
 [todo: continuous listener; listener with predicate]
 
 

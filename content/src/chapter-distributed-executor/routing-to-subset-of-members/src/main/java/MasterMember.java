@@ -9,7 +9,7 @@ public class MasterMember {
             map.put(UUID.randomUUID().toString(), 1);
         Set<Member> members = hzInstance.getCluster().getMembers();
         MultiTask<Integer> task = new MultiTask<Integer>(new SumTask(), members);
-        hzInstance.getExecutorService().execute(task);
+        hzInstance.getExecutorService("executor").execute(task);
         Collection<Integer> results = task.get();
         int x = 0; for (Integer i : results) x += i;
         System.out.println("Result: " + x);
