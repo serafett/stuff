@@ -25,29 +25,25 @@ In this chapter we are going to rely on the hazelcast.xml config file to set the
 \section{Port}
 One of the most basic configuration settings is the port Hazelcast is going to use for communication between the members. This can be done by the 'port' property in the network configuration which defaults to 5701. If the port is already in use and if auto-increment property is true, which is the default, Hazelcast will automatically try to find next free port, example:
 \begin{lstlisting}[language=xml]
-<hazelcast>
-    <network>
-        <port auto-increment="true">5701</port>
-   </network>
-</hazelcast>
+<network>
+    <port auto-increment="true">5701</port>
+</network>
 \end{lstlisting}
 If you start the member, you will get output like:
 \begin{lstlisting}
-INFO: Picked Address[192.168.1.104]:5701, using socket ServerSocket[addr=/0.0.0.0,localport=5701], bind any local is true
+INFO: [192.168.1.101]:5701 [dev] Address[192.168.1.101]:5701 is STARTED
 \end{lstlisting}
-As you can see, the port is 5701. If another member is started, you will see that port 5702 is assigned. If you look carefully at the end of the logging, you'll see a warning about cluster size is 1. This is because the created members are currently not part of a cluster, but are standalone. To create a cluster, see the next chapter.
+As you can see, the port 5701 is being used. If another member is started, you will see that port 5702 is assigned. If you look carefully at the end of the logging, you'll see a warning about cluster size is 1. The cause of this is that the created members don't form a cluster but are standalone. To create a cluster you need to configure a join mechanism.
 
 \section{Join Mechanism }
-Hazelcast supports 3 mechanisms for members to join the cluster: multicast, tcp/ip-cluster, Amazon EC2. Without these discovery mechanisms, the members's will not form a cluster, but will remain stand alone Hazelcast instances. After joining the cluster, Hazelcast relies on TCP for internal communication. [todo: what happens when the mechanisms are combined; there is no error from hazelcast]
+Hazelcast supports 3 mechanisms for members to join the cluster: multicast, tcp/ip-cluster, Amazon EC2 and one of these mechanism needs to be enabled to form a cluster, else they will remain standalone. Make sure that only 1 join mechanism is enabled. After joining the cluster, Hazelcast relies on TCP for internal communication. Also make sure that only a single join mechanism is enabled.
 
 \subsection{Multicast}
-With multicast discovery a member will send a message to all members that listen on the multi-cast group. It is the easiest mechanism to configure, but is not always available. Underneath you can see a very minimalistic multicast configuration:
+With multicast discovery a member will send a message to all members that listen on a specific multicast group. It is the easiest mechanism to use, but is not always available. Underneath you can see a very minimalistic multicast configuration:
 \begin{lstlisting}[language=xml]
-<hazelcast>
-    <network>
-        <join><multicast enabled="true"/></join>
-    </network>
-</hazelcast>
+<network>
+    <join><multicast enabled="true"/></join>
+</network>
 \end{lstlisting}
 If you start one member, you will see output like this:
 \begin{lstlisting}
@@ -57,11 +53,8 @@ INFO: [192.168.1.104]:5701 [dev]
 Members [1] {
 	Member [192.168.1.104]:5701 this
 }
-
-Jan 22, 2013 2:06:30 PM com.hazelcast.impl.LifecycleServiceImpl
-INFO: [192.168.1.104]:5701 [dev] Address[192.168.1.104]:5701 is STARTED
 \end{lstlisting}	
-As you can see the member is started and currently the cluster only has a single member. If you start another member on the same machine, on the console of the first member the following will be added to the output:
+As you can see, the member is started and currently the cluster has a single member. If you start another member on the same machine, on the console of the first member the following will be added to the output:
 \begin{lstlisting}
 Members [2] {
 	Member [192.168.1.104]:5701 this
@@ -91,14 +84,12 @@ If you don't see members joining, then it is likely because multicast is not ava
 
 If you want to use multicast for local development and it isn't working, you can try the following unicast configuration:
 \begin{lstlisting}[language=xml]
-<hazelcast>
-    <network>
-        <join>
-            <multicast enabled="false"/>
-            <tcp-ip enabled="true"/>
-        </join>
-    </network>
-</hazelcast>
+<network>
+    <join>
+        <multicast enabled="false"/>
+        <tcp-ip enabled="true"/>
+    </join>
+</network>
 \end{lstlisting}
 
 \subsection{TCP/IP cluster}
@@ -106,16 +97,14 @@ In the previous section we made use of multicast, but this is not always an opti
 
 Underneath is an example of a TCP/IP cluster configuration where such a well known member with IP '192.168.1.104':
 \begin{lstlisting}[language=xml]
-<hazelcast>
-    <network>
-        <join>
-            <multicast enabled="false"/>
-            <tcp-ip enabled="true">
-                <member>192.168.1.104</member> 
-            </tcp-ip>
-        </join>
-    </network>
-</hazelcast>
+<network>
+    <join>
+        <multicast enabled="false"/>
+        <tcp-ip enabled="true">
+            <member>192.168.1.104</member> 
+        </tcp-ip>
+    </join>
+</network>
 \end{lstlisting}
 Multiple members can be configured using a comma or semicolon separated list, or multiple '<member>' entries. A range of IP's can be defined using syntax '192.168.1.100-200'. If no port is provided, Hazelcast will automatically try port 5701..5703 [todo: starts from the configured port]. If depending on IP addresses is not desirable, it also is possible to provide the hostname. Instead of using multiple '<member>' you can also use '<members>', but it doesn't change the meaning of the configuration. 
 
@@ -130,17 +119,15 @@ Apart from multicast and the tcp/ip-cluster join mechanisms, there a third mecha
 
 So lets start with a very simple setup:
 \begin{lstlisting}[language=xml]
-<hazelcast>
-    <network>
-       <join>
-           <multicast enabled="false"/>
-           <aws enabled="true">
-               <access-key>my-access-key</access-key>
-               <secret-key>my-secret-key</secret-key>
-           </aws>
-       </join>
-    </network>
-</hazelcast>
+<network>
+    <join>
+        <multicast enabled="false"/>
+        <aws enabled="true">
+            <access-key>my-access-key</access-key>
+            <secret-key>my-secret-key</secret-key>
+        </aws>
+    </join>
+</network>
 \end{lstlisting}
 And 'my-access-key' and 'my-secret-key' need to be replaced with your access key and secret key. Make sure that the started machines have a security group where the correct ports are opened (see firewall).
 
@@ -160,15 +147,13 @@ Most server machines can have multiple network interfaces and by default will bi
 You can also specify which network interfaces that Hazelcast should use. Servers mostly have more than one network interface so you may want to list the valid IPs. Range characters ('*' and '-') can be used for simplicity. So 10.3.10.*, for instance, refers to IPs between 10.3.10.0 and 10.3.10.255. Interface 10.3.10.4-18 refers to IPs between 10.3.10.4 and 10.3.10.18 (4 and 18 included). If network interface configuration is enabled (disabled by default) and if Hazelcast cannot find an matching interface, then it will print a message on console and won't start on that member.
 
 \begin{lstlisting}[language=xml]
-<hazelcast>
-    <network>
-        <interfaces enabled="true">
-            <interface>10.3.16.*</interface> 
-            <interface>10.3.10.4-18</interface> 
-            <interface>192.168.1.3</interface>         
-        </interfaces>    
-    </network>
-</hazelcast>
+<network>
+    <interfaces enabled="true">
+        <interface>10.3.16.*</interface> 
+        <interface>10.3.10.4-18</interface> 
+        <interface>192.168.1.3</interface>         
+    </interfaces>    
+</network>
 \end{lstlisting}
 
 [todo: when there are multiple interfaces, which is selected by default?]
@@ -216,18 +201,16 @@ In a production environment often you want to prevent that the communication bet
 
 The basic functionality is provided by 'com.hazelcast.nio.ssl.SSLContextFactory' interface and configurable through the the SSL section in network configuration. Luckily Hazelcast provides a default implementation called the 'com.hazelcast.nio.ssl.BasicSSLContextFactory' which we are going to use for the example:
 \begin{lstlisting}[language=xml]
-<hazelcast>
-    <network>
-        <join><multicast enabled="true"/></join>
-        <ssl enabled="true">
-            <factory-class-name>com.hazelcast.nio.ssl.BasicSSLContextFactory</factory-class-name>
+<network>
+    <join><multicast enabled="true"/></join>
+    <ssl enabled="true">
+        <factory-class-name>com.hazelcast.nio.ssl.BasicSSLContextFactory</factory-class-name>
             <properties>
                 <property name="keyStore">keyStore.jks</property>
                 <property name="keyStorePassword">password</property>
             </properties>
-        </ssl>
-    </network>
-</hazelcast>
+    </ssl>
+</network>
 \end{lstlisting}
 The 'keyStore' is the path to the keyStore. [todo: is it possible to provide a classpath reference so it can be included in the jar, and is this a desirable practice?] and the 'keyStorePassword' is the password of the keystore. In the example code you can find an already created keystore and also the documentation to create one yourself.
 
@@ -254,17 +237,15 @@ SSL and symmetric encryption solutions will roughly have the same CPU and networ
 
 The demonstrate the encryption, lets have a look at the following configuration:
 \begin{lstlisting}[language=xml]
-<hazelcast>
-    <network>
-        <join><multicast enabled="true"/></join>
-        <symmetric-encryption enabled="true">
-            <algorithm>PBEWithMD5AndDES</algorithm>
-            <salt>somesalt</salt>
-            <password>somepass</password>
-            <iteration-count>19</iteration-count>
-        </symmetric-encryption>
-    </network>
-</hazelcast>
+<network>
+    <join><multicast enabled="true"/></join>
+    <symmetric-encryption enabled="true">
+        <algorithm>PBEWithMD5AndDES</algorithm>
+        <salt>somesalt</salt>
+        <password>somepass</password>
+        <iteration-count>19</iteration-count>
+    </symmetric-encryption>
+</network>
 \end{lstlisting}
 When we start 2 members using this configuration, we'll see that the symmetric encryption is activated:
 \begin{lstlisting}
@@ -281,14 +262,12 @@ When a Hazelcast member connects to another Hazelcast member, it binds to server
 
 Luckily Hazelcast is able to control the outbound ports. For example if we want to allow the port range 30000-31000, it can be configured like this:
 \begin{lstlisting}[language=xml]
-<hazelcast>
-    <network>
-        <join><multicast enabled="true"/></join>
-        <outbound-ports>
-            <ports>30000-31000</ports>
-        </outbound-ports>
-    </network>
-</hazelcast
+<network>
+    <join><multicast enabled="true"/></join>
+    <outbound-ports>
+        <ports>30000-31000</ports>
+    </outbound-ports>
+</network>
 \end{lstlisting}
 To demonstrate the outbound ports configuration, start 2 Hazelcast members with this configuration and when the members are fully started, execute 'sudo lsof -i | grep java'. Below you can see the cleaned output of the command:
 \begin{lstlisting}
