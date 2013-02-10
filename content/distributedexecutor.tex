@@ -1,11 +1,7 @@
 \chapter{Distributed Executor Service}
 Java 5 was perhaps the most fundamental upgrade since Java was released. On a language level we got generics, static imports, enumerations, varargs, enhanced for loop and annotations. Although less known, Java 5 also got fundamental fixes for the Java Memory Model (JSR-133) and we got a whole new concurrency library (JSR-166) found in java.util.concurrent.
 
-[todo: recheck default poolsizes.]
-
-This library contains a lot of goodies; some parts you probably don't use on a regular based, but other parts you perhaps do. One of the features that was added is the java.util.concurrent.Executor. The idea is that you wrap functionality in a Runnable if you don't need to return a value, or a in a Callable if you need to return a value, and it submitting it to the Executor. In case of the ThreadPoolExecutor, these tasks are stored in a work queue and there is a pool of worker threads that take work from this queue to process it.
-
-A very basic example of the executor:
+This library contains a lot of goodies; some parts you probably don't use on a regular based, but other parts you perhaps do. One of the features that was added is the java.util.concurrent.Executor. The idea is that you wrap functionality in a Runnable if you don't need to return a value, or a in a Callable if you need to return a value, and it submitting it to the Executor. A very basic example of the executor:
 \begin{lstlisting}[language=java]
 class EchoService{
    private final ExecutorService = Executors.newSingleThreadExecutor();
@@ -16,9 +12,11 @@ class EchoService{
    }
 }
 \end{lstlisting}
-So while a worker thread is processing the task, the thread that submitted the task is free to work asynchronously. There is virtually no limit in what you can do in a task; complex database operations, intensive cpu or IO operations, render images etc. The problem in a distributed system however is that the default implementation of the Executor, the ThreadPoolExecutor, is designed to run within a single JVM. In a distributed system you want that a task submitted in one JVM, can be processed in another. 
+So while a worker thread is processing the task, the thread that submitted the task is free to work asynchronously. There is virtually no limit in what you can do in a task; complex database operations, intensive cpu or IO operations, render images etc. 
 
-Luckily Hazelcast makes this possible by providing an ExecutorService implementation that is designed to be used in a distributed environment so that tasks can be send from one JVM to another. Lets start with a very simple example of ExecutorService in Hazelcast. We begin with a task that will do some waiting and echo a message:
+The problem in a distributed system however is that the default implementation of the Executor, the ThreadPoolExecutor, is designed to run within a single JVM. In a distributed system you want that a task submitted in one JVM, can be processed in another. Luckily Hazelcast provides the IExecutorService, that extends the java.util.concurrent.ExecutorService, which is designed to be used in a distributed environment. The IExecutorService is a new feature of Hazelcast 3.x.
+
+Lets start with a very simple example of IExecutorService where we execute a task that does do some waiting and echoes a message:
 \begin{lstlisting}[language=java]
 public class EchoTask implements Runnable, Serializable {
     private final String msg;
@@ -32,9 +30,7 @@ public class EchoTask implements Runnable, Serializable {
     }
 }
 \end{lstlisting}
-This EchoTask implements the Runnable interface so that it can be submitted to the Executor. But it also implements the Serializable interface because it could be that it is send to a different JVM to be processed. Because of serialization you can't pass complex task dependencies like a database connection. The solution to this problem is adding enough 'context' so that when a task is executed, it is able to reconstruct its execution context. A simple singleton or a more complex one where a lookup based on the HazelcastInstance (see HazelcastInstanceAware) could be a solution.
-
-[todo: explain the IExecutorService]
+This EchoTask implements the Runnable interface so that it can be submitted to the Executor. It also implements the Serializable interface because it could be that it is send to a different JVM to be processed. Instead of making the class Serializable, you could also rely on the Portable functionality; see [chapter serialization]. 
 
 The next part is the MasterMember that is responsible for submitting (and executing) 1000 echo messages:
 \begin{lstlisting}[language=java]
@@ -51,7 +47,7 @@ public class MasterMember {
     }
 }
 \end{lstlisting}
-First we retrieve the executor from the HazelcastInstance and then we slowly submit 1000 echo tasks. By default Hazelcast configures the executor with 40 threads in the pool. For our example we only need 1, so we configure it in the hazelcast.xml file like this:
+First we retrieve the executor from the HazelcastInstance and then we slowly submit 1000 echo tasks. On difference with Hazelcast 2.x and 3.x is that the HazelcastInstance.getExecutorService() method has disappeared; you now always need to provide a name instead of relying on the default one. By default Hazelcast configures the executor with 8 threads in the pool. For our example we only need 1, so we configure it in the hazelcast.xml file like this:
 \begin{lstlisting}[language=xml]
 <executor-service name="executor">
     <max-pool-size>1</max-pool-size>
@@ -74,7 +70,7 @@ Producing echo task: 10
 echo:2
 ...
 \end{lstlisting}
-As you can see the production of messages is 1/second and the processing is 0.2/second (the echo task sleeps 5 seconds), this means that we produce work 5 times faster than we are able to process it. Apart from making the EchoTask faster, there are a 2 directions to scale:
+As you can see the production of messages is 1/second and the processing is 0.2/second (the echo task sleeps 5 seconds), this means that we produce work 5 times faster than we are able to process it. Apart from making the EchoTask faster, there are a 2 dimension for scaling:
 \begin{enumerate}
 \item scale up 
 \item scale out
@@ -88,9 +84,6 @@ When you scale up you need to look carefully at the JVM if it can handle the add
 
 Scaling up the ExecutorService in Hazelcast is very simple, just increment the maxPoolSize and corePoolSize. Since we know that 5 threads is going to give maximum performance, lets set them to 5.
 \begin{lstlisting}[language=xml]
-<network>
-    <join><multicast enabled="true"/></join>
-</network>
 <executor-service name="executor">
     <max-pool-size>5</max-pool-size>
     <core-pool-size>5</core-pool-size>
@@ -125,7 +118,7 @@ If you take a closer look at the previous hazelcast configuration, you see that 
 With this configuration the thread pool of the executor is configured with a minimum size of 1 and a maximum size of 5. You can also see that we configured the keep-alive-seconds; this is the number of seconds an idle thread is allowed to stay alive before it is destroyed. The default keep-alive-seconds is 300 (5 minutes), so if you are fine with that you don't need to configure it.
 
 \section{Scaling out}
-Scaling up was very simple since the cpu and memory have enough capacity. But often one or more of the resources will be the limiting factor. Of course we can always increase capacity, but there will be a point it will stop to be cost efficient since it expenses go up quicker than the capacity improvements.
+Scaling up was very simple since the cpu and memory have enough capacity. But often one or more of the resources will be the limiting factor. Of course we can always increase capacity, but there will be a point it will stop to be cost efficient since the expenses go up quicker than the capacity improvements.
 
 Scaling out, also called horizontal scaling, is orthogonal to scaling up; instead of increasing the capacity of the system by increasing the capacity of a single machine, we just add more machines. In our case we can safely start up multiple Hazelcast members on the same machine since processing the task doesn't consume resources (it just waits a bit). But in real systems you probably want to add more machines (physical or virtualized) to the cluster.
 
@@ -148,7 +141,7 @@ echo:35
 So in only a few lines of code, we are now able to scale out! If you want, you can start more slave members, but with tasks being created at 1 messages/second, adding more than 4 slave members (which make a total of 5 members running the executor) we have reached maximum performance. 
 
 \section{Executors and HazelcastInstanceAware}
-In a lot of cases when you execute a task, the task needs access to the HazelcastInstance to retrieve Hazelcast dependencies like an employeeMap. This can be by implementing HazelcastInstanceAware, e.g.
+In a lot of cases when you execute a task, the task needs access to the HazelcastInstance to retrieve Hazelcast dependencies like a map. This can be done by implementing HazelcastInstanceAware, e.g.
 
 \begin{lstlisting}[language=java]
 public class SomeTask implements
@@ -160,20 +153,22 @@ public class SomeTask implements
     public void run() {....}
 }
 \end{lstlisting}
-When this Task is processed (not when it is submitted), the Hazelcast executor checks if the task implements HazelcastInstanceAware. If so, it will inject the HazelcastInstance of the executor by calling the 'setHazelcastInstance' method. The hzInstance field can be transient since it will never be send over the line. 
+When this Task is processed (not when it is submitted), the Hazelcast executor checks if the task implements HazelcastInstanceAware. If so, it will inject the HazelcastInstance of the executor by calling the 'setHazelcastInstance' method. The hzInstance field needs be transient since it will never be send over the line. 
+
+[todo: getting access to other resources]
 
 \section{Routing}
-Till so far we didn't care about which member did the actual processing of the task; as long as a member picks it up. But in some cases you want to have control on which member is going to execute. Luckily the Hazelcast IExecutorService provides different ways to route messages:
+Till so far we didn't care about which member did the actual processing of the task; as long as a member picks it up. But in some cases you do want to have that control. Luckily the Hazelcast IExecutorService provides different ways to route messages:
 \begin{enumerate}
 \item any member. This is the default configuration.
 \item specific member
-\item the member hosting a specific partition
+\item the member hosting a specific key
 \item all or subset of the members.
 \end{enumerate}
-In the previous section we already covered routing to any member. In the following sections I'll explain the last 3 routing strategies. This is also where a big difference is visible between Hazelcast 2.x and 3, while 2.x relied on the DistributedTask, 3.x relies on explicit routing methods on the IExecutorService.
+In the previous section we already covered routing to any member. In the following sections I'll explain the last 3 routing strategies. This is also where a big difference is visible between Hazelcast 2.x and 3.x, while 2.x relied on the DistributedTask, 3.x relies on explicit routing methods on the IExecutorService.
 
 \subsection{Executing on a specific member}
-In some cases you want to execute a task on a specific member. As an example we are going to start some members. The master member is going to echo a message to each member (including itself). This is done by retrieving all members using the Cluster object and iterating over the cluster members. To each of the members we are going to send an echo message containing their own address. 
+In some cases you want to execute a task on a specific member. As an example we are going to send n echo message to each member in the cluster. This is done by retrieving all members using the Cluster object and iterating over the cluster members. To each of the members we are going to send an echo message containing their own address. 
 \begin{lstlisting}[language=java]
 public class MasterMember {
     public static void main(String[] args) {
@@ -274,22 +269,23 @@ public class SumTask implements
 \end{lstlisting}
 When this SumTask is called it retrieves the map and then it iterates over all local keys, sums the values and returns the result.
 
-The MasterMember will first create the map with some entries. Then it will create a MultiTask containing the SumTask and a set of all members. This MultiTask will be submitted to the executor where Hazelcast takes care of forking it to all members. After that the result are joined using the MultiTask.get operator which returns a Collection of Integers (the sum result for every member). And then all the integers in the set are added the result printed:
+The MasterMember will first create the map with some entries. Then it will submit the SumTask() to each member and the result will be a map of futures. And finally we'll join all the futures and sum the result and print it:
 \begin{lstlisting}[language=java]
 public class MasterMember {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        Map map = hzInstance.getMap("map");
+        Map<String,Integer> map = hzInstance.getMap("map");
         for (int k = 0; k < 5; k++)
-            map.put(UUID.randomUUID().toString(), null);
-        Set<Member> members = hzInstance.getCluster().getMembers();
-        MultiTask<Integer> task = new MultiTask<Integer>(new SumTask(), members);
-        hzInstance.getExecutorService("executor").execute(task);
-        Collection<Integer> results = task.get();
-        int x = 0; for (Integer i : results) x += i;
-        System.out.println("Result: " + x);
+            map.put(UUID.randomUUID().toString(), 1);
+        IExecutorService executor = hzInstance.getExecutorService("executor");
+        Map<Member,Future<Integer>> result = executor.submitToAllMembers (new SumTask());
+        int sum = 0;
+        for(Future<Integer> future: result.values())
+            sum+=future.get();
+        System.out.println("Result: " + sum);
     }
 }
+
 \end{lstlisting}
 When we start 1 slave and then a master member, we'll see something like this for the slave:
 \begin{lstlisting}
@@ -305,12 +301,12 @@ Calculating for key: 868b2f1e-e03d-4f1a-b5a8-47fb317f5a39
 Local Result: 2
 Result: 5
 \end{lstlisting}
-In this example we execute a task on all members, but if you only want to execute a task on a subset of members, you can apply some filtering on the members passed to the MultiTask.
+In this example we execute a task on all members, but if you only want to execute a task on a subset of members, you can call the submitToMembers method and pass the subset of members.
 
 [todo: send to all partitions]
 
 \section{Futures}
-The java Executor interface only exposes a single 'void execute(Runnable)' method that can be called to have a Runnable asynchronously executed. But in some cases you need to synchronize on results, e.g. when using a Callable or just want to wait till a runnable completes. And in some cases you want to cancel a task, e.g. when it runs too long. This can be done making use of the java.util.concurrent.Future in combination with one of the submit methods of the ExecutorService, which extends the Executor.
+The java Executor interface only exposes a single 'void execute(Runnable)' method that can be called to have a Runnable asynchronously executed. But in some cases you need to synchronize on results, e.g. when using a Callable or just want to wait till a runnable completes. And in some cases you want to cancel a task, e.g. when it runs too long. This can be done making use of the java.util.concurrent.Future in combination with one of the submit methods of the ExecutorService.
 
 To demonstrate the future, we are going to calculate a Fibonacci number by wrapping calculation in a callable and synchronizing on the result:
 \begin{lstlisting}[language=java]
@@ -337,9 +333,9 @@ The next step is submitting the task and using a Future to synchronize on result
 public class MasterMember {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        ExecutorService executorService = hzInstance.getExecutorService("executor");
+        ExecutorService executor = hzInstance.getExecutorService("executor");
         int n = Integer.parseInt(args[0]);
-        Future<Long> future = executorService.submit(new FibonacciCallable(n));
+        Future<Long> future = executor.submit(new FibonacciCallable(n));
         try {
             long result = future.get(10, TimeUnit.SECONDS);
             System.out.println("Result: "+result);
@@ -356,7 +352,7 @@ When we can run this application with 5 as argument, the output will be:
 \begin{lstlisting}
 Result: 5
 \end{lstlisting}
-But when you run this application with 500 as argument, it will take more than 10 seconds to complete and therefor the future.get will timeout. The output will be:
+But when you run this application with 500 as argument, it will probably take more than 10 seconds to complete and therefor the future.get will timeout. The output will be:
 \begin{lstlisting}
 A timeout happened, the future is cancelled
 FibonacciCallable is interrupted
@@ -372,16 +368,13 @@ public class MasterMember {
     public static void main(String[] args){
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         IExecutorService executor = hzInstance.getExecutorService("executor");
-        final FibonacciCallable fibonacciCallable = new FibonacciCallable(10);
         ExecutionCallback<Long> executionCallback = new ExecutionCallback<Long>() {
             public void onFailure(Throwable t) {
-                t.printStackTrace();
-            }
+                t.printStackTrace();}
             public void onResponse(Long response) {
-                System.out.println("Result: " + response);
-            }
+                System.out.println("Result: " + response);}
         };
-        executor.submit(fibonacciCallable, executionCallback);
+        executor.submit(new FibonacciCallable(10), executionCallback);
         System.out.println("Fibonacci task submitted");
     }
 }
@@ -400,16 +393,15 @@ In this chapter we explored the distributed execution of tasks using the Hazelca
 
 \emph{Executors doesn't log exceptions:} when a task fails with an exception (or an error), this exception will not be logged by Hazelcast. This is in line with the ThreadPoolExecutorService from Java and it can be really annoying when you are spending a lot of time on why something doesn't work. It can easily be fixed; either add a try/catch in your runnable and log the exception. Or wrap the runnable/callable in a proxy that does the logging; the last option will keep your code a bit cleaner. 
 
-\emph{Lite Members also execute tasks:} when you create a lite member, this member will also execute tasks and this can be really unexpected. When a task is executed on a lite member, it can access all the Hazelcast data structures without a problem since they are accessible on all members. If this really is ann issue, a native client could be a solution; see chapter 'Clients'.
+\emph{Lite Members also execute tasks:} when you create a lite member, this member will also execute tasks and this can be really unexpected. When a task is executed on a lite member, it can access all the Hazelcast data structures without a problem since they are accessible on all members. If this really is ann issue, a native client could be a solution; see chapter 'Clients'. [todo: with lite members gone, this is no issue]
 
 \emph{No work queue capacity control:} with the normal ThreadPoolExecutor you can limit the amount of unprocessed work on the work queue and you also can control what happens with a surplus of work. With the Hazelcast distributed Executor there is no control. So it could be that you swamp a system with unprocessed work and this can lead to an java.lang.OutOfMemoryError.
 
 \emph{No high availability for the workqueue}. Each member will create one or more local ThreadPoolExecutors with ordinary workqueues that do the real work. When a task is submitted, it will be put on the workqueue of that ThreadPoolExecutor and will not be backed up by Hazelcast. If something would happen with that member, all unprocessed work will be lost. A project that might be interesting to investigate is: https://github.com/jclawson/hazelcast-work.
 
-\emph{Routing works on members and not on partitions}. If a member M1 would be owner of some key: K and a task with uses K is partition key, then Hazelcast finds member M1 based on PartitionService.getPartition(K).getOwner() and the task routed to M1 and  stored in the local ThreadPoolExecutor of M1. But if before the task is executed, a repartitioning happens, and member M2 would become owner of key K, then the task is still executed on M1. For normal map operations this is not an issue, since the requests will be routed to the correct machine. But if this would happen to the SumTask for example, the result can be a bogus value since map entries can be skipped or duplicates found. 
+\emph{Routing works on members and not on partitions}. If a member M1 would be owner of some key: K and a task with uses K is partition key, then Hazelcast finds member M1 based on PartitionService.getPartition(K).getOwner() and the task routed to M1 and  stored in the local ThreadPoolExecutor of M1. But if before the task is executed, a repartitioning happens, and member M2 would become owner of key K, then the task is still executed on M1. For normal map operations this is not an issue, since the requests will be routed to the correct machine. But if this would happen to the SumTask for example, the result can be a bogus value since map entries can be skipped or duplicates found. [todo: is this still true?]
 
-\emph{Accessing the Default Executor:} Each HazelcastInstance has a default ExecutorService that can be accessed with the method 'HazelcastInstance.getExecutorService()'
-
-\emph{Destroying Executors}: todo: executors can't be destroyed by calling shutdown because it only disables the local proxy, and the ExecutorService returned by Hazelcast doesn't implement the Instance interface, so no destroy can be called.  
+\emph{Destroying Executors}: todo: executors can't be destroyed by calling shutdown because it only disables the local proxy, and the ExecutorService returned by Hazelcast doesn't implement the Instance interface, so no destroy can be called.  [todo]
 
 [TODO: Load balancer]
+[todo: hazelcast is not relying on threadpoolexecutor]

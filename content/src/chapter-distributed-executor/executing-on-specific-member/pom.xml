@@ -3,11 +3,11 @@
     <modelVersion>4.0.0</modelVersion>
     <packaging>jar</packaging>
 
-    <artifactId>routing-to-specific-member</artifactId>
-    <name>Chapter Distributed Executor - Routing to specific member</name>
+    <artifactId>executing-on-specific-member</artifactId>
+    <name>Chapter Distributed Executor - Executing on specific member</name>
 
     <description>
-        Chapter Distributed Executor - Routing to specific member
+        Chapter Distributed Executor - Executing on specific member
     </description>
 
     <parent>

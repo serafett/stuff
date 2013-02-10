@@ -3,11 +3,11 @@
     <modelVersion>4.0.0</modelVersion>
     <packaging>jar</packaging>
 
-    <artifactId>routing-to-subset-of-members</artifactId>
-    <name>Chapter Distributed Executor - Routing to subset of members</name>
+    <artifactId>executing-on-all-members</artifactId>
+    <name>Chapter Distributed Executor - Executing on all members</name>
 
     <description>
-        Chapter Distributed Executor - Routing to subset of members
+        Chapter Distributed Executor - Executing on all members
     </description>
 
     <parent>

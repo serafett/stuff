@@ -8,9 +8,9 @@ import java.util.concurrent.TimeoutException;
 public class MasterMember {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        ExecutorService executorService = hzInstance.getExecutorService("executor");
+        ExecutorService executor = hzInstance.getExecutorService("executor");
         int n = Integer.parseInt(args[0]);
-        Future<Long> future = executorService.submit(new FibonacciCallable(n));
+        Future<Long> future = executor.submit(new FibonacciCallable(n));
         try {
             long result = future.get(10, TimeUnit.SECONDS);
             System.out.println("Result: "+result);

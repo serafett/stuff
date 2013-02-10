@@ -1,22 +1,19 @@
-import com.hazelcast.core.*;
+import com.hazelcast.core.ExecutionCallback;
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.core.IExecutorService;
+
 public class MasterMember {
     public static void main(String[] args){
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         IExecutorService executor = hzInstance.getExecutorService("executor");
-
-        final FibonacciCallable fibonacciCallable = new FibonacciCallable(10);
         ExecutionCallback<Long> executionCallback = new ExecutionCallback<Long>() {
-            @Override
             public void onFailure(Throwable t) {
-                t.printStackTrace();
-            }
-
-            @Override
+                t.printStackTrace();}
             public void onResponse(Long response) {
-                System.out.println("Result: " + response);
-            }
+                System.out.println("Result: " + response);}
         };
-        executor.submit(fibonacciCallable, executionCallback);
+        executor.submit(new FibonacciCallable(10), executionCallback);
         System.out.println("Fibonacci task submitted");
     }
 }

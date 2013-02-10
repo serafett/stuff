@@ -18,14 +18,14 @@
     </parent>
 
     <modules>
-        <module>basicexecutor</module>
+        <module>basic-executor</module>
         <module>scale-up</module>
         <module>scale-out</module>
+        <module>executing-on-specific-member</module>
+        <module>executing-on-key-owner</module>
+        <module>executing-on-all-members</module>
         <module>futures</module>
         <module>execution-callback</module>
-        <module>routing-to-specific-member</module>
-        <module>routing-to-specific-partition</module>
-        <module>routing-to-subset-of-members</module>
     </modules>
 
     <!-- todo: remove dependency as soon as Hazelcast 3 is released -->
