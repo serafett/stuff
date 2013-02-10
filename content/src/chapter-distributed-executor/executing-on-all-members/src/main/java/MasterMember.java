@@ -9,7 +9,7 @@ public class MasterMember {
         Map<String,Integer> map = hzInstance.getMap("map");
         for (int k = 0; k < 5; k++)
             map.put(UUID.randomUUID().toString(), 1);
-       IExecutorService executor = hzInstance.getExecutorService("executor");
+        IExecutorService executor = hzInstance.getExecutorService("executor");
         Map<Member,Future<Integer>> result = executor.submitToAllMembers (new SumTask());
         int sum = 0;
         for(Future<Integer> future: result.values())

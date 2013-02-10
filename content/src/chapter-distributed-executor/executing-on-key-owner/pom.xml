@@ -3,11 +3,11 @@
     <modelVersion>4.0.0</modelVersion>
     <packaging>jar</packaging>
 
-    <artifactId>routing-to-specific-partition</artifactId>
-    <name>Chapter Distributed Executor - Routing to specific partition</name>
+    <artifactId>routing-to-key-owner</artifactId>
+    <name>Chapter Distributed Executor - Routing to key owner</name>
 
     <description>
-        Chapter Distributed Executor - Routing to specific partition
+        Chapter Distributed Executor - Routing to key owner
     </description>
 
     <parent>
