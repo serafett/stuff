@@ -8,6 +8,7 @@ public class SumTask implements
         this.hzInstance = hzInstance;
     }
     public Integer call() throws Exception {
+        System.out.println("hzInstance: "+hzInstance);
         IMap<String, Integer> map = hzInstance.getMap("map");
         int result = 0;
         for (String key : map.localKeySet()) {
