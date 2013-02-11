@@ -10,8 +10,6 @@
     </network>
 
     <executor-service name="executor">
-        <core-pool-size>1</core-pool-size>
         <max-pool-size>1</max-pool-size>
-        <keep-alive-seconds>10</keep-alive-seconds>
     </executor-service>
 </hazelcast>

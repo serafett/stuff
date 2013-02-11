@@ -114,7 +114,14 @@ Adding fields to a class is simple, removing fields can lead to problem if a new
 Luckily Hazelcast provides access to the metadata of the to deserialize object through the PortableReader; the  version, available fields, the type of the fields etc can be retrieved. So you have full control on how the deserialization should take place. 
 
 \section{TypeSerializers}
-[todo: this section needs to be written; waiting for info from Mehmet]
+
+\begin{lstlisting}
+[todo: text is copy paste]
+Purpose is to give users ability of providing their own/custom serializers. Hazelcast has DataSerializable and Portable serializers, you already know them. Additionally there are pre-built primitive (int, long, byte, double ..), primitive array (byte[], char[], int[] ...), string, date, bigdecimal, biginteger serializers. They cannot be overridden. For other classes Hazelcast uses/requires standard java serialization (Serializable & Externalizable). 
+
+By 3.0, Users can register a TypeSerializer for a specific class, superclass or interface using TypeSerializerConfig. For example user can register its own serializer (or a json serializer or kryo etc) for his own base interface. Then all user classes implementing that interface Hazelcast will use that TypeSerializer.
+\end{lstlisting}
+
 \begin{lstlisting}[language=xml]
 <serialization>
     <portable-factory-class>PortableFactoryImpl</portable-factory-class>
@@ -122,6 +129,10 @@ Luckily Hazelcast provides access to the metadata of the to deserialize object t
     </serializers>
 </serialization>
 \end{lstlisting}
+
+\section{GlobalSerializerConfig}
+[todo: text is copy paste]
+Also by providing a GlobalSerializerConfig (which also a TypeSerializer), user can override default/global serialization (e.g standard java serialization). If a global serializer is registered then Hazelcast will call that serializer if it cannot find a registered specific serializer for user class. [todo: not configurable from the XML?]
 
 \section{Externalizable vs Portable}
 The java.io.Externalizable can also be used for serialization/deserialization since it extends Serializable. So when Hazelcast defaults to the standard Java serialization mechanism, the Externalizable mechanism works without a problem. Although Externalizable provides more control compared to Serializable, it still isn't as flexible and performant as the Portable.

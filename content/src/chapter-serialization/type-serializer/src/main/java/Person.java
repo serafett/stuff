@@ -19,6 +19,7 @@ public class Person implements Portable {
         System.out.println("Serialize");
         writer.writeUTF("name", name);
         writer.writeInt("age", age);
+        writer.
     }
     @Override
     public void readPortable(PortableReader reader) throws IOException {

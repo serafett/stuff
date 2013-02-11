@@ -5,8 +5,7 @@ public class SemaphoreMember {
         ISemaphore semaphore = hzInstance.getSemaphore("semaphore");
         AtomicNumber resource = hzInstance.getAtomicNumber("resource");
         for(int k=0;k<1000;k++){
-            System.out.println("At iteration: "+k);
-            System.out.println("Active Threads: " + resource.get());
+            System.out.println("At iteration: "+k +", Active Threads: " + resource.get());
             semaphore.acquire();
             try{
                 resource.incrementAndGet();
