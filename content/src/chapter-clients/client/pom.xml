@@ -3,11 +3,11 @@
     <modelVersion>4.0.0</modelVersion>
     <packaging>jar</packaging>
 
-    <artifactId>native-client</artifactId>
-    <name>Chapter Clients - Native Client</name>
+    <artifactId>client</artifactId>
+    <name>Chapter Clients - Client</name>
 
     <description>
-        Chapter Clients - Native Client
+        Chapter Clients - Client
     </description>
 
     <parent>
@@ -21,7 +21,9 @@
         <dependency>
             <groupId>com.hazelcast</groupId>
             <artifactId>hazelcast-client</artifactId>
-            <version>${hazelcast.version}</version>
+            <!-- ${hazelcast.version}      -->
+            <!-- TODO ONCE HAZELCAST 3 IS RELEASED.... -->
+            <version>3.0-SNAPSHOT</version>
         </dependency>
     </dependencies>
 

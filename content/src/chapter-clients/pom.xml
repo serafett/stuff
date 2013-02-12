@@ -18,7 +18,8 @@
     </parent>
 
     <modules>
-        <module>native-client</module>
+        <module>client</module>
+        <module>server</module>
     </modules>
 
     <!-- todo: remove dependency as soon as Hazelcast 3 is released -->
