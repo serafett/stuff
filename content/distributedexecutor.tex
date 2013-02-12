@@ -350,15 +350,15 @@ In this chapter we explored the distributed execution of tasks using the Hazelca
 
 \emph{Executors doesn't log exceptions:} when a task fails with an exception (or an error), this exception will not be logged by Hazelcast. This is in line with the ThreadPoolExecutorService from Java and it can be really annoying when you are spending a lot of time on why something doesn't work. It can easily be fixed; either add a try/catch in your runnable and log the exception. Or wrap the runnable/callable in a proxy that does the logging; the last option will keep your code a bit cleaner. 
 
-\emph{Lite Members also execute tasks:} when you create a lite member, this member will also execute tasks and this can be really unexpected. When a task is executed on a lite member, it can access all the Hazelcast data structures without a problem since they are accessible on all members. If this really is ann issue, a native client could be a solution; see chapter 'Clients'. [todo: with lite members gone, this is no issue]
-
 \emph{No work queue capacity control:} with the normal ThreadPoolExecutor you can limit the amount of unprocessed work on the work queue and you also can control what happens with a surplus of work. With the Hazelcast distributed Executor there is no control. So it could be that you swamp a system with unprocessed work and this can lead to an java.lang.OutOfMemoryError.
 
 \emph{No high availability for the workqueue}. Each member will create one or more local ThreadPoolExecutors with ordinary workqueues that do the real work. When a task is submitted, it will be put on the workqueue of that ThreadPoolExecutor and will not be backed up by Hazelcast. If something would happen with that member, all unprocessed work will be lost. A project that might be interesting to investigate is: https://github.com/jclawson/hazelcast-work.
 
 \emph{Routing works on members and not on partitions}. If a member M1 would be owner of some key: K and a task with uses K is partition key, then Hazelcast finds member M1 based on PartitionService.getPartition(K).getOwner() and the task routed to M1 and  stored in the local ThreadPoolExecutor of M1. But if before the task is executed, a repartitioning happens, and member M2 would become owner of key K, then the task is still executed on M1. For normal map operations this is not an issue, since the requests will be routed to the correct machine. But if this would happen to the SumTask for example, the result can be a bogus value since map entries can be skipped or duplicates found. [todo: is this still true?]
 
+\emph{Load Balancing} is currently not available for tasks that can run on any member. In the future there probably is going to be a customizable load balancer interface where for example load balancing could be done on the number of unprocessed tasks, cpu load, memory load etc.
+
 \emph{Destroying Executors}: todo: executors can't be destroyed by calling shutdown because it only disables the local proxy, and the ExecutorService returned by Hazelcast doesn't implement the Instance interface, so no destroy can be called.  [todo]
 
-[TODO: Load balancer]
+
 [todo: hazelcast is not relying on threadpoolexecutor]

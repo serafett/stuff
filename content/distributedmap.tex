@@ -22,9 +22,7 @@ public class FillMapMember {
         Map<String, String> employees = hzInstance.getMap("employees");
         employees.put("1", "Tokyo");
         employees.put("2", "Paris");
-        employees.put("3", "New York");
-    }
-}
+        employees.put("3", "New York");}}
 \end{lstlisting}
 As you can see the Map is retrieved using the hzInstance.getMap(mapName) and then some entries are stored in that map. Reading the entries can be done like this:
 \begin{lstlisting}[language=java]
@@ -33,19 +31,17 @@ public class PrintAllMember {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         Map<String, String> employees = hzInstance.getMap("employees");
         for(Map.Entry<String,String> entry : employees.entrySet())
-            System.out.println(entry.getKey()+" "+entry.getValue());
-    }
-}
+            System.out.println(entry.getKey()+" "+entry.getValue());}}
 \end{lstlisting}
 If the FillMapMember is runs before the PrintAllMember, we'll get output like this:
 \begin{lstlisting}
+3 New York
 1 Tokyo
 2 Paris
-3 New York
 \end{lstlisting}
 As you can see, the map updates from the FillMapMember are visible in the PrintAllMember.
 
-Internally Hazelcast will serialize the key/values (see chapter Custom Serialization) to byte arrays and store this in the underlying storage mechanism. This means changes made to a key/value after they are stored in the map, will not reflect on the stored state. Therefor the following idiom is broken:
+Internally Hazelcast will serialize the key/values (see chapter Serialization) to byte arrays and store this in the underlying storage mechanism. This means changes made to a key/value after they are stored in the map, will not reflect on the stored state. Therefor the following idiom is broken:
 \begin{lstlisting}[language=java]
 Employee e  = employees.get(123);
 e.setFired(true);
