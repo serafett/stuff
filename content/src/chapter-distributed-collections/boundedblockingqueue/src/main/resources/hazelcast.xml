@@ -10,7 +10,7 @@
     </network>
 
     <queue name="queue">
-        <max-size-per-jvm>10</max-size-per-jvm>
+        <max-size>10</max-size>
     </queue>
 
 </hazelcast>

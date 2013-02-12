@@ -6,7 +6,7 @@ Till so far all our examples have relied on standard Java serialization by letti
 \end{enumerate}
 That is why Hazelcast has an additional serialization mechanism based on the 'com.hazelcast.nio.serialization.Portable interface'. The Portable functionality replaces the DataSerializable that was part of Hazelcast 2, because the former performs better, supports versioning and is language/platform independent.
 
-Serialization in Hazelcast works like this: when an object is placed in a Hazelcast data-structure, e.g. in a map or queue, Hazelcast first checks if it is an instance of String, Long, Integer, byte[], ByteBuffer, Date etc, since serialization for these types can be optimized. If that fails, it checks if it is an instance of DataSerializable and if that fails it will fall back on Java serialization or fails because the class isn't Serializable. [todo: this text needs to be updated for the Portable]
+Serialization in Hazelcast works like this: when an object is placed in a Hazelcast data-structure, e.g. in a map or queue, Hazelcast first checks if it is an instance of String, Long, Integer, byte[], ByteBuffer, Date etc, since serialization for these types can be optimized. If that fails, it checks if it is an instance of Portable and if that fails it will fall back on Java serialization or fails because the class isn't Serializable. [todo: this text needs to be updated for the Portable]
 
 To demonstrate how Portable mechanism works, lets start with a simple Portable Person class: 
 \begin{lstlisting}[language=java]
@@ -14,23 +14,17 @@ public class Person implements Portable {
     private String name;
     Person(){}
     public Person(String name) {
-        this.name = name;
-    }
+        this.name = name;}
     public int getClassId() {
-        return PortableFactoryImpl.PERSON_CLASS_ID;
-    }
+        return PortableFactoryImpl.PERSON_CLASS_ID;}
     public void writePortable(PortableWriter writer) throws IOException {
         System.out.println("Serialize");
-        writer.writeUTF("name", name);
-    }
+        writer.writeUTF("name", name);}
     public void readPortable(PortableReader reader) throws IOException {
         System.out.println("Deserialize");
-        this.name = reader.readUTF("name");
-    }
+        this.name = reader.readUTF("name");}
     public String toString() {
-        return String.format("Person(name=%s)",name);
-    }
-}
+        return String.format("Person(name=%s)",name);}}
 \end{lstlisting}
 As you can see the Portable interface is implemented. When a Person is serialized, the writePortable method is called and all fields are written to the PortableWriter. As you can see, the write of the name include the field name, making it possible to read particular fields without being forced to read all. When an object is deserialized, the readPortable method is called and the name field is read from the reader. Unlike the DataSerializable, the order in which fields are being read/written isn't important since reading/writing is based  on name. The last interesting method is the 'getClassId' which returns the identifier of that class; each Portable class needs to have a unique class id (a non zero value).
 
@@ -67,11 +61,9 @@ Serialize
 Deserialize
 Person(name=Peter)
 \end{lstlisting}
-As you can see the Person is serialized when it is stored in the map and it is deserialized when it is read. You might ask why Serialize is called twice. This is because for every Portable class that is serialized for the first time, Hazelcast generates a new class that supports the serialization/deserialization process. 
+As you can see the Person is serialized when it is stored in the map and it is deserialized when it is read. You might ask why Serialize is called twice. This is because for every Portable class that is serialized, for the first time, Hazelcast generates a new class that supports the serialization/deserialization process. 
 
-The names of the fields are case sensitive and need to be valid java identifiers and therefor should not contains '.' or '-' for example. This is because the 
-
-[todo: are field syntax (so naming)]
+The names of the fields are case sensitive and need to be valid java identifiers and therefor should not contains '.' or '-' for example. 
 
 \section{Object traversal}
 If a Portable, has a Portable field, the write and read operations need to be forwarded to that object. For example if we would add a DataSerializable address field to Person, the write and read operations of Person would look like this:
@@ -88,12 +80,11 @@ If a Portable, has a Portable field, the write and read operations need to be fo
 [todo: dealing with null, currently a NPE is thrown]
 
 \section{Serialize DistributedObject}
-Serialization of the DistributedObject is not provided out of the box, so you can't put for example a ISemaphore on an IQueue on one machine, and take it in another. But there are solutions to this problem:
-\begin{enumerate}
-\item pass the id of the DistributedObject, perhaps in combination with the type of the DistributedObject, and when deserializing look up the object in the HazelcastInstance; e.g. in case of a IQueue you can call HazelcastInstance.getQueue(id). If you are serializing SPI data-structures, you can make use of the Hazelcast.getDistributedObject method.
-\item if you are serializing your own DistributedObject, let it implement the Portable interface and on serialization you just write id of the DistributedObject, and on deserialization you read the id and retrieve the proxy using Hazelcast.getDistributedObject(id). [todo: currently this doesn't work; even when implement HazelcastInstanceAware]
-\item custom TypeSerializer: todo; is this possible?
-\end{enumerate}
+Serialization of the DistributedObject is not provided out of the box, so you can't put for example an ISemaphore on an IQueue on one machine, and take it in another. But there are solutions to this problem.
+
+One solution is to pass the id of the DistributedObject, perhaps in combination with the type of the DistributedObject, and when deserializing look up the object in the HazelcastInstance; e.g. in case of a IQueue you can call HazelcastInstance.getQueue(id) or the Hazelcast.getDistributedObject.
+
+If you are deserializing your own Portable Distributed Object object and it receives an id that needs to be looked up; the class can implement the HazelcastInstanceAware interface, but it will be called after the deserialization. In that case it is best to store the id when deserializing and call the getDistributedObject when the setHazelcastInstance method is called.
 
 \section{Cycles}
 One thing to look out for however are cycles between objects because it can lead to a stack overflow. Standard Java serialization protects against this, but since manual traversal is done in Portable objects, out of the box there is no protection. If this is an issue, you could store a map in a ThreadLocal that can be used to check for cycles.

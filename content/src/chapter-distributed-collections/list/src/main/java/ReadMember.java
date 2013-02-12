@@ -1,9 +1,11 @@
-import com.hazelcast.core.*;
-import java.util.List;
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.core.IList;
+
 public class ReadMember {
     public static void main(String[] args) {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        List<String> list = hzInstance.getList("list");
+        IList<String> list = hzInstance.getList("list");
         for (String s : list)
             System.out.println(s);
         System.out.println("Reading finished!");
