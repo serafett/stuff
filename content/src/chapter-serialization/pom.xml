@@ -17,15 +17,6 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <!-- todo: remove dependency as soon as Hazelcast 3 is released -->
-    <dependencies>
-        <dependency>
-            <groupId>com.hazelcast</groupId>
-            <artifactId>hazelcast</artifactId>
-            <version>3.0-SNAPSHOT</version>
-        </dependency>
-    </dependencies>
-
     <modules>
         <module>portable</module>
         <module>type-serializer</module>

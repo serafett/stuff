@@ -36,7 +36,7 @@ public class QueryPerformanceMember {
         System.out.println("Running benchmark");
         long startMs = System.currentTimeMillis();
         for(int k=0;k< SEARCH_COUNT;k++){
-           Predicate predicate = Predicates.equal(Predicates.get("name"),names[random.nextInt(names.length)]);
+           Predicate predicate = Predicates.equal("name",names[random.nextInt(names.length)]);
            personMap.values(predicate);
         }
         System.out.println("Running benchmark complete");

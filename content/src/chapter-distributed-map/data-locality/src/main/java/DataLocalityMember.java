@@ -1,5 +1,8 @@
-import com.hazelcast.core.*;
-import com.hazelcast.partition.*;
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.core.PartitionService;
+import com.hazelcast.partition.Partition;
+
 import java.util.Map;
 public class DataLocalityMember {
     public static void main(String[] args) {

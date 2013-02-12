@@ -25,4 +25,5 @@
        <module>wildcard-configuration</module>
        <module>configure-logging</module>
     </modules>
+
 </project>

@@ -163,6 +163,7 @@ As you can see, the data added by the WriteMember is visible in the ReadMember. 
 
 TODO: Reference to equal/hash of Map.
 
+[todo: is this still correct]
 In Hazelcast the distributed Set is implemented based on the distributed Map. Unfortunately it isn't very easy to retrieve the backing Map. So if you want a distributed Set that has the features of the distributed Map, then it probably is best create a Set implementation yourself that is backed by the Hazelcast Map. You can't use the keySet from the distributed Map because this will return a non distributable Set that contains a snapshot of the keys.
 
 \section{Collection Item Listeners}

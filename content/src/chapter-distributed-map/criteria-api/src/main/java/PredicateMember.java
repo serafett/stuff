@@ -2,21 +2,14 @@ import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.core.IMap;
 import com.hazelcast.query.EntryObject;
-import com.hazelcast.query.Expression;
 import com.hazelcast.query.Predicate;
 import com.hazelcast.query.PredicateBuilder;
-import com.hazelcast.query.Predicates;
-import com.hazelcast.query.SqlPredicate;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
-import java.util.concurrent.BlockingQueue;
 
 import static com.hazelcast.query.Predicates.and;
-import static com.hazelcast.query.Predicates.between;
 import static com.hazelcast.query.Predicates.equal;
-import static com.hazelcast.query.Predicates.get;
 import static com.hazelcast.query.Predicates.not;
 import static com.hazelcast.query.Predicates.or;
 
@@ -62,20 +55,19 @@ public class PredicateMember {
     }
 
     public Set<Person> getNotWithName(String name) {
-        Predicate namePredicate = equal(get("name"), name);
+        Predicate namePredicate = equal("name", name);
         Predicate predicate = not(namePredicate);
         return (Set<Person>) personMap.values(predicate);
     }
 
     public Set<Person> getWithName(String name) {
-        Expression getNameExpression = get("name");
-        Predicate predicate = equal(getNameExpression, name);
+        Predicate predicate = equal("name", name);
         return (Set<Person>) personMap.values(predicate);
     }
 
     public Set<Person> getWithNameAndAge(String name, int age) {
-        Predicate namePredicate = equal(get("name"), name);
-        Predicate agePredicate = equal(get("age"), age);
+        Predicate namePredicate = equal("name", name);
+        Predicate agePredicate = equal("name", age);
         Predicate predicate = and(namePredicate, agePredicate);
         return (Set<Person>) personMap.values(predicate);
     }
@@ -87,8 +79,8 @@ public class PredicateMember {
     }
 
     public Set<Person> getWithNameOrAge(String name, int age) {
-        Predicate namePredicate = equal(get("name"), name);
-        Predicate agePredicate = equal(get("age"), age);
+        Predicate namePredicate = equal("name", name);
+        Predicate agePredicate = equal("age", age);
         Predicate predicate = or(namePredicate, agePredicate);
         return (Set<Person>) personMap.values(predicate);
     }

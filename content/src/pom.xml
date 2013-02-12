@@ -13,7 +13,7 @@
     </description>
 
     <properties>
-        <hazelcast.version>2.5.1-SNAPSHOT</hazelcast.version>
+        <hazelcast.version>3.0-SNAPSHOT</hazelcast.version>
     </properties>
 
     <dependencies>
@@ -26,12 +26,12 @@
 
     <modules>
         <module>chapter-learning-basics</module>
-        <module>chapter-distributed-collections</module>
         <module>chapter-distributed-primitives</module>
+        <module>chapter-distributed-collections</module>
+        <module>chapter-distributed-map</module>
         <module>chapter-distributed-executor</module>
         <module>chapter-distributed-topic</module>
         <module>chapter-clients</module>
-        <module>chapter-distributed-map</module>
         <module>chapter-network-configuration</module>
         <module>chapter-transactions</module>
         <module>chapter-serialization</module>

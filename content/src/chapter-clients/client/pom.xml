@@ -21,9 +21,7 @@
         <dependency>
             <groupId>com.hazelcast</groupId>
             <artifactId>hazelcast-client</artifactId>
-            <!-- ${hazelcast.version}      -->
-            <!-- TODO ONCE HAZELCAST 3 IS RELEASED.... -->
-            <version>3.0-SNAPSHOT</version>
+           <version>${hazelcast.version} </version>
         </dependency>
     </dependencies>
 

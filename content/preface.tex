@@ -12,11 +12,13 @@ Today, especially with the introduction of cloud computing, it becomes more and 
 
 Hazelcast is an Open Source clustering and highly scalable data distribution platform for the JVM that is:
 \begin{enumerate}
-\item Dynamically scalable: this is done by making certain Hazelcast data-structures partitioned like the distributed Map. Moving the partitions around, e.g when cluster members are added or removed, is one of the most basic features Hazelcast provides. 
-\item Highly available; not losing data after a JVM's crash. This is done by automatically replicating data on other cluster members. In case of a member going down, the system will automatically failover by restoring the backup data to the available members. Another important design feature of Hazelcast is that there is no 'master member that can form a single point of failure; each member has equal responsibilities.
+\item Dynamically scalable: this is done by making certain Hazelcast data-structures partitioned like the Hazelcast Map or Queue. When members join or leave the cluster, Hazelcast will automatically repartition.
+\item Highly available; not losing data after a JVM's crash. This is done by automatically replicating partition data on other cluster members. In case of a member going down, the system will automatically failover by restoring the backup. Another important design feature of Hazelcast is that there is no master member that can form a single point of failure; each member has equal responsibilities.
 \item Lightning-fast; Each Hazelcast member can do thousands of operations/second.
 \end{enumerate}
 One of the things I like most about Hazelcast is that it isn't very intrusive; as a developer/architect you are in control how much Hazelcast you get in your system. You are not forced to mutilate objects so they can be distributed, forced to use specific (application) servers or complex api's or the need to install software; just add the Hazelcast jar to your classpath and you are done.
+
+[todo:default there are 271 partitions, which can be changed using the 'hazelcast.map.partition.count' property,]
 
 This freedom combined with very well thought out API's, in a lot of cases you can just use interfaces like java.util.concurrent.Executor, java.util.concurrent.BlockingQueue or java.util.Map, makes Hazelcast really a joy to work with. And can help with implementing highly available, scalable and performant systems, written in little time and based on very simple and elegant code.
 
@@ -71,4 +73,4 @@ The Hazelcast website and various other useful sites can be found here:
 \item email address usergroup: hazelcast@googlegroups.com
 \item Hazelcast on Github: https://github.com/hazelcast/hazelcast/
 \end{enumerate}
-Building distributed systems on Hazelcast really is joy to do and I hope I can make you as enthusiastic about it as I am. So lets get started and lay a foundation to build distributed applications you can be proud of.
+Building distributed systems on Hazelcast really is joy to do and I hope I can make you as enthusiastic about it as I am. So lets get started with building distributed applications you can be proud of.
