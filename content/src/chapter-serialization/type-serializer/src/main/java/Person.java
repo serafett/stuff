@@ -1,10 +1,19 @@
+import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.core.HazelcastInstanceAware;
 import com.hazelcast.nio.serialization.Portable;
 import com.hazelcast.nio.serialization.PortableReader;
 import com.hazelcast.nio.serialization.PortableWriter;
 import java.io.IOException;
-public class Person implements Portable {
+public class Person implements Portable, HazelcastInstanceAware {
     private String name;
     private int age;
+    private HazelcastInstance hzInstance;
+
+    @Override
+    public void setHazelcastInstance(HazelcastInstance hazelcastInstance) {
+        this.hzInstance = hazelcastInstance;
+    }
+
     Person(){}
     public Person(String name, int age) {
         this.name = name;
@@ -18,8 +27,8 @@ public class Person implements Portable {
     public void writePortable(PortableWriter writer) throws IOException {
         System.out.println("Serialize");
         writer.writeUTF("name", name);
+        System.out.println("hzInstance is null: "+(hzInstance==null));
         writer.writeInt("age", age);
-        writer.
     }
     @Override
     public void readPortable(PortableReader reader) throws IOException {

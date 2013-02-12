@@ -25,4 +25,13 @@
         <module>itemlisteners</module>
     </modules>
 
+    <!-- todo: remove dependency as soon as Hazelcast 3 is released -->
+    <dependencies>
+        <dependency>
+            <groupId>com.hazelcast</groupId>
+            <artifactId>hazelcast</artifactId>
+            <version>3.0-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
+
 </project>
