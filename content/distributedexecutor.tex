@@ -356,7 +356,6 @@ In this chapter we explored the distributed execution of tasks using the Hazelca
 
 \emph{Load Balancing} is currently not available for tasks that can run on any member. In the future there probably is going to be a customizable load balancer interface where for example load balancing could be done on the number of unprocessed tasks, cpu load, memory load etc.
 
-\emph{Destroying Executors}: todo: executors can't be destroyed by calling shutdown because it only disables the local proxy, and the ExecutorService returned by Hazelcast doesn't implement the Instance interface, so no destroy can be called.  [todo]
-
+\emph{Destroying Executors}: you need to be careful when shutting down an IExecutorService because it will shutdown all corresponding executor in every member and subsequent calls to proxy will result in a RejectedExecutionException. When the executor is destroyed and later a HazelcastInstance.getExecutorService is done with the id of the destroyed executor a new executor will be created as if the old one never existed.
 
 [todo: hazelcast is not relying on threadpoolexecutor]

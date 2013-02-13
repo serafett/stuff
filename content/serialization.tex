@@ -1,14 +1,56 @@
-\chapter{Custom Serialization}
-Till so far all our examples have relied on standard Java serialization by letting the objects we store in Hazelcast, implement the java.io.Serializable interface. This mechanism is very generic and very easy to use, but it comes at a price:
+\chapter{Serialization}
+Till so far the examples have relied on standard Java serialization by letting the objects we store in Hazelcast, implement the java.io.Serializable interface. But Hazelcast has a very advanced serialization systems that supports native java serialization mechanisms like Serializable and Externalizable;  useful if you don't own the class and therefor can't change its serialization mechanism. But it also supports a 2 custom serialization mechanisms: DataSerializable and Portable.
+
+Serialization in Hazelcast works like this: when an object is placed in a Hazelcast data-structure, e.g. in a map or queue, Hazelcast first checks if it is an instance of DataSerializable or Portable. If that fails it checks if is a well known type like String, Long, Integer, byte[], ByteBuffer, Date etc, since serialization for these types can be optimized. Then user specified types [todo:] If that fails it will fall back on Java serialization (including the Externalizable) or fails because the class isn't Serializable. These sequence of steps also is useful to determine which serialization mechanism is going to be used by Hazelcast if a class implements multiple interfaces, e.g. Serializable and Portable.
+
+\section{Serializable}
+The native Java serialization is the easiest serialization mechanism since often a class only needs to implement the java.io.Serializable interface:
+\begin{lstlisting}[language=java]
+public class Person implements Serializable {
+    private static final long serialVersionUID = 1L;
+    private String name;
+    public Person(String name) {
+        this.name = name;}}
+\end{lstlisting}
+When this class is serialized, all non static non transient fields will automatically be serialized. Also make sure that a serialVersionUID is added since this prevents the JVM from calculating one on the fly which can lead to all kinds of class compatibility issues. In the examples they are not added to reduce space, but for production code there is no excuse.
+
+\section{Externalizable}
+Another serialization technique supported by Hazelcast is the Java java.io.Externalizable which provides more control on how the fields are serialized and deserialized and can also help to improve performance compared to standard Java serialization. An example of the Externalizable in action:
+\begin{lstlisting}[language=java]
+public class Person implements Externalizable {
+    private String name;
+    public Person(String name) {
+        this.name = name;}
+    public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+        this.name = in.readUTF();}
+    public void writeExternal(ObjectOutput out) throws IOException {
+       out.writeUTF(name);}}
+\end{lstlisting}
+As you can see the writing and reading of fields is explicit. But unlike the Serializable, the serialVersionUID is not required.
+
+\section{DataSerializable}
+Although Java serialization is very easy to use, it comes at a price:
 \begin{enumerate}
 \item lack of control on how the fields are serialized/deserialized.
 \item suboptimal performance due to streaming class descriptors, versions, keeping track of seen objects to deal with cycles etc. This causes additional cpu load and suboptimal size of serialized data.
 \end{enumerate}
-That is why Hazelcast has an additional serialization mechanism based on the 'com.hazelcast.nio.serialization.Portable interface'. The Portable functionality replaces the DataSerializable that was part of Hazelcast 2, because the former performs better, supports versioning and is language/platform independent.
+That is why Hazelcast introduced a serialization mechanism: DataSerializable, that has been part of Hazelcast 1, example:
+\begin{lstlisting}[language=java]
+public class Person implements DataSerializable {
+    private String name;
+    public Person(String name) {
+        this.name = name;}
+    public void readData(ObjectDataInput in) throws IOException {
+        this.name = in.readUTF();}
+    public void writeData(ObjectDataOutput out) throws IOException {
+        out.writeUTF(name);}}
+\end{lstlisting}
+As you can see it looks a lot like the Externalizable functionality where also an explicit serialization of the fields is done. 
 
-Serialization in Hazelcast works like this: when an object is placed in a Hazelcast data-structure, e.g. in a map or queue, Hazelcast first checks if it is an instance of String, Long, Integer, byte[], ByteBuffer, Date etc, since serialization for these types can be optimized. If that fails, it checks if it is an instance of Portable and if that fails it will fall back on Java serialization or fails because the class isn't Serializable. [todo: this text needs to be updated for the Portable]
+\section{Portable}
+With the introduction of Hazelcast 3.0 a new serialization mechanism has been added: the Portable supports versioning and is language/platform independent which makes it useful for client/cluster communication. If the serialization only is needed for intra cluster communication, then DataSerializable is still a good alternative.
 
-To demonstrate how Portable mechanism works, lets start with a simple Portable Person class: 
+To demonstrate how Portable mechanism works, lets create a Portable version of the Person class:
 \begin{lstlisting}[language=java]
 public class Person implements Portable {
     private String name;
@@ -26,7 +68,7 @@ public class Person implements Portable {
     public String toString() {
         return String.format("Person(name=%s)",name);}}
 \end{lstlisting}
-As you can see the Portable interface is implemented. When a Person is serialized, the writePortable method is called and all fields are written to the PortableWriter. As you can see, the write of the name include the field name, making it possible to read particular fields without being forced to read all. When an object is deserialized, the readPortable method is called and the name field is read from the reader. Unlike the DataSerializable, the order in which fields are being read/written isn't important since reading/writing is based  on name. The last interesting method is the 'getClassId' which returns the identifier of that class; each Portable class needs to have a unique class id (a non zero value).
+As you can see, the write of the name include the field name, making it possible to read particular fields without being forced to read all.  Unlike the DataSerializable, the order in which fields are being read/written isn't important since reading/writing is based  on name. The last interesting method is the 'getClassId' which returns the identifier of that class; each Portable class needs to have a unique class id (a non zero value).
 
 The next step is the 'PortableFactory' which is responsible for creating a new Portable instance based on the class id. In our case the implementation is very simple since we only have a single Portable class:
 \begin{lstlisting}[language=java]
@@ -47,7 +89,7 @@ But in practice the switch case probably will be a lot bigger. If an unmatched c
 \end{lstlisting}
 Of course we also want to see it in action:
 \begin{lstlisting}[language=java]
-public class PortableMember {
+public class Member {
     public static void main(String[] args) {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         Map<String, Person> map = hzInstance.getMap("map");
@@ -65,8 +107,8 @@ As you can see the Person is serialized when it is stored in the map and it is d
 
 The names of the fields are case sensitive and need to be valid java identifiers and therefor should not contains '.' or '-' for example. 
 
-\section{Object traversal}
-If a Portable, has a Portable field, the write and read operations need to be forwarded to that object. For example if we would add a DataSerializable address field to Person, the write and read operations of Person would look like this:
+\subsection*{Object traversal}
+If a Portable, has a Portable field, the write and read operations need to be forwarded to that object. For example if we would add a Portable address field to Person:
 \begin{lstlisting}[language=java]
     public void writePortable(PortableWriter writer) throws IOException {
         writer.writeUTF("name", name);
@@ -75,24 +117,24 @@ If a Portable, has a Portable field, the write and read operations need to be fo
         this.name = reader.readUTF("name");
         this.address = reader.readPortable("address");}
 \end{lstlisting}
-[todo: mapping complex non transportable object e.g. using serializable; consequence is that others can't read your stuff..]
+[todo: mapping complex non Portable object e.g. using serializable; consequence is that others can't read your stuff..]
 [todo: what about object wrappers? I guess that there are some serializers registered for these types and the readPortable method can be used]
 [todo: dealing with null, currently a NPE is thrown]
 
-\section{Serialize DistributedObject}
+\subsection*{Serialize DistributedObject}
 Serialization of the DistributedObject is not provided out of the box, so you can't put for example an ISemaphore on an IQueue on one machine, and take it in another. But there are solutions to this problem.
 
-One solution is to pass the id of the DistributedObject, perhaps in combination with the type of the DistributedObject, and when deserializing look up the object in the HazelcastInstance; e.g. in case of a IQueue you can call HazelcastInstance.getQueue(id) or the Hazelcast.getDistributedObject.
+One solution is to pass the id of the DistributedObject, perhaps in combination with the type. When deserializing look up the object in the HazelcastInstance; e.g. in case of a IQueue you can call HazelcastInstance.getQueue(id) or the Hazelcast.getDistributedObject.
 
-If you are deserializing your own Portable Distributed Object object and it receives an id that needs to be looked up; the class can implement the HazelcastInstanceAware interface, but it will be called after the deserialization. In that case it is best to store the id when deserializing and call the getDistributedObject when the setHazelcastInstance method is called.
+If you are deserializing your own Portable Distributed Object object and it receives an id that needs to be looked up; the class can implement the HazelcastInstanceAware interface, but this will be called after the deserialization. In that case it is best to store the id when deserializing and call the getDistributedObject when the setHazelcastInstance method is called.
 
-\section{Cycles}
-One thing to look out for however are cycles between objects because it can lead to a stack overflow. Standard Java serialization protects against this, but since manual traversal is done in Portable objects, out of the box there is no protection. If this is an issue, you could store a map in a ThreadLocal that can be used to check for cycles.
+\subsection*{Cycles}
+One thing to look out for, this also goes for the DataSerializable, are cycles between objects because it can lead to a stack overflow. Standard Java serialization protects against this, but since manual traversal is done in Portable objects, out of the box there is no protection. If this is an issue, you could store a map in a ThreadLocal that can be used to check for cycles.
 
-\section{Subtyping}
+\subsection*{Subtyping}
 Subtyping with the Portable functionality is easy, let every subclass have its own unique type id and add these id's to the switch/case in the PortableFactory so that the correct class can be instantiated. 
 
-\section{Versioning}
+\subsection*{Versioning}
 In practice it can happen that multiple versions of same class are serialized and deserialized; imagine a Hazelcast client with an older Person class compared to the cluster. Luckily the Portable functionality supports versioning. In the configuration you can explicitly pass a version using the '<portable-version>' tag (defaults to 0):
 \begin{lstlisting}[language=xml]
 <serialization>
@@ -123,15 +165,9 @@ By 3.0, Users can register a TypeSerializer for a specific class, superclass or 
 </serialization>
 \end{lstlisting}
 
-\section{GlobalSerializerConfig}
+\subsection{GlobalSerializerConfig}
 [todo: text is copy paste]
 Also by providing a GlobalSerializerConfig (which also a TypeSerializer), user can override default/global serialization (e.g standard java serialization). If a global serializer is registered then Hazelcast will call that serializer if it cannot find a registered specific serializer for user class. configurable from xml using global option?
-
-\section{Externalizable vs Portable}
-The java.io.Externalizable can also be used for serialization/deserialization since it extends Serializable. So when Hazelcast defaults to the standard Java serialization mechanism, the Externalizable mechanism works without a problem. Although Externalizable provides more control compared to Serializable, it still isn't as flexible and performant as the Portable.
-
-\section{serialVersionUID} 
-When your class implements java.io.Serializable, make sure that it get a serialVersionUID. This prevents the JVM from calculating one on the fly and can lead to all kinds of class compatibility issues. In the examples they are not added to reduce space, but for production code there is no excuse.
 
 \section{Good to know}
 

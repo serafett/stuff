@@ -1,13 +1,11 @@
 \chapter{Distributed Map}
 In this chapter, you'll learn how to use one of the most versatile data structures in Hazelcast; the com.hazelcast.core.IMap. The IMap extends the java.util.concurrent.ConcurrentMap interface, and therefor it also extends the java.util.Map but its implementation is designed to be used in a distributed environment. So changes made in one member are visible in another and when a member fails, backups will be restored an the cluster can continue as if nothing happened.
 
-Internally Hazelcast divides the map in partitions (by default 271) and distributes the partitions evenly among the members in the cluster. The partition is determined based on the keyBased, so each key belongs to a single partition. 
+Internally Hazelcast divides the map in partitions, by default 271 and can be changed with the 'hazelcast.map.partition.count' property, and distributes the partitions evenly among the members in the cluster. The partition is determined based on the key; each key belongs to a single partition. 
 
 Scaling up is simple; just add more members and they will take their share of the load. The oldest member decides which partitions need to be moved to the new members and chooses partitions that contain the least amount of data to reduce network traffic. Hazelcast doesn't do any runtime rebalancing of partitions e.g. based on partition size or usage. 
 
-Scaling down also is simple; just shutdown the HazelcastInstances to release their share of the load. And the partitions will automatically be reassigned to other members. Of course a hard kill of the JVM is possible, but then you run a risk of loosing something.
-
-[TODO: Give some idea about capacity in production.. number of entries... total size.
+Scaling down also is simple; just shutdown the HazelcastInstances to release their share of the load. The partitions will automatically be reassigned to other members. Of course a hard kill of the JVM is possible, but then you run a risk of loosing something if you have not configured the backup mechanism correctly; see [reference to backup section]
 
 The commercial offering of Hazelcast includes Elastic Memory where the map entries are not stored in the Java Heap to drastically reduce gc times. On Youtube there is demo: http://www.youtube.com/watch?v=TOhbhKqJpvw where 4 Terabyte of data from 1 billion entries is stored on 100 Amazon EC2 instances, supporting to 1.3 million of operations/second.
 
@@ -53,7 +51,7 @@ e.setFired(true);
 employees.put(123,e);
 \end{lstlisting}
 
-\subsection*{cache-value}
+\subsection*{record type}
 Apart from writing the update back to the map, there is another very important setting called 'cache-value'. When the value is read from a map, the value is deserialized since the map contains the serialized value. The problem is that this can lead to a lot of deserialization overhead if the value is read frequently. To reduce this overhead, if the member owns the key, the value instance can be cached. So multiple requests for some key that is owned by that member, will result in the same instance being returned instead of a copy. 
 
 This works very fine if the value is an immutable object, but if the value is a mutable object, it can lead to unexpected sharing. This can cause all kinds of problems like race problems and JMM problems. By default 'cache-value' is set to true, so if you store mutable objects in your map, you need to explicitly set 'cache-value' to false, e.g:
@@ -65,6 +63,16 @@ This works very fine if the value is an immutable object, but if the value is a 
 This only need to be done with the map, the other data structures that are build on top of the map like the Queue do not cache the value. The cashed value is stored directly in local map entry, so the size of the cache will always be equal or smaller than the number of local map entries. This means that there will be extra memory usage, but it will not grow uncontrollable.
 
 One thing to watch out for is that when you put an item in a cache-value enabled map, it will not return that instance on a subsequent read, but it will return a copy (due to deserialization). This copy will be cached, not the original instance.
+
+RecordType.DATA: Hazelcast will store values in the object class DataRecord which stores the value in its serialized form.
+
+RecordType.OBJECT: Hazelcast will store values in the class ObjectRecord which stores the value in its de-serialized object form.
+
+RecordType.CACHED: Hazelcast will store values in the class CachedDataRecord which stores the value in its de-serialized object form but also caches the deserialized object.
+
+The default record type is DATA. You should consider using OBJECT if majority of your hazelcast usage is composed of queries and entry processors.
+
+If you have been using Hazelcast 2.x you might remember the cache-value property. This is the Hazelcast 3 version of it.
 
 \section{Hashcode and equals}
 In most cases you probably will make use of some basic type like a Long, Integer or String as key. But in some cases you will need to create custom keys. But to do it correctly in Hazelcast, you need to understand how this mechanism works because it works differently compared to traditional map implementations. When you store a key/value in a Hazelcast map, instead of storing the Object, the object are serialized to byte arrays and these are stored. To use the hash/equals in Hazelcast you need to know the following rules:

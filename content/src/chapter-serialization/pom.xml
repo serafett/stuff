@@ -18,6 +18,9 @@
     </parent>
 
     <modules>
+        <module>serializable</module>
+        <module>externalizable</module>
+        <module>dataserializable</module>
         <module>portable</module>
         <module>type-serializer</module>
     </modules>

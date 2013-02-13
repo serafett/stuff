@@ -11,8 +11,7 @@ public class PublisherMember {
         ITopic<Date> topic = hzInstance.getTopic("topic");
         topic.publish(new Date());
         System.out.println("Published");
-        System.exit(0);
-    }}
+        System.exit(0);}}
 \end{lstlisting}
 And the subscriber acquires the same topic and adds a MessageListener to subscribe itself to the topic:
 \begin{lstlisting}[language=java]
@@ -21,8 +20,7 @@ public class SubscribedMember {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         ITopic<Date> topic = hzInstance.getTopic("topic");
         topic.addMessageListener(new MessageListenerImpl());
-        System.out.println("Subscribed");
-    }
+        System.out.println("Subscribed");}
     private static class MessageListenerImpl implements MessageListener<Date> {
         public void onMessage(Message<Date> m) {
             System.out.println("Received: "+m.getMessageObject());
@@ -59,9 +57,7 @@ In practice it could be you don't need this strict ordering and it could become 
                     System.out.println("Received: " + m.getMessageObject());
                 }
             };
-            executor.execute(task);
-        }
-    } 
+            executor.execute(task);}} 
 \end{lstlisting}
 This can greatly boost the processing capacity since messages from some member to some topic can now be processed in parallel.
 

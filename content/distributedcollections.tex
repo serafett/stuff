@@ -1,11 +1,7 @@
 \chapter{Distributed Collections}
-Hazelcast provides a set of collections that implement interfaces from the Java collection framework and therefor make it easy to integration distributed collections in your system without too many code changes. A few advantages of using distributed collections:
-\begin{enumerate}
-\item scalable: you can grow beyond the capacity of a single JVM. You can scale up by adding more members to the cluster, and scale down by removing them.
-\item high availability: when one member fails, another member(s) take over because backups of the data are available. over without elements from the collecting getting lost. As a result no data gets lost.
-\end{enumerate}
+Hazelcast provides a set of collections that implement interfaces from the Java collection framework and therefor make it easy to integration distributed collections in your system without too many code changes. A distributed collection can not only be called concurrently from the same JVM, it also can be called concurrently by different JVM's. Another advantage is that the distributed collections provide high availability, so if a member hosting the collection fail, another member will take over.
 
-\section{Distributed Queue}
+\section{IQueue}
 A BlockingQueue is one of the work horses for concurrent system because it allows producers and consumers of messages, which can be POJO's, to work different speeds. The Hazelcast com.hazelcast.core.IQueue, which extends the java.util.concurrent.BlockingQueue, not only allows threads from the same JVM to interact with that queue, but since the queue is distributed, it also allows different JVM's to interact it. So you can add items in one JVM and remove them in another.
 
 As an example we'll create a producer/consumer implementation that is connected by a distributed queue. The producer is going to put a total of 100 Integers on the queue with a rate of 1 message/second.
@@ -76,7 +72,7 @@ One thing to take care of that if there are many producers/consumers interacting
 
 \emph{Important}: Realize that although the Hazelcast distributed queue preserves ordering of the messages (so the messages are taken from the queue in the same order they were put on the queue), if there are multiple consumers, the processing order is not guaranteed because the queue will not provide any ordering guarantees on messages after they are taken.
 
-\subsection{BlockingQueue Capacity}
+\subsection{Capacity}
 In the previous example we showed a basic producer/consumer solution based on a distributed queue. Because the production of messages is separated from the consumption of messages, the speed of production is not influenced by the speed of consumption. If producing messages goes quicker than the consumption, then the queue will increase in size. If there is no bound on the capacity of the queue, then machines can run out of memory and you will get an OutOfMemoryError. 
 
 With the traditional BlockingQueue implementations, like the LinkedBlockingQueue, a capacity can be set. When this is set and the maximum capacity is reached, placement of new items either fail or block, depending on type of the put operation. This prevents the queue from growing beyond a healthy capacity and the JVM from failing.
@@ -94,23 +90,18 @@ When we start a single producer, we'll see that 10 items are produced and then t
 
 But since the producer produces 5 times as fast as the consumer, the queue will reach its maximum capacity again quickly and it will block. We can can increase the capacity of the cluster by starting new consumers (both processing and the storage capacity increase) or just empty members (the storage capacity increases).
 
-\emph{max-size can be violated}. Imagine that there is a queue that is distributed over 2 members and each member contains the maximum number of 1 million queue items. If one member fails, the other member will gain all the queue items stored on the failing member, which leads to a total of 2 million. This is needed to provide failover so that no messages are lost. 
-
 \subsection{Backups}
-By default Hazelcast will make sure that there is one synchronous backup for the queue; so if the member containing partitions of that queue fails, the backups on another member will be used so no information is lost.
+By default Hazelcast will make sure that there is one synchronous backup for the queue; so if the member containing partitions of that queue fails, the backups on another member will be used so no data is lost.
 
 Backups can be controlled using the async-backup count and backup-count property. If you want increased high availability you could either increase the backup-count or the asynchronous backup count. If you want to have improved performance you could remove the synchronous backup and replace it with a asynchronous backup (so there is a small chance of failure) or use no backup at all.
 
 \subsection{QueueStore}
 In some cases you want have persistent queues; so their state should be made available in a durable storage mechanism like a database. In Hazelcast 2 the Queue was implemented on top of the Hazelcast Map, so in theory you could make the queue persistent by configuring the MapStore of the backing map. In Hazelcast 3, the Queue is not implemented on top of a map anymore and now exposes a MapStore directly.
 
-
 [todo: example]
 
-\section{Distributed List}
-After the distributed queue, we have the distributed com.hazelcast.core.IList that extends the java.util.List. As you most likely know, a list is a data-structure where the ordering and occurrence of the elements matters. The IList implementation in Hazelcast probably is not a structure you will on a day to day basis, but when you need it, is fine to have.
-
-We'll demonstrate the IList by adding items to a list on one member and on another member we print the elements from that list:
+\section{IList}
+A List is a collection where every element only occurs ones and where the order of the element doesn't matter. The Hazelcast com.hazelcast.core.IList implements the java.util.List. We'll demonstrate the IList by adding items to a list on one member and on another member we print the elements from that list:
 \begin{lstlisting}[language=java]
 public class WriteMember {
     public static void main(String[] args) {
@@ -134,14 +125,10 @@ Paris
 New York
 Reading finished!
 \end{lstlisting}
-As you can see, the data written to the List by the WriteMember is visible in the ReadMember and you also can see that the order is maintained.
+As you can see, the data written to the List by the WriteMember is visible in the ReadMember and you also can see that the order is maintained. The List interface has various methods like the sublist that returns collections. See [todo: reference 'weak consistency' iterators at end of chapter]
 
-The List interface has various methods like the sublist that returns collections. See [todo: reference 'weak consistency' iterators at end of chapter]
-
-\section{Distributed Set}
-A Set is a collection where every element only occurs ones and where the order of the element doesn't matter. The Hazelcast com.hazelcast.core.ISet implements the java.util.Set and is distributed just like the queue.
-
-We'll demonstrate the set by adding items in a Set on one member, and on another member we are going to print all the elements from that Set:
+\section{ISet}
+A Set is a collection where every element only occurs ones and where the order of the element doesn't matter. The Hazelcast com.hazelcast.core.ISet implements the java.util.Set. We'll demonstrate the set by adding items in a Set on one member, and on another member we are going to print all the elements from that Set:
 \begin{lstlisting}[language=java]
 public class WriteMember {
     public static void main(String[] args) {
@@ -167,10 +154,9 @@ Reading finished!
 \end{lstlisting}
 As you can see, the data added by the WriteMember is visible in the ReadMember. As you also can see, the order is not maintained since order is not defined by the Set.
 
-TODO: Reference to equal/hash of Map.
+Just as with normal HashSet, the hash and equals of the object are used and not the equals/hash of the byte array version of that object. This is different behavior compared to the map; see [reference to equals/hash section in the map]
 
-[todo: is this still correct]
-In Hazelcast the distributed Set is implemented based on the distributed Map. Unfortunately it isn't very easy to retrieve the backing Map. So if you want a distributed Set that has the features of the distributed Map, then it probably is best create a Set implementation yourself that is backed by the Hazelcast Map. You can't use the keySet from the distributed Map because this will return a non distributable Set that contains a snapshot of the keys.
+In Hazelcast the ISet (and same goes for the IList) is implemented as a collection within the MultiMap, where the id of the set is the key in the multimap and the value is the collection. This means that the ISet is not partitioned, so you can't scale beyond the capacity of a single machine and you can't control where data from a set is going to be stored. If you want to have a distributed set that behaves more like the distributed map one simple option is to implement a set based on a map, where the value can be some bogus value. It isn't possible to rely on the Map.keySet for returning  a usable distributed set since it will return a non distributed snapshot of the keys.
 
 \section{Collection Item Listeners}
 The IList, ISet and IQueue interfaces extend the com.hazelcast.core.ICollection interface. The nice thing is that Hazelcast enriches the existing collections api with the ability to listen to changes in the collections using the com.hazelcast.core.ItemListener. The ItemListener receives the ItemEvent which not only (potentially) contains the item, but also the member where the changed happened and the type of event (add or remove).
@@ -215,9 +201,15 @@ ItemListeners are useful if you need to react upon changes in collections. But r
 
 \section{Gotcha's}
 
-\emph{Iterator stability}: iterators on collections are weakly consistent; meaning that when a collection changes while creating the iterator, you could encounter duplicates or miss element. Changes on that iterator will not result in changes on the collection. An iterator doesn't need to reflect the actual state and will not throw a ConcurrentModifcationException. 
+\emph{Iterator stability:} iterators on collections are weakly consistent; meaning that when a collection changes while creating the iterator, you could encounter duplicates or miss element. Changes on that iterator will not result in changes on the collection. An iterator doesn't need to reflect the actual state and will not throw a ConcurrentModifcationException. 
 
-\emph{Backup map}: in Hazelcast 2 the Queue/List/Set were build on top of the Map and by accessing the Map you can influence the configuration. This isn't possible anymore in Hazelcast 3. The Queue now has its own QueueStore mechanism, but the List/Set have not.
+\emph{Storage:} in Hazelcast 2 the Queue/List/Set were build on top of the Map and by accessing the Map you could influence the map its behavior including storage. This isn't possible anymore in Hazelcast 3. The Queue now has its own QueueStore mechanism, but the List/Set have not. Perhaps this will be added in later versions.
+
+\emph{Replication:} the List and Set can't be configured and will automatically have 1 synchronous backup and 1 asynchronous backups. Perhaps in the future this is going to be configurable.
+
+\emph{Destruction:} IQueue/ISet/IList instances immediately are destroyed when they are empty, so they do not need to be destroyed explicitly. So when they are empty, they do not take up any space in Hazelcast. Listeners will remain registered, unless that collection is destroyed explicitly. Once an item is added to implicit destroyed collection, it will automatically be restored.
+
+\emph{Not partitioned:} Queue/Set/List are not partitioned; so their size can't grow beyond the capacity of a single JVM. This is a big difference compared to Hazelcast 2.x where they were partitioned. On the background the List/Set are implemented as a collection in a MultiMap. This limitation certainly needs to be taken into consideration when designing a distributed system. One way to solve the problem is the use multiple collections,  rely on the map which is partitioned, or perhaps write the collection yourself using the new SPI functionality [todo: reference to SPI chapter]
 
 \section{What is next?}
 The api shown in these examples is only a subsection of what Hazelcast provides.[todo]

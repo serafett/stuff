@@ -5,6 +5,7 @@
 
     <map name="personMap">
         <cache-value>false</cache-value>
+        <record-type></record-type>
         <map-store enabled="true">
             <class-name>PersonMapStore</class-name>
         </map-store>
