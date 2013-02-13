@@ -101,6 +101,12 @@ By default Hazelcast will make sure that there is one synchronous backup for the
 
 Backups can be controlled using the async-backup count and backup-count property. If you want increased high availability you could either increase the backup-count or the asynchronous backup count. If you want to have improved performance you could remove the synchronous backup and replace it with a asynchronous backup (so there is a small chance of failure) or use no backup at all.
 
+\subsection{QueueStore}
+In some cases you want have persistent queues; so their state should be made available in a durable storage mechanism like a database. In Hazelcast 2 the Queue was implemented on top of the Hazelcast Map, so in theory you could make the queue persistent by configuring the MapStore of the backing map. In Hazelcast 3, the Queue is not implemented on top of a map anymore and now exposes a MapStore directly.
+
+
+[todo: example]
+
 \section{Distributed List}
 After the distributed queue, we have the distributed com.hazelcast.core.IList that extends the java.util.List. As you most likely know, a list is a data-structure where the ordering and occurrence of the elements matters. The IList implementation in Hazelcast probably is not a structure you will on a day to day basis, but when you need it, is fine to have.
 
@@ -208,9 +214,10 @@ ItemListeners are useful if you need to react upon changes in collections. But r
 \emph{Ordering} All events are ordered, meaning, listeners will receive and process the events in the order they are actually occurred. TODO: Is the ordering only guaranteed within the member, or is there a cluster wide ordering?
 
 \section{Gotcha's}
+
 \emph{Iterator stability}: iterators on collections are weakly consistent; meaning that when a collection changes while creating the iterator, you could encounter duplicates or miss element. Changes on that iterator will not result in changes on the collection. An iterator doesn't need to reflect the actual state and will not throw a ConcurrentModifcationException. 
 
-\emph{Backup map}: in Hazelcast 2 the Queue/List/Set were build on top of the Map and by accessing the Map you can influence the configuration. This isn't possible anymore in Hazelcast 3.
+\emph{Backup map}: in Hazelcast 2 the Queue/List/Set were build on top of the Map and by accessing the Map you can influence the configuration. This isn't possible anymore in Hazelcast 3. The Queue now has its own QueueStore mechanism, but the List/Set have not.
 
 \section{What is next?}
 The api shown in these examples is only a subsection of what Hazelcast provides.[todo]

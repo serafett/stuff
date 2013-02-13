@@ -43,6 +43,7 @@ public class DistributedCounterProxy implements DistributedCounter {
     //      1- If operation acquires partition lock before migration, migration process waits until operation releases the lock.
     //      2- If migration starts before operation execution, a retry exception is returned to the caller to redirect operation to the new partition owner.
     // ]
+    //todo: the partition id is not set
     static class IncOperation extends AbstractOperation implements PartitionAwareOperation {
         private String objectId;
         private int amount, returnValue;

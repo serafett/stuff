@@ -3,6 +3,7 @@ import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.spi.AbstractOperation;
 import com.hazelcast.spi.InvocationBuilder;
 import com.hazelcast.spi.NodeEngine;
+import com.hazelcast.spi.PartitionAwareOperation;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
@@ -31,7 +32,9 @@ public class DistributedCounterProxy implements DistributedCounter {
             throw new RuntimeException(e);
         }
     }
-    static class IncOperation extends AbstractOperation {
+
+    //todo: the partition id is not set
+    static class IncOperation extends AbstractOperation implements PartitionAwareOperation {
         private String objectId;
         private int amount,returnValue;
         public IncOperation(){}

@@ -12,19 +12,16 @@ public class DistributedCounterService implements ManagedService {
     private NodeEngine nodeEngine;
     public void init(NodeEngine nodeEngine, Properties properties) {
         System.out.println("DistributedCounterService.init");
-        this.nodeEngine = nodeEngine;
-    }
+        this.nodeEngine = nodeEngine;}
     public void shutdown() {
-        System.out.println("DistributedCounterService.shutdown");
-    }
-}
+        System.out.println("DistributedCounterService.shutdown");}}
 \end{lstlisting}
 
 \begin{lstlisting}[language=xml]
+<network>
+     <join><multicast enabled="true"/> </join>
+</network>
 <services>
-     <network>
-        <join><multicast enabled="true"/> </join>
-    </network>
     <service enabled="true">
         <name>DistributedCounterService</name>
          <class-name>DistributedCounterService</class-name>
@@ -73,14 +70,22 @@ public class DistributedCounterService implements ManagedService, RemoteService 
 [todo: destroyDistributedObject]
 [todo: createDistributedObjectForClient]
 
+The DistributedCounter has a single method: inc. This method needs to be invoked on another machine, this can be done using the Hazelcast Operation, part of the new SPI. There are 4 types of operations:
+\begin{enumerate}
+\item Basic operations are executed always immediately, they don't require any lock and they don't wait any other operation.
+\item PartitionAwareOperation: will be executed on a specific partition by returning the partition id. Once they are executed, the partition read-lock will be acquired and will prevent PartitionLevelOperations from executing on that partition. If a PartitionLevelOperation acquired the writelock before the PartitionAwareOperation acquired the readlock, a retry exception is returned to the caller so the operation can be redirected to the new partition owner. [todo: on the caller side we need to deal with a retry exception, or is this already dealt with]
+\item KeyBasedOperations extends PartitionAwareOperation and can specify key locks that prevent other KeyBasedOperations for the same key to execute on that operations [todo: is this a readlock or writelock]
+\item PartitionLevelOperation are the counter part of the PartitionAwareOperation since they acquire the writelock on the Partition so that no other PartitionAware and PartitionLevelOperations can be executed on that partition for the duration of that writelock. [todo: also a retry exception?]
+\end{enumerate}
+[todo:In the case of the IncMethod, do we need a PartitionAwareOperation or do we want a KeyBasedOperation? Since we probably don't want to deal with concurrency, the KeyBasedOperation could handle the problems.]
+
 \begin{lstlisting}[language=java]
 public class DistributedCounterProxy implements DistributedCounter {
     private final NodeEngine nodeEngine;
     private final String objectId;
     public DistributedCounterProxy(String objectId, NodeEngine nodeEngine) {
         this.nodeEngine = nodeEngine;
-        this.objectId = objectId;
-    }
+        this.objectId = objectId;}
     public Object getId() {return objectId;}
     public String getName() {return null;}
     public int inc(int amount) {
@@ -92,34 +97,27 @@ public class DistributedCounterProxy implements DistributedCounter {
             final Future<Integer> future = builder.build().invoke();
             return future.get();
         } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
-        }
-    }
+            throw new RuntimeException(e);}}
     static class IncOperation extends AbstractOperation {
         private String objectId;
         private int amount,returnValue;
         public IncOperation(){}
         public IncOperation(String objectId, int amount) {
             this.amount = amount;
-            this.objectId = objectId;
-        }
+            this.objectId = objectId;}
         protected void writeInternal(ObjectDataOutput out) throws IOException {
             super.writeInternal(out);
             out.writeUTF(objectId);
-            out.writeInt(amount);
-        }
+            out.writeInt(amount);}
         protected void readInternal(ObjectDataInput in) throws IOException {
             super.readInternal(in);
             objectId = in.readUTF();
-            amount = in.readInt();
-        }
+            amount = in.readInt();}
         public void run() throws Exception {
            System.out.println("Executing "+objectId+".inc() on: "+getNodeEngine().getThisAddress());            
-           returnValue = 0;
-        }
+           returnValue = 0;}
         public boolean returnsResponse() {return true;}
-        public Object getResponse() {return returnValue;}
-    }
+        public Object getResponse() {return returnValue;}}
     public void destroy() {}
 }
 \end{lstlisting}
