@@ -8,32 +8,35 @@ As an example we'll create a producer/consumer implementation that is connected 
 \begin{lstlisting}[language=java]
 public class ProducerMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        IQueue<Integer> queue = hzInstance.getQueue("queue");
+        HazelcastInstance hi = Hazelcast.newHazelcastInstance();
+        IQueue<Integer> queue = hi.getQueue("queue");
         for (int k = 1; k < 100; k++) {
             queue.put(k);
             System.out.println("Producing: " + k);
-            Thread.sleep(1000);}
+            Thread.sleep(1000);
+        }
         queue.put(-1);
         System.out.println("Producer Finished!");
     }
 }
 \end{lstlisting}
-To make sure that the consumers are going to terminate when the producer is finished, the producer will put a -1 on the queue to indicate that it is ready. When a consumer reads this message, also called a poison pill, it terminates. 
+To make sure that the consumers are going to terminate when the producer is finished, the producer will put a -1 on the queue to indicate that it is ready. 
 
-The consumer will take the message from the queue, print it and waits 5 seconds before consuming the next message and stops when it receives the poison pill:
+The consumer will take the message from the queue, print it and waits 5 seconds before consuming the next message and stops when it receives the -1, also called a poison pill:
 \begin{lstlisting}[language=java]
 public class ConsumerMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        IQueue<Integer> queue = hzInstance.getQueue("queue");
+        HazelcastInstance hi = Hazelcast.newHazelcastInstance();
+        IQueue<Integer> queue = hi.getQueue("queue");
         while (true){
             int item = queue.take();
             System.out.println("Consumed: " + item);
             if(item == -1){
                 queue.put(-1);
-                break;}     
-            Thread.sleep(5000);}
+                break;
+            }     
+            Thread.sleep(5000);
+        }
         System.out.println("Consumer Finished!");
     }
 }
@@ -72,7 +75,7 @@ Consumed 40
 Consumed 42 
 ....
 \end{lstlisting}
-One thing to take care of that if there are many producers/consumers interacting with the queue, is that the queue eventually will become a bottleneck and this is caused by contention. One way of solving this problem is to introduce a stripe (essentially a list) of BlockingQueues. But if you do, the ordering of messages send to different queues will not be guaranteed anymore. In a lot of cases a strict ordering isn't required and a stripe can be a simple solution to improve scalability.
+One thing to take care of that if there are many producers/consumers interacting with the queue, is that there will be a lot of contention and eventually the queue will become the bottleneck. One way of solving this problem is to introduce a stripe (essentially a list) of queues. But if you do, the ordering of messages send to different queues will not be guaranteed anymore. In a lot of cases a strict ordering isn't required and a stripe can be a simple solution to improve scalability.
 
 \emph{Important}: Realize that although the Hazelcast distributed queue preserves ordering of the messages (so the messages are taken from the queue in the same order they were put on the queue), if there are multiple consumers, the processing order is not guaranteed because the queue will not provide any ordering guarantees on messages after they are taken.
 
@@ -95,12 +98,17 @@ When we start a single producer, we'll see that 10 items are produced and then t
 But since the producer produces 5 times as fast as the consumer, the queue will reach its maximum capacity again quickly and it will block. We can can increase the capacity of the cluster by starting new consumers (both processing and the storage capacity increase) or just empty members (the storage capacity increases).
 
 \subsection{Backups}
-By default Hazelcast will make sure that there is one synchronous backup for the queue; so if the member containing partitions of that queue fails, the backups on another member will be used so no data is lost.
+By default Hazelcast will make sure that there is one synchronous backup for the queue; so if the member hosting that queue fails, the backups on another member will be used so no entries is lost.
 
-Backups can be controlled using the async-backup count and backup-count property. If you want increased high availability you could either increase the backup-count or the asynchronous backup count. If you want to have improved performance you could remove the synchronous backup and replace it with a asynchronous backup (so there is a small chance of failure) or use no backup at all.
+Backups can be controlled using the async-backup-count which defaults to 0 and backup-count which defaults to 1. If you want increased high availability you could either increase the backup-count or the async-backup-count. If you want to have improved performance you could remove the synchronous backup and replace it with a asynchronous backup, so there is a small chance of failure, or you disable backups if entries are allowed to be lost. 
 
 \subsection{QueueStore}
-In some cases you want have persistent queues; so their state should be made available in a durable storage mechanism like a database. In Hazelcast 2 the Queue was implemented on top of the Hazelcast Map, so in theory you could make the queue persistent by configuring the MapStore of the backing map. In Hazelcast 3, the Queue is not implemented on top of a map anymore and now exposes a MapStore directly.
+By default Hazelcast data-structures like the IQueue are not persistent:
+\begin{enumerate}
+ \item if the cluster starts, the queues will not be populated by themselves.
+ \item changes in the queue will not be made persistent, so if the cluster fails then entries will be lost.
+\end{enumerate}
+In some cases this behavior is not desirable and luckily Hazelcast provide a mechanism for queue durability using the QueueStore which can read and write to a database for example. In Hazelcast 2 the Queue was implemented on top of the Hazelcast Map, so in theory you could make the queue persistent by configuring the MapStore of the backing map. In Hazelcast 3, the Queue is not implemented on top of a map anymore but luckily exposes a QueueStore directly.
 
 [todo: example]
 
@@ -108,53 +116,55 @@ In some cases you want have persistent queues; so their state should be made ava
 A List is a collection where every element only occurs ones and where the order of the element doesn't matter. The Hazelcast com.hazelcast.core.IList implements the java.util.List. We'll demonstrate the IList by adding items to a list on one member and on another member we print the elements from that list:
 \begin{lstlisting}[language=java]
 public class WriteMember {
-    public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        IList<String> list = hzInstance.getList("list");
-        list.add("Tokyo");
-        list.add("Paris");
-        list.add("New York");
-        System.out.println("Putting finished!");
-    }
+   public static void main(String[] args) {
+      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
+      IList<String> list = hi.getList("list");
+      list.add("Tokyo");
+      list.add("Paris");
+      list.add("New York");
+      System.out.println("Putting finished!");
+   }
 }
 public class ReadMember {
-    public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        IList<String> list = hzInstance.getList("list");
-        for (String s : list) System.out.println(s);
-        System.out.println("Reading finished!");
-    }
+   public static void main(String[] args) {
+      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
+      IList<String> list = hi.getList("list");
+      for (String s : list) 
+         System.out.println(s);
+      System.out.println("Reading finished!");
+   }
 }
 \end{lstlisting}
-If you first run the WriteMember and after it has completed start the ReadMember then the ReadMember will output the following:
+If you first run the WriteMember and after it has completed, start the ReadMember then the ReadMember will output the following:
 \begin{lstlisting}
 Tokyo
 Paris
 New York
 Reading finished!
 \end{lstlisting}
-As you can see, the data written to the List by the WriteMember is visible in the ReadMember and you also can see that the order is maintained. The List interface has various methods like the sublist that returns collections. See [todo: reference 'weak consistency' iterators at end of chapter]
+As you can see, the data written to the List by the WriteMember is visible in the ReadMember and you also can see that the order is maintained. The List interface has various methods like the sublist that returns collections, it is important to understand that the returned collections are snapshots and are not backed up the by list. See [reference 'weak consistency' iterators at end of chapter]
 
 \section{ISet}
-A Set is a collection where every element only occurs ones and where the order of the element doesn't matter. The Hazelcast com.hazelcast.core.ISet implements the java.util.Set. We'll demonstrate the set by adding items in a Set on one member, and on another member we are going to print all the elements from that Set:
+A Set is a collection where every element only occurs once and where the order of the elements doesn't matter. The Hazelcast com.hazelcast.core.ISet implements the java.util.Set. I'll demonstrate the set by adding items in a Set on one member, and on another member we are going to print all the elements from that Set:
 \begin{lstlisting}[language=java]
 public class WriteMember {
-    public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        ISet<String> set = hzInstance.getSet("set");
-        set.add("Tokyo");
-        set.add("Paris");
-        set.add("New York");
-        System.out.println("Putting finished");
-    }
+   public static void main(String[] args) {
+      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
+      ISet<String> set = hi.getSet("set");
+      set.add("Tokyo");
+      set.add("Paris");
+      set.add("New York");
+      System.out.println("Putting finished");
+   }
 }
 public class ReadMember {
-    public static void main(String[] args) {
-         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-         ISet<String> set = hzInstance.getSet("set");
-         for(String s: set) System.out.println(s);
-         System.out.println("Reading finished!");
-    }
+   public static void main(String[] args) {
+      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
+      ISet<String> set = hi.getSet("set");
+      for(String s: set) 
+         System.out.println(s);
+      System.out.println("Reading finished!");
+   }
 }
 \end{lstlisting}
 If you first start the WriteMember and waiting for completion, you start the ReadMember; it will output the following:
@@ -168,42 +178,44 @@ As you can see, the data added by the WriteMember is visible in the ReadMember. 
 
 Just as with normal HashSet, the hash and equals of the object are used and not the equals/hash of the byte array version of that object. This is different behavior compared to the map; see [reference to equals/hash section in the map]
 
-In Hazelcast the ISet (and same goes for the IList) is implemented as a collection within the MultiMap, where the id of the set is the key in the multimap and the value is the collection. This means that the ISet is not partitioned, so you can't scale beyond the capacity of a single machine and you can't control where data from a set is going to be stored. If you want to have a distributed set that behaves more like the distributed map one simple option is to implement a set based on a map, where the value can be some bogus value. It isn't possible to rely on the Map.keySet for returning  a usable distributed set since it will return a non distributed snapshot of the keys.
+In Hazelcast the ISet (and same goes for the IList) is implemented as a collection within the MultiMap, where the id of the set is the key in the multimap and the value is the collection. This means that the ISet is not partitioned, so you can't scale beyond the capacity of a single machine and you can't control the partition where data from a set is going to be stored. If you want to have a distributed set that behaves more like the distributed map, one simple option is to implement a set based on a map, where the value can be some bogus value. It isn't possible to rely on the Map.keySet for returning a usable distributed set since it will return a non distributed snapshot of the keys.
 
-\section{Collection Item Listeners}
-The IList, ISet and IQueue interfaces extend the com.hazelcast.core.ICollection interface. The nice thing is that Hazelcast enriches the existing collections api with the ability to listen to changes in the collections using the com.hazelcast.core.ItemListener. The ItemListener receives the ItemEvent which not only (potentially) contains the item, but also the member where the changed happened and the type of event (add or remove).
+\section{Collection ItemListener}
+The IList, ISet and IQueue interfaces extend the com.hazelcast.core.ICollection interface. The nice thing is that Hazelcast enriches the existing collections api with the ability to listen to changes in the collections using the com.hazelcast.core.ItemListener. The ItemListener receives the ItemEvent which not only potentially contains the item, but also the member where the changed happened and the type of event (add or remove).
 
 The following example shows an ItemListener that listens to all changes made in an IQueue:
 \begin{lstlisting}[language=java]
 public class ItemListenerMember {
-    public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        ICollection<String> queue = hzInstance.getQueue("queue");
-        queue.addItemListener(new ItemListenerImpl<String>(), true);
-        System.out.println("ItemListener started");
-    }
-    private static class ItemListenerImpl<E> implements ItemListener<E> {
-        public void itemAdded(ItemEvent<E> itemEvent) {
-            System.out.println("Item added:" + itemEvent.getItem());}
-        public void itemRemoved(ItemEvent<E> itemEvent) {
-            System.out.println("Item removed:" + itemEvent.getItem());
-        }
-    }
+   public static void main(String[] args) throws Exception {
+      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
+      ICollection<String> q = hi.getQueue("queue");
+      q.addItemListener(new ItemListenerImpl<String>(), true);
+      System.out.println("ItemListener started");
+   }
+   private static class ItemListenerImpl<E> 
+      implements ItemListener<E> {
+      public void itemAdded(ItemEvent<E> e) {
+         System.out.println("Item added:" + e.getItem());
+      }
+      public void itemRemoved(ItemEvent<E> e) {
+         System.out.println("Item removed:" + e.getItem());
+      }
+   }
 }
 \end{lstlisting}
-We registered the ItemListenerImpl with the addItemListener method using the value 'true'. This is done to make sure that our ItemListenerImpl will get the value that has been added/removed. The reason why this configuration option is available, is that in some cases you only want to be notified that a change happened, but you're not interested in the actual change and don't want to pay for sending the value over the line.
+We registered the ItemListenerImpl with the addItemListener method using the value 'true'. This is done to make sure that our ItemListenerImpl will get the value that has been added/removed. The reason this configuration option is available, is that in some cases you only want to be notified that a change happened, but you're not interested in the actual change and don't want to pay for sending the value over the line.
 
 To see that the ItemListener really is working, we'll create a member that makes a change in the queue:
 \begin{lstlisting}[language=java]
 public class CollectionChangeMember{
-    public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        BlockingQueue<String> queue = hzInstance.getQueue("queue");
-        queue.put("foo");
-        queue.put("bar");
-        queue.take();
-        queue.take();
-    }
+   public static void main(String[] args) throws Exception {
+      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
+      BlockingQueue<String> q = hi.getQueue("queue");
+      q.put("foo");
+      q.put("bar");
+      q.take();
+      q.take();
+   }
 }
 \end{lstlisting}
 First start up the ItemListenerMember and wait till it displays "ItemListener started". After that start the CollectionChangeMember and you will see the following output in the ItemListenerMember:
@@ -213,21 +225,21 @@ item added:bar
 item removed:foo
 item removed:bar
 \end{lstlisting}
-ItemListeners are useful if you need to react upon changes in collections. But realize that listeners are executed asynchronously, so it could be that at the time your listener runs, that the collection has changed again. 
+ItemListeners are useful if you need to react upon changes in collections. But realize that listeners are executed asynchronously, so it could be that at the time your listener runs,  the collection has changed again. 
 
-\emph{Ordering} All events are ordered, meaning, listeners will receive and process the events in the order they are actually occurred. TODO: Is the ordering only guaranteed within the member, or is there a cluster wide ordering?
+\emph{Ordering} All events are ordered, which means that listeners will receive and process the events in the order they are actually occurred. 
 
-\section{Gotcha's}
+\section{Good to know}
 
-\emph{Iterator stability:} iterators on collections are weakly consistent; meaning that when a collection changes while creating the iterator, you could encounter duplicates or miss element. Changes on that iterator will not result in changes on the collection. An iterator doesn't need to reflect the actual state and will not throw a ConcurrentModifcationException. 
+\emph{Iterator stability:} Iterators on collections are weakly consistent; meaning that when a collection changes while creating the iterator, you could encounter duplicates or miss element. Changes on that iterator will not result in changes on the collection. An iterator doesn't need to reflect the actual state and will not throw a ConcurrentModifcationException. 
 
-\emph{Storage:} in Hazelcast 2 the Queue/List/Set were build on top of the Map and by accessing the Map you could influence the map its behavior including storage. This isn't possible anymore in Hazelcast 3. The Queue now has its own QueueStore mechanism, but the List/Set have not. Perhaps this will be added in later versions.
+\emph{Not Durable:} In Hazelcast 2 the IQueue/IList/ISet were build on top of the Hazelcast distributed map and by accessing that map you could influence the collections their behavior including storage. This isn't possible anymore in Hazelcast 3. The IQueue now has its own QueueStore mechanism, but the List/Set have not. Perhaps this will be added in a later release.
 
-\emph{Replication:} the List and Set can't be configured and will automatically have 1 synchronous backup and 1 asynchronous backups. Perhaps in the future this is going to be configurable.
+\emph{Replication:} The replication for IList and ISet can't be configured and will automatically have 1 synchronous backup and 1 asynchronous backups. Perhaps in the future this is going to be configurable.
 
-\emph{Destruction:} IQueue/ISet/IList instances immediately are destroyed when they are empty, so they do not need to be destroyed explicitly. So when they are empty, they do not take up any space in Hazelcast. Listeners will remain registered, unless that collection is destroyed explicitly. Once an item is added to implicit destroyed collection, it will automatically be restored.
+\emph{Destruction:} IQueue/ISet/IList instances immediately are 'destroyed' when they are empty and will not take up space. Listeners will remain registered, unless that collection is destroyed explicitly. Once an item is added to implicit destroyed collection, the collection will automatically be recreated.
 
-\emph{Not partitioned:} Queue/Set/List are not partitioned; so their size can't grow beyond the capacity of a single JVM. This is a big difference compared to Hazelcast 2.x where they were partitioned. On the background the List/Set are implemented as a collection in a MultiMap. This limitation certainly needs to be taken into consideration when designing a distributed system. One way to solve the problem is the use multiple collections,  rely on the map which is partitioned, or perhaps write the collection yourself using the new SPI functionality [todo: reference to SPI chapter]
+\emph{Not partitioned:}  The IList/ISet are implemented as a collection in a MultiMap. and therefor are not partitioned; so their size can't grow beyond the capacity of a single JVM. This is a big difference compared to Hazelcast 2.x where they were partitioned. This limitation needs to be taken into consideration when you are designing a distributed system. A few ways to solve this issue are to use a stripe of collections or to build your collection on top of the IMap. Another more flexible but probably more time consuming alternative is to write the collection on top of the new SPI functionality [reference to SPI chapter]
 
 \section{What is next?}
-The api shown in these examples is only a subsection of what Hazelcast provides.[todo]
+The API's shown in these examples is only a subsection of what Hazelcast collections provides. todo: more text.

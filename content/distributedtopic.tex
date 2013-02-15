@@ -1,14 +1,14 @@
 \chapter{Distributed Topic}
 In the 'Distributed Collections' chapter we talked about the IQueue, which can be used to create point to point message solutions. In such a solution each message will be processed by a single consumer. An alternative approach is the publish/subscribe mechanism, where a single message can be processed by an arbitrary number of subscribed consumers.
 
-Hazelcast provides a publish/subscribe mechanism in the form of the com.hazelcast.core.ITopic. It is a distributed mechanism for publishing messages to multiple subscribers. Any number of members can publish messages to a topic and any number of members can receive messages from the topics they are subscribed to. The message can be an ordinary POJO, although it must be serializable since it needs to go over the network.
+Hazelcast provides a publish/subscribe mechanism in the form of the com.hazelcast.core.ITopic. It is a distributed mechanism for publishing messages to multiple subscribers. Any number of members can publish messages to a topic and any number of members can receive messages from the topics they are subscribed to. The message can be an ordinary POJO, although it must be serializable [see serialization chapter] since it needs to go over the network.
 
 I'll show how the distributed topic works based on a very simple example; there is a single topic that is shared between a publisher and a subscriber. The publisher publishes the current date on the topic:
 \begin{lstlisting}[language=java]
 public class PublisherMember {
     public static void main(String[] args){
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        ITopic<Date> topic = hzInstance.getTopic("topic");
+        HazelcastInstance hi = Hazelcast.newHazelcastInstance();
+        ITopic<Date> topic = hi.getTopic("topic");
         topic.publish(new Date());
         System.out.println("Published");
         System.exit(0);
@@ -19,8 +19,8 @@ And the subscriber acquires the same topic and adds a MessageListener to subscri
 \begin{lstlisting}[language=java]
 public class SubscribedMember {
     public static void main(String[] args){
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        ITopic<Date> topic = hzInstance.getTopic("topic");
+        HazelcastInstance hi = Hazelcast.newHazelcastInstance();
+        ITopic<Date> topic = hi.getTopic("topic");
         topic.addMessageListener(new MessageListenerImpl());
         System.out.println("Subscribed");
     }
@@ -33,7 +33,7 @@ public class SubscribedMember {
 \end{lstlisting}
 We first start up the subscriber, and we'll see: "Subscribed" in the console. Then we start the publisher, and after it has published the message "Published", the subscriber will output something like:
 \begin{lstlisting}
-Received: Sat Oct 30 13:05:24 EEST 2012
+Received: Sat Feb 15 13:05:24 EEST 2013
 \end{lstlisting}
 To make it a bit more interesting, you can start multiple subscribers. If you run the publisher again, all subscribers will receiving the same published message.
 
@@ -53,29 +53,29 @@ This guarantees that messages published by some member on some topic are deliver
 
 In practice it could be you don't need this strict ordering and it could become a bottleneck. If message ordering isn't important you can offload the processing to an ordinary executor that is configured with multiple threads e.g.:
 \begin{lstlisting}[language=java]
-    private final static Executor executor = Executors.newFixedThreadPool(10);       
-    private static class MessageListenerImpl implements MessageListener<Date> {
-        public void onMessage(final Message<Date> m) {
-            Runnable task = new Runnable() {
-                public void run() {
-                    System.out.println("Received: " + m.getMessageObject());
-                }
-            };
-            executor.execute(task);
-        }
-    } 
+private final static Executor executor = Executors.newFixedThreadPool(10);       
+private static class MessageListenerImpl implements MessageListener<Date> {
+   public void onMessage(final Message<Date> m) {
+      Runnable task = new Runnable() {
+         public void run() {
+            System.out.println("Received: " + m.getMessageObject());
+         }
+      };
+      executor.execute(task);
+   }
+} 
 \end{lstlisting}
 This can greatly boost the processing capacity since messages from some member to some topic can now be processed in parallel.
 
-\section{Gotcha's}
+\section{Good to know}
 
-\emph{Not transactional}. The ITopic is not transactional, so be careful when it is used inside a transaction.
+\emph{Not transactional}. The ITopic is not transactional, so be careful when it is used inside a transaction. If the transaction fails after a message is send or consumed and the transaction is rolled back, the message sending or consumption will not be rolled back.
 
 \emph{No garbage collection} for the topics. So as long as the topics are not destroyed, they will be managed by Hazelcast and this can eventually lead to memory issues. One way to solve it is by periodically iterating over all topics, retrieving the local statistics and checking if there is a difference in the number of messages processed compared to the previous check. If there is, publish a a new timestamp (see Cluster.getClusterTime) in a Hazelcast map (where the topic name can be the key). If there is no change, retrieve the timestamp from the map and if the difference is too big, the topic can be destroyed.
 
 \emph{No durable subscriptions} are possible; so a subscriber will not receives the messages that have been send while it was offline.
 
-\emph{No metadata} is available on the message like timestamp or an address to reply to. But this can be solved since the message object is an ordinary POJO and this metadata can be added.
+\emph{No metadata} is available on the message like timestamp or an address to reply to. But this can be solved since the message object can be an ordinary POJO and this metadata can be added. You could also decide to wrap the message object in a message envelope containing the metadata.
 
 \emph{Unexpected contention}. The executor that executes the MessageListeners uses a queue per worker thread, but it can happen that unrelated topic end up in the same queue. If the thread for that queue is busy with processing messages for other topics, message will not be processed even though there are processing threads available. Perhaps in the future the normal ThreadPoolExecutor will be replaced by the ForkJoinPool to solve this problem.
 

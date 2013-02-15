@@ -12,7 +12,7 @@ For the purpose of this book we'll use the community edition. If your project re
 Hazelcast is very easy to include in your Maven 3 project without needing to go through a complex installation process. Hazelcast can be found in the standard Maven repositories, so you do not need to add additional repositories to the pom. To include Hazelcast in your project, just add the following to your pom:
 \begin{lstlisting}[language=xml]
 <dependencies>	
-    <dependency>
+   <dependency>
       <groupId>com.hazelcast</groupId>
       <artifactId>hazelcast</artifactId>
       <version>3.0</version>
@@ -30,10 +30,11 @@ Hazelcast can be configured in different ways:
 \end{enumerate}
 The programmatic configuration is the most essential one, the other mechanisms are build on top of it. In this book we'll use the xml configuration file since that is the shortest. When you are running a Maven project; just add a resources directory under src/main/ and add a file 'hazelcast.xml'. The following shows an empty configuration:
 \begin{lstlisting}[language=xml]
-<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config
-                               http://www.hazelcast.com/schema/config/hazelcast-config-3.0.xsd"
-           xmlns="http://www.hazelcast.com/schema/config"
-           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<hazelcast 
+   xsi:schemaLocation="http://www.hazelcast.com/schema/config                               
+      http://www.hazelcast.com/schema/config/hazelcast-config-3.0.xsd"
+   xmlns="http://www.hazelcast.com/schema/config"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 </hazelcast>
 \end{lstlisting}
 This example also imports an XML schema (XSD) for validation and if you are using an IDE, you probably get code completion. To reduce the size of the examples in the book, only the elements inside the <hazelcast> tags are provided. In the sources for the book you can find the full xml configuration. Another thing you might run into is the strange formatting of the java code; this is also done to reduce the size. 
@@ -49,10 +50,10 @@ See [chapter Cluster Configuration: Multicast] if multicast doesn't work or you 
 In this book, the following approach is used to create a new Hazelcast instance:
 \begin{lstlisting}[language=java]
 public class Main {
-    public static void main(String[] args){
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        ...
-    }
+   public static void main(String[] args){
+      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
+      ...
+   }
 }
 \end{lstlisting}
 The mechanism uses the following alternatives to resolve the configuration:
@@ -67,12 +68,12 @@ Also be careful to check the Hazelcast output when you are relying on an hazelca
 Another option to load a HazelcastInstance, is to make use of programmatic configuration, e.g: 
 \begin{lstlisting}[language=java]
 public class Main {
-    public static void main(String[] args){
-       ExecutorConfig executorConfig = new ExecutorConfig().setPoolSize(10);
-       Config config = new Config().addExecutorConfig(executorConfig);	  
-       HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(config);
-       ...
-    }
+   public static void main(String[] args){
+      ExecutorConfig executorConfig = new ExecutorConfig().setPoolSize(10);
+      Config config = new Config().addExecutorConfig(executorConfig);	  
+      HazelcastInstance hi = Hazelcast.newHazelcastInstance(config);
+      ...
+   }
 }
 \end{lstlisting}
 The Hazelcast Config object has a fluent interface; meaning that the Config instance is returned when a config method on this instance is called. This makes chaining method calls very easy. The programmatic configuration is not only very useful for testing, but it also a solution for the static nature of the XML configuration. The content of the programmatic configuration can easily be created on the fly, e.g. based on database content. You could even decide to move the 'static' configuration to the hazelcast.xml, load this and then modify the dynamic parts, e.g. the network configuration.
@@ -83,7 +84,7 @@ In Hazelcast releases prior to 3.0, there was functionality for a static default
 The Hazelcast xml configuration can contain configuration elements for all kinds of distributed data-structures: sets, executors, maps etc. For example:
 \begin{lstlisting}[language=xml]
 <map name="testmap">
-    <time-to-live-seconds>10</time-to-live-seconds>
+   <time-to-live-seconds>10</time-to-live-seconds>
 </map>
 \end{lstlisting}
 But what if we want to create multiple map instances using the same configuration? Do we need to configure them individually? This is impossible to do if you have a dynamic number of distributed data-structures and you don't know up front how many need to be created. The solution to this problem is wildcard configuration, which is available for all data-structures. This makes it possible to use the same configuration for multiple instances. For example, we could configure the previous 'testmap' example with a 10 'time-to-live-seconds' using a wildcard configuration like this:
@@ -94,8 +95,8 @@ But what if we want to create multiple map instances using the same configuratio
 \end{lstlisting}
 Using a single asterisk (*) character any place in the name, the same configuration can be shared by different  data-structures. The wildcard configuration can be used like this:
 \begin{lstlisting}[language=java]
-     Map map1 = hzInstance.getMap("testmap1");
-     Map map2 = hzInstance.getMap("testmap2");
+   Map map1 = hi.getMap("testmap1");
+   Map map2 = hi.getMap("testmap2");
 \end{lstlisting}
 The maps 'testmap1' and 'testmap2' both match 'testmap*' so they will use the same configuration.
 
@@ -105,15 +106,17 @@ Something thing you need to watch out for are multiple configurations that match
     <time-to-live-seconds>10</time-to-live-seconds>
 </map>
 \end{lstlisting}
-A map can be loaded calling 'Map map1 = hzInstance.getMap("com.foo.testmap1")'. 
+A map can be loaded calling 'Map map1 = hi.getMap("com.foo.testmap1")'. 
 
 \section{Multiple Hazelcast instances}
 In most cases you will have a single Hazelcast Instance per JVM. But Multiple Hazelcast Instances can run in a single JVM. This is not only useful for testing, but also for more complex setups e.g. application servers running multiple independent applications that rely on Hazelcast. Multiple Hazelcast instances can be started like this:
 \begin{lstlisting}[language=java]
 public class MultipleMembers {
-    public static void main(String[] args){
-        HazelcastInstance hzInstance1 = Hazelcast.newHazelcastInstance();
-        HazelcastInstance hzInstance2 = Hazelcast.newHazelcastInstance();}}
+   public static void main(String[] args){
+      HazelcastInstance hi1 = Hazelcast.newHazelcastInstance();
+      HazelcastInstance hi2 = Hazelcast.newHazelcastInstance();
+   }
+}
 \end{lstlisting}
 When you start this multiple members, you see something like this in the output:
 \begin{lstlisting}
@@ -133,7 +136,7 @@ As you can see there is a 2 member cluster created.
 In the Hazelcast xml file properties can be included like this:
 \begin{lstlisting}[language=xml]
 <properties>
-    <property name="property-name">property-value</property>
+   <property name="property-name">property-value</property>
 </properties>
 \end{lstlisting}
  Apart from properties in the hazelcast.xml, they can also be passed on the commandline 'java -Dproperty-name=property-value'. One thing to watch out for; you can't override properties from the hazelcast.xml/programmatic-configuration from the command line because the latter has a lower priority. For a full listing of available properties see the 'Advanced configuration' chapter of the Hazelcast reference manual.
@@ -148,7 +151,7 @@ In the Hazelcast xml file properties can be included like this:
 Hazelcast supports various logging mechanisms; 'jdk', 'log4', 'sl4j' or 'none' if you don't want to have any logging. The default is 'jdk': the logging that is part of the JRE, so no additional dependencies are needed. Logging can be set by adding a property in the hazelcast.xml:
 \begin{lstlisting}[language=xml]
 <properties>
-    <property name="hazelcast.logging.type">log4j</property>
+   <property name="hazelcast.logging.type">log4j</property>
 </properties>
 \end{lstlisting}
 Or if you are using the programmatic configuration:
@@ -165,3 +168,5 @@ If you want to play around with the example sources of this book, check the foll
 
 \section{What is next?}
 Hazelcast supports a lot of functionality, so we cover only the most used functionality. Some things like named HazelcastInstances have been left out. [todo: more content?]
+
+classes are not automatically distributed to member; 

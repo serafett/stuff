@@ -12,9 +12,9 @@ Underneath you can find an example of the transaction api in practice:
 \begin{lstlisting}[language=java]
 public class PutWithTransaction {
     public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        Map map = hzInstance.getMap("map");
-        Transaction txn = hzInstance.getTransaction();
+        HazelcastInstance hi = Hazelcast.newHazelcastInstance();
+        Map map = hi.getMap("map");
+        Transaction txn = hi.getTransaction();
         txn.begin();
         try {
             map.put("1", "Paris");

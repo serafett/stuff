@@ -2,7 +2,7 @@ import com.hazelcast.core.*;
 
 import java.util.concurrent.TimeUnit;
 
-public class FollowerMember {
+public class Follower {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         ICountDownLatch latch = hzInstance.getCountDownLatch("countDownLatch");

@@ -1,5 +1,5 @@
 import com.hazelcast.core.*;
-public class LeaderMember {
+public class Leader {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         ICountDownLatch latch = hzInstance.getCountDownLatch("countDownLatch");

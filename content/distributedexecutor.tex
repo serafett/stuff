@@ -19,13 +19,14 @@ The problem in a distributed system however is that the default implementation o
 Lets start with a very simple example of IExecutorService where a task is executed that does some waiting and echoes a message:
 \begin{lstlisting}[language=java]
 public class EchoTask implements Runnable, Serializable {
-    private final String msg;
-    public EchoTask(String msg) {this.msg = msg;}
-    public void run() {
-        try { Thread.sleep(5000);} 
-        catch (InterruptedException e) {}
-        System.out.println("echo:" + msg);
-    }
+   private final String msg;
+   public EchoTask(String msg) {this.msg = msg;}
+   public void run() {
+      try { 
+         Thread.sleep(5000);
+      } catch (InterruptedException e) {}
+      System.out.println("echo:" + msg);
+   }
 }
 \end{lstlisting}
 This EchoTask implements the Runnable interface so that it can be submitted to the Executor. It also implements the Serializable interface because it could be that it is send to a different JVM to be processed. Instead of making the class Serializable, you could also rely on other serialization mechanisms; see [chapter serialization]. 
@@ -33,22 +34,22 @@ This EchoTask implements the Runnable interface so that it can be submitted to t
 The next part is the MasterMember that is responsible for submitting (and executing) 1000 echo messages:
 \begin{lstlisting}[language=java]
 public class MasterMember {
-    public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        IExecutorService executor = hzInstance.getExecutorService("executor");
-        for (int k = 1; k <= 1000; k++) {
-            Thread.sleep(1000);
-            System.out.println("Producing echo task: " + k);
-            executor.execute(new EchoTask("" + k));
-        }
-        System.out.println("EchoTaskMain finished!");
-    }
+   public static void main(String[] args) throws Exception {
+      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
+      IExecutorService executor = hi.getExecutorService("exec");
+      for (int k = 1; k <= 1000; k++) {
+         Thread.sleep(1000);
+         System.out.println("Producing echo task: " + k);
+         executor.execute(new EchoTask("" + k));
+      }
+      System.out.println("EchoTaskMain finished!");
+   }
 }
 \end{lstlisting}
 First we retrieve the executor from the HazelcastInstance and then we slowly submit 1000 echo tasks. One if the differences between Hazelcast 2.x and 3.x is that the HazelcastInstance.getExecutorService() method has disappeared; you now always need to provide a name instead of relying on the default one. By default Hazelcast configures the executor with 8 threads in the pool. For our example we only need 1, so we configure it in the hazelcast.xml file like this:
 \begin{lstlisting}[language=xml]
-<executor-service name="executor">
-    <pool-size>1</pool-size>
+<executor-service name="exec">
+   <pool-size>1</pool-size>
 </executor-service>
 \end{lstlisting}
 Another difference is that the core-pool-size and keep-alive-seconds properties from Hazelcast 2.x have disappeared, so the pool will have a fixed size.
@@ -77,8 +78,8 @@ When you scale up you need to look carefully at the JVM if it can handle the add
 
 Scaling up the ExecutorService in Hazelcast is very simple, just increment the maxPoolSize. Since we know that 5 threads is going to give maximum performance, lets set them to 5.
 \begin{lstlisting}[language=xml]
-<executor-service name="executor">
-    <pool-size>5</max-pool>
+<executor-service name="exec">
+   <pool-size>5</max-pool>
 </executor-service>
 \end{lstlisting}
 When we run the MasterNode we'll see something like this:
@@ -108,9 +109,9 @@ To scale up our echo example, we can add the following very basic slave member:
 \begin{lstlisting}[language=java]
 import com.hazelcast.core.*;
 public class SlaveMember {
-    public static void main(String[] args) {
-        Hazelcast.newHazelcastInstance();
-    }
+   public static void main(String[] args) {
+      Hazelcast.newHazelcastInstance();
+   }
 }
 \end{lstlisting}
 We don't need to do anything else because this member will automatically participate in the executor that was started in the master node and start processing tasks. 
@@ -127,16 +128,18 @@ So in only a few lines of code, we are now able to scale out! If you want, you c
 In a lot of cases when you execute a task, the task needs access to the HazelcastInstance to retrieve Hazelcast dependencies like a map. This can be done by implementing HazelcastInstanceAware, e.g.:
 \begin{lstlisting}[language=java]
 public class SomeTask implements
-        Runnable, Serializable, HazelcastInstanceAware {
-    private transient HazelcastInstance hzInstance;
-    public void setHazelcastInstance(HazelcastInstance hzInstance) {
-        this.hzInstance = hzInstance;}
-    public void run() {....}
+      Runnable, Serializable, HazelcastInstanceAware {
+   private transient HazelcastInstance hi;
+   public void setHazelcastInstance(HazelcastInstance hi) {
+      this.hi = hi;}
+   public void run() {
+      ....
+   }
 }
 \end{lstlisting}
-When this Task is processed, not when it is submitted, the Hazelcast executor checks if the task implements HazelcastInstanceAware. If so, it will inject the HazelcastInstance of the executor by calling the 'setHazelcastInstance' method. The hzInstance field needs be transient since it should not be serialized.
+When this Task is processed, not when it is submitted, the Hazelcast executor checks if the task implements HazelcastInstanceAware. If so, it will inject the HazelcastInstance of the executor by calling the 'setHazelcastInstance' method. The hi field needs be transient since it should not be serialized.
 
-[todo: getting access to other resources]
+Getting dependencies to non Hazelcast resources can be a bit more complicated. Often the only way out is to rely on some form of singleton. If you have multiple HazelcastInstances within a singleton, you could create a static map and use the HazelcastInstance as key and the dependencies as value.
 
 \section{Routing}
 Till so far we didn't care about which member did the actual processing of the task; as long as a member picks it up. But in some cases you do want to have that control. Luckily the IExecutorService provides different ways to route tasks:
@@ -152,21 +155,22 @@ In the previous section we already covered routing to any member. In the followi
 In some cases you want to execute a task on a specific member. As an example we are going to send an echo task to each member in the cluster. This is done by retrieving all members using the Cluster object and iterating over the cluster members. To each of the members we are going to send an echo message containing their own address. 
 \begin{lstlisting}[language=java]
 public class MasterMember {
-    public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        IExecutorService executorService = hzInstance.getExecutorService("executor");
-        for (Member member : hzInstance.getCluster().getMembers()) {
-            EchoTask task = new EchoTask("echo" + member.getInetSocketAddress());
-            executorService.executeOnMember(task, member);
-        }
-    }
+   public static void main(String[] args) {
+      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
+      IExecutorService executorService = hi.getExecutorService("ex");
+      for (Member member : hi.getCluster().getMembers()) {
+         EchoTask task = new EchoTask("echo" + 
+            member.getInetSocketAddress());
+         executorService.executeOnMember(task, member);
+      }
+   }
 }
 \end{lstlisting}
 When we start a few slaves and a master, we'll get output like:
 \begin{lstlisting}
 Members [2] {
-	Member [192.168.1.100]:5702 this
-	Member [192.168.1.100]:5703
+   Member [192.168.1.100]:5702 this
+   Member [192.168.1.100]:5703
 }
 ...
 echo/192.168.1.100:5702
@@ -181,31 +185,31 @@ In Hazelcast this can be done by placing the resources for a task in some partit
 As an example we are going to create a distributed system where there is some dummy data in a map and for every key in that map we are going to execute a verify task. This task will verify if it has been executed on the same member as where that partition for that key is residing:
 \begin{lstlisting}[language=java]
 public class VerifyTask implements
-        Runnable, Serializable, HazelcastInstanceAware {
-    private final String key;
-    private transient HazelcastInstance hzInstance;
-    public VerifyTask(String key) { this.key = key;}
-    public void setHazelcastInstance(HazelcastInstance hzInstance) {
-        this.hzInstance = hzInstance;}
-    public void run() {
-        IMap map = hzInstance.getMap("map");
-        boolean localKey = map.localKeySet().contains(key);
-        System.out.println("Key is local:" + localKey);
-    }
+       Runnable, Serializable, HazelcastInstanceAware {
+   private final String key;
+   private transient HazelcastInstance hi;
+   public VerifyTask(String key) { this.key = key;}
+   public void setHazelcastInstance(HazelcastInstance hi) {
+      this.hzInstance = hi;}
+   public void run() {
+      IMap map = hi.getMap("map");
+      boolean localKey = map.localKeySet().contains(key);
+      System.out.println("Key is local:" + localKey);
+   }
 }
 \end{lstlisting}
 If you look at the run method, you can see it accesses the map and checks if the key is hosted locally and prints the result. The next step is the MasterMember which first creates a map with some entries; we only care about the key so the value is bogus. And then iterates over the keys in the map and send a VerifyTask for each key:
 \begin{lstlisting}[language=java]
 public class MasterMember {
-    public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        Map<String, String> map = hzInstance.getMap("map");
-        for (int k = 0; k < 10; k++)
-            map.put(UUID.randomUUID().toString(), "");
-        IExecutorService executor = hzInstance.getExecutorService("executor");
-        for (String key : map.keySet())
-            executor.executeOnKeyOwner(new VerifyTask(key), key);
-    }
+   public static void main(String[] args) throws Exception {
+      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
+      Map<String, String> map = hi.getMap("map");
+      for (int k = 0; k < 10; k++)
+         map.put(UUID.randomUUID().toString(), "");
+      IExecutorService executor = hi.getExecutorService("exec");
+      for (String key : map.keySet())
+         executor.executeOnKeyOwner(new VerifyTask(key), key);
+   }
 }
 \end{lstlisting}
 As you can see we are now relying on the 'executeOnKeyOwner' to execute a task on the member owning a specific key. To verify the routing, we start a few slaves first and then start a master and we'll see output like this:
@@ -224,19 +228,20 @@ In some cases you want to execute a task on multiple or even all members. You ne
 In the following example there is a set of members and on these members there is a distributed map containing some entries. Each entry has some UUID as key and 1 as value. To demonstrate executing a task on all members, we are going to create a distributed sum operation that sums all values in the map:
 \begin{lstlisting}[language=java]
 public class SumTask implements
-        Callable<Integer>, Serializable, HazelcastInstanceAware {
-    private transient HazelcastInstance hzInstance;
-    public void setHazelcastInstance(HazelcastInstance hzInstance) {
-        this.hzInstance = hzInstance;}
-    public Integer call() throws Exception {
-        IMap<String, Integer> map = hzInstance.getMap("map");
-        int result = 0;
-        for (String key : map.localKeySet()) {
-            System.out.println("Calculating for key: " + key);
-            result += map.get(key);}
-        System.out.println("Local Result: " + result);
-        return result;
-    }
+   Callable<Integer>, Serializable, HazelcastInstanceAware {
+   private transient HazelcastInstance hi;
+   public void setHazelcastInstance(HazelcastInstance hi) {
+      this.hi = hi;}
+   public Integer call() throws Exception {
+      IMap<String, Integer> map = hi.getMap("map");
+      int result = 0;
+      for (String key : map.localKeySet()) {
+         System.out.println("Calculating for key: " + key);
+         result += map.get(key);
+      }
+      System.out.println("Local Result: " + result);
+      return result;
+   }
 }
 \end{lstlisting}
 When this SumTask is called it retrieves the map and then it iterates over all local keys, sums the values and returns the result.
@@ -244,18 +249,19 @@ When this SumTask is called it retrieves the map and then it iterates over all l
 The MasterMember will first create the map with some entries. Then it will submit the SumTask to each member and the result will be a map of futures. And finally we'll join all the futures and sum the result and print it:
 \begin{lstlisting}[language=java]
 public class MasterMember {
-    public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        Map<String,Integer> map = hzInstance.getMap("map");
-        for (int k = 0; k < 5; k++)
-            map.put(UUID.randomUUID().toString(), 1);
-        IExecutorService executor = hzInstance.getExecutorService("executor");
-        Map<Member,Future<Integer>> result = executor.submitToAllMembers (new SumTask());
-        int sum = 0;
-        for(Future<Integer> future: result.values())
-            sum+=future.get();
-        System.out.println("Result: " + sum);
-    }
+   public static void main(String[] args) throws Exception {
+      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
+      Map<String,Integer> map = hi.getMap("map");
+      for (int k = 0; k < 5; k++)
+         map.put(UUID.randomUUID().toString(), 1);
+      IExecutorService executor = hi.getExecutorService("exec");
+      Map<Member,Future<Integer>> result = 
+         executor.submitToAllMembers (new SumTask());
+      int sum = 0;
+      for(Future<Integer> future: result.values())
+         sum+=future.get();
+      System.out.println("Result: " + sum);
+   }
 }
 \end{lstlisting}
 When we start 1 slave and then a master member, we'll see something like this for the slave:
@@ -281,19 +287,20 @@ The  Executor interface only exposes a single 'void execute(Runnable)' method th
 
 To demonstrate the future, we are going to calculate a Fibonacci number by wrapping the calculation in a callable and synchronizing on the result:
 \begin{lstlisting}[language=java]
-public class FibonacciCallable implements Callable<Long>, Serializable {
-    private final int input;
-    public FibonacciCallable(int input) {
-        this.input = input;}
-    public Long call() {return calculate(input);}
-    private long calculate(int n) {
-        if (Thread.currentThread().isInterrupted()) {
-            System.out.println("FibonacciCallable is interrupted");
-            throw new RuntimeException("Fibonacci is interrupted");
-        }
-        if (n <= 1) return n;
-        else return calculate(n - 1) + calculate(n - 2);
-    }
+public class FibonacciCallable 
+   implements Callable<Long>, Serializable {
+   private final int input;
+   public FibonacciCallable(int input) {
+      this.input = input;}
+   public Long call() {return calculate(input);}
+   private long calculate(int n) {
+      if (Thread.currentThread().isInterrupted()) {
+         System.out.println("FibonacciCallable is interrupted");
+         throw new RuntimeException("Fibonacci is interrupted");
+      }
+      if (n <= 1) return n;
+      else return calculate(n - 1) + calculate(n - 2);
+   }
 }
 \end{lstlisting}
 If you look closely, you can see there is a check 'Thread.currentThread().isInterrupted()' that is run frequently while calculating. When the thread is interrupted, the Interrupted flag is set and the calculation will be aborted. In our case we are going to throw an exception.
@@ -301,19 +308,20 @@ If you look closely, you can see there is a check 'Thread.currentThread().isInte
 The next step is submitting the task and using a Future to synchronize on results:
 \begin{lstlisting}[language=java]
 public class MasterMember {
-    public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        IExecutorService executor = hzInstance.getExecutorService("executor");
-        int n = Integer.parseInt(args[0]);
-        Future<Long> future = executor.submit(new FibonacciCallable(n));
-        try {
-            long result = future.get(10, TimeUnit.SECONDS);
-            System.out.println("Result: "+result);
-        } catch (TimeoutException ex) {
-            System.out.println("A timeout happened, the future is cancelled");
-            future.cancel(true);
-        }
-    }
+   public static void main(String[] args) throws Exception {
+      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
+      IExecutorService executor = hi.getExecutorService("exec");
+      int n = Integer.parseInt(args[0]);
+      Future<Long> future = 
+         executor.submit(new FibonacciCallable(n));
+      try {
+         long result = future.get(10, TimeUnit.SECONDS);
+         System.out.println("Result: "+result);
+      } catch (TimeoutException ex) {
+         System.out.println("A timeout happened, the future is cancelled");
+         future.cancel(true);
+      }
+   }
 }
 \end{lstlisting}
 As you can see when we call the executorService.submit(Callable) method, we get back a Future as result. This future allows us to synchronize on completion or cancel the computation. 
@@ -335,17 +343,18 @@ With a future it is possible to synchronize on task completion. In some cases yo
 In the 'Future' topic an example is shown where a Fibonacci number is calculated and waiting on the completion of that operation is done using a Future. In the following example we are also going to calculate a Fibonacci number, but instead of waiting for that task to complete, we register an ExecutionCallback where we print the result asynchronously:
 \begin{lstlisting}[language=java]
 public class MasterMember {
-    public static void main(String[] args){
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        IExecutorService executor = hzInstance.getExecutorService("executor");
-        ExecutionCallback<Long> executionCallback = new ExecutionCallback<Long>() {
-            public void onFailure(Throwable t) {
-                t.printStackTrace();}
-            public void onResponse(Long response) {
-                System.out.println("Result: " + response);}
-        };
-        executor.submit(new FibonacciCallable(10), executionCallback);
-        System.out.println("Fibonacci task submitted");
+   public static void main(String[] args){
+      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
+      IExecutorService executor = hi.getExecutorService("exec");
+      ExecutionCallback<Long> callback = 
+         new ExecutionCallback<Long>() {
+         public void onFailure(Throwable t) {
+            t.printStackTrace();}
+         public void onResponse(Long response) {
+            System.out.println("Result: " + response);}
+      };
+      executor.submit(new FibonacciCallable(10), callback);
+      System.out.println("Fibonacci task submitted");
     }
 }
 \end{lstlisting}

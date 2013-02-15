@@ -757,30 +757,30 @@ It is important to realize that map.get(key) returns a copy of the values at som
 
 Removing items; you can remove items from the MultiMap. If the collection for a specific key is empty, this collection will not automatically be removed, so it can be that you need to clean up the MultiMap so that no empty value collections remains.
 
-[todo: list and set based multimap]
 [todo: config example]
 
 The value collection is set based, so no duplicates and there is no ordering.Null value is not allowed (npe). But the MultiMap can also be configured to be list based: MultiMapConfig.setValueCollectionType(ValueCollectionType.LIST). 
 
 One thing worth knowing; if a value collection with K is stored on member1 because K is owned by that member1, and member2 does a map.get(K), then the whole collection will transported from member1 to member 2. So if that value collection is big, it could lead to performance problems. A solution would be to send the whole operation to member1, so send the logic to the data instead of the data to the logic.
 
-\section{executeOnKey}
+\section{Execute on Key}
 [todo]
 EntryProcessor
 EntryBackupProcessor
 
-\section{Gotcha's}
-When Map.entrySet(), Map.keySet() or Map.values() is called, a snapshot of the current state of the map is returned. Changes that are made in the map, so not reflect into changes these maps. Also when changes are made on these collections, an UnsupportedOperationException is thrown.
+\section{Continuous listener}
 
-TODO: What about cache where serialization for local object is 'skipped?
+\section{Good to know}
+
+When Map.entrySet(), Map.keySet() or Map.values() is called, a snapshot of the current state of the map is returned. Changes that are made in the map, do not reflect on changes in these sets and vice versa. Also when changes are made on these collections, an UnsupportedOperationException is thrown.
 
 \section{What is next}
-In this chapter a lot of the basic operations on the Distributed Map were explained. In the next chapter we'll cover more advanced features.
+The Hazelcast IMap is a very feature rich data-structures and by properly configuring it will serve a lot of purposes.
 
+TODO: What about cache where serialization for local object is 'skipped?
 [todo: tell about garbage collection.. or the lack of it..]
 [todo: local entry listener]
 [todo: local entry set.. makes it easy to create a clustered solution where each member takes care of some parts of the tasks.. no central coordination needed]
 [TODO: ConcurrentMap operations never throw java.util.ConcurrentModificationException. Add somewhere.]
-[todo: continuous listener; listener with predicate]
 
 
