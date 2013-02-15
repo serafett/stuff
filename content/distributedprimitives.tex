@@ -16,7 +16,9 @@ public class Member {
             if (k % 500000 == 0) System.out.println("At: "+k);
             counter.incrementAndGet();
         }
-        System.out.printf("Count is %s\n", counter.get());}}
+        System.out.printf("Count is %s\n", counter.get());
+    }
+}
 \end{lstlisting}
 If you start this Member, you will see this:
 \begin{lstlisting}
@@ -64,7 +66,9 @@ public class RaceFreeMember {
                 }
             } finally {lock.unlock();}
         }
-        System.out.println("Finished");}}
+        System.out.println("Finished");
+    }
+}
 \end{lstlisting}
 When this code is executed; you will not see "Datarace detected!". This is because the lock provides a critical section around writing and reading of the numbers. In the example code you will also find the version with a data race.
 
@@ -108,7 +112,9 @@ public class SemaphoreMember {
                 resource.decrementAndGet();
             }finally{semaphore.release();}
         }
-        System.out.println("Finished");}}
+        System.out.println("Finished");
+    }
+}
 \end{lstlisting}
 We want to limit the concurrent access to the resource by allowing for at most 3 thread. This can be done by configuring the initial-permits for the semaphore in the Hazelcast config file:
 \begin{lstlisting}[language=xml]

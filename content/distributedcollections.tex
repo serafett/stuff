@@ -15,7 +15,9 @@ public class ProducerMember {
             System.out.println("Producing: " + k);
             Thread.sleep(1000);}
         queue.put(-1);
-        System.out.println("Producer Finished!");}}
+        System.out.println("Producer Finished!");
+    }
+}
 \end{lstlisting}
 To make sure that the consumers are going to terminate when the producer is finished, the producer will put a -1 on the queue to indicate that it is ready. When a consumer reads this message, also called a poison pill, it terminates. 
 
@@ -32,7 +34,9 @@ public class ConsumerMember {
                 queue.put(-1);
                 break;}     
             Thread.sleep(5000);}
-        System.out.println("Consumer Finished!");}}
+        System.out.println("Consumer Finished!");
+    }
+}
 \end{lstlisting}
 If you take a closer look at the consumer, you see that when the consumer receives the poison pill, it puts the poison pill back on the queue before it ends the loop. This is done to make sure that all consumer will also receive the poison pill, and not only the one that received it first.
 
@@ -110,13 +114,17 @@ public class WriteMember {
         list.add("Tokyo");
         list.add("Paris");
         list.add("New York");
-        System.out.println("Putting finished!");}}
+        System.out.println("Putting finished!");
+    }
+}
 public class ReadMember {
     public static void main(String[] args) {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         IList<String> list = hzInstance.getList("list");
         for (String s : list) System.out.println(s);
-        System.out.println("Reading finished!");}}
+        System.out.println("Reading finished!");
+    }
+}
 \end{lstlisting}
 If you first run the WriteMember and after it has completed start the ReadMember then the ReadMember will output the following:
 \begin{lstlisting}
@@ -137,13 +145,17 @@ public class WriteMember {
         set.add("Tokyo");
         set.add("Paris");
         set.add("New York");
-        System.out.println("Putting finished");}}
+        System.out.println("Putting finished");
+    }
+}
 public class ReadMember {
     public static void main(String[] args) {
          HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
          ISet<String> set = hzInstance.getSet("set");
          for(String s: set) System.out.println(s);
-         System.out.println("Reading finished!");}}
+         System.out.println("Reading finished!");
+    }
+}
 \end{lstlisting}
 If you first start the WriteMember and waiting for completion, you start the ReadMember; it will output the following:
 \begin{lstlisting}
@@ -168,12 +180,16 @@ public class ItemListenerMember {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         ICollection<String> queue = hzInstance.getQueue("queue");
         queue.addItemListener(new ItemListenerImpl<String>(), true);
-        System.out.println("ItemListener started");}
+        System.out.println("ItemListener started");
+    }
     private static class ItemListenerImpl<E> implements ItemListener<E> {
         public void itemAdded(ItemEvent<E> itemEvent) {
             System.out.println("Item added:" + itemEvent.getItem());}
         public void itemRemoved(ItemEvent<E> itemEvent) {
-            System.out.println("Item removed:" + itemEvent.getItem());}}}
+            System.out.println("Item removed:" + itemEvent.getItem());
+        }
+    }
+}
 \end{lstlisting}
 We registered the ItemListenerImpl with the addItemListener method using the value 'true'. This is done to make sure that our ItemListenerImpl will get the value that has been added/removed. The reason why this configuration option is available, is that in some cases you only want to be notified that a change happened, but you're not interested in the actual change and don't want to pay for sending the value over the line.
 
@@ -186,7 +202,9 @@ public class CollectionChangeMember{
         queue.put("foo");
         queue.put("bar");
         queue.take();
-        queue.take();}}
+        queue.take();
+    }
+}
 \end{lstlisting}
 First start up the ItemListenerMember and wait till it displays "ItemListener started". After that start the CollectionChangeMember and you will see the following output in the ItemListenerMember:
 \begin{lstlisting}

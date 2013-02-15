@@ -52,7 +52,8 @@ public class Main {
     public static void main(String[] args){
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         ...
-    }}
+    }
+}
 \end{lstlisting}
 The mechanism uses the following alternatives to resolve the configuration:
 \begin{enumerate}
@@ -70,7 +71,9 @@ public class Main {
        ExecutorConfig executorConfig = new ExecutorConfig().setPoolSize(10);
        Config config = new Config().addExecutorConfig(executorConfig);	  
        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance(config);
-       ...}}
+       ...
+    }
+}
 \end{lstlisting}
 The Hazelcast Config object has a fluent interface; meaning that the Config instance is returned when a config method on this instance is called. This makes chaining method calls very easy. The programmatic configuration is not only very useful for testing, but it also a solution for the static nature of the XML configuration. The content of the programmatic configuration can easily be created on the fly, e.g. based on database content. You could even decide to move the 'static' configuration to the hazelcast.xml, load this and then modify the dynamic parts, e.g. the network configuration.
 

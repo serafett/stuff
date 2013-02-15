@@ -20,7 +20,9 @@ public class FillMapMember {
         Map<String, String> employees = hzInstance.getMap("employees");
         employees.put("1", "Tokyo");
         employees.put("2", "Paris");
-        employees.put("3", "New York");}}
+        employees.put("3", "New York");
+    }
+}
 \end{lstlisting}
 As you can see the Map is retrieved using the hzInstance.getMap(mapName) and then some entries are stored in that map. Reading the entries can be done like this:
 \begin{lstlisting}[language=java]
@@ -29,7 +31,9 @@ public class PrintAllMember {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         Map<String, String> employees = hzInstance.getMap("employees");
         for(Map.Entry<String,String> entry : employees.entrySet())
-            System.out.println(entry.getKey()+" "+entry.getValue());}}
+            System.out.println(entry.getKey()+" "+entry.getValue());
+    }
+}
 \end{lstlisting}
 If the FillMapMember is runs before the PrintAllMember, we'll get output like this:
 \begin{lstlisting}
