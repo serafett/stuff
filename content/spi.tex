@@ -72,7 +72,7 @@ public class DistributedCounterService implements ManagedService, RemoteService 
 
 The DistributedCounter has a single method: inc. This method needs to be invoked on another machine, this can be done using the Hazelcast Operation, part of the new SPI. There are 4 types of operations:
 \begin{enumerate}
-\item Basic operations are executed always immediately, they don't require any lock and they don't wait any other operation.
+\item Basic operations are executed always immediately, they don't require any lock and they don't wait any other operation. These operations 
 \item PartitionAwareOperation: will be executed on a specific partition by returning the partition id. Once they are executed, the partition read-lock will be acquired and will prevent PartitionLevelOperations from executing on that partition. If a PartitionLevelOperation acquired the writelock before the PartitionAwareOperation acquired the readlock, a retry exception is returned to the caller so the operation can be redirected to the new partition owner. [todo: on the caller side we need to deal with a retry exception, or is this already dealt with]
 \item KeyBasedOperations extends PartitionAwareOperation and can specify key locks that prevent other KeyBasedOperations for the same key to execute on that operations [todo: is this a readlock or writelock]
 \item PartitionLevelOperation are the counter part of the PartitionAwareOperation since they acquire the writelock on the Partition so that no other PartitionAware and PartitionLevelOperations can be executed on that partition for the duration of that writelock. If the read or write-lock on the partition already is acquired, the call blocks until lock is released. [todo: timeout?]

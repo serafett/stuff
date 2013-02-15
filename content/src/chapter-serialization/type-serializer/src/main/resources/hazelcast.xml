@@ -6,7 +6,7 @@
     <serialization>
         <portable-factory-class>PortableFactoryImpl</portable-factory-class>
         <serializers>
-            <type-serializer type-class="AddressTypeSerializer" global="false"/>
+            <type-serializer type-class="PersonTypeSerializer" global="false"/>
         </serializers>
     </serialization>
 </hazelcast>
