@@ -3,7 +3,7 @@ public class SemaphoreMember {
     public static void main(String[] args)throws Exception{
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         ISemaphore semaphore = hzInstance.getSemaphore("semaphore");
-        AtomicNumber resource = hzInstance.getAtomicNumber("resource");
+        IAtomicLong resource = hzInstance.getAtomicLong("resource");
         for(int k=0;k<1000;k++){
             System.out.println("At iteration: "+k +", Active Threads: " + resource.get());
             semaphore.acquire();

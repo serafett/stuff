@@ -4,9 +4,8 @@
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 
     <serialization>
-        <portable-factory-class>PortableFactoryImpl</portable-factory-class>
         <serializers>
-            <type-serializer type-class="PersonTypeSerializer" global="false"/>
+            <type-serializer type-class="Person">PersonTypeSerializer</type-serializer>
         </serializers>
     </serialization>
 </hazelcast>

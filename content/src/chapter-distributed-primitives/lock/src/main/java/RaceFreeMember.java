@@ -2,8 +2,8 @@ import com.hazelcast.core.*;
 public class RaceFreeMember {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        AtomicNumber number1 = hzInstance.getAtomicNumber("number1");
-        AtomicNumber number2 = hzInstance.getAtomicNumber("number2");
+        IAtomicLong number1 = hzInstance.getAtomicLong("number1");
+        IAtomicLong number2 = hzInstance.getAtomicLong("number2");
         ILock lock = hzInstance.getLock("lock");
         System.out.println("Started");
         for (int k = 0; k < 10000; k++) {

@@ -1,24 +1,24 @@
 \chapter{Distributed Primitives}
 If you have programmed in Java you have probably worked with concurrency primitives like the synchronized statement (the intrinsic lock) or perhaps even the concurrency library that was introduced in Java 5 under java.util.concurrent like the Executor, Lock and AtomicReference.
 
-This concurrency functionality is useful if you want to write a Java application that use multiple threads, but the focus is to provide is synchronization in a single JVM and not distributed over multiple JVM's. Luckily Hazelcast provides support for various distributed synchronization primitives like the Lock, AtomicNumber etc. And apart from making synchronization between different JVM's possible, they also support high availably; so if one machine fails, the primitive remains usable for other JVM's.
+This concurrency functionality is useful if you want to write a Java application that use multiple threads, but the focus is to provide is synchronization in a single JVM and not distributed over multiple JVM's. Luckily Hazelcast provides support for various distributed synchronization primitives like the Lock, IAtomicLong etc. And apart from making synchronization between different JVM's possible, they also support high availably; so if one machine fails, the primitive remains usable for other JVM's.
 
-\section{AtomicNumber}
-The AtomicNumber is the distributed version of the java.util.concurrent.atomic.AtomicLong, so if you have used that before, working with the AtomicNumber should feel very similar. The AtomicNumber exposes most of the operations the AtomicLong provides like get, set, getAndSet, compareAndSet and incrementAndGet, but there is of course a big difference in performance since remote calls are involved.
+\section{IAtomicLong}
+The IAtomicLong, formally known as the AtomicNumber, is the distributed version of the java.util.concurrent.atomic.AtomicLong, so if you have used that before, working with the IAtomicLong should feel very similar. The IAtomicLong exposes most of the operations the AtomicLong provides like get, set, getAndSet, compareAndSet and incrementAndGet, but there is of course a big difference in performance since remote calls are involved.
 
-I'll demonstrate the AtomicNumber by creating an instance and incrementing it one million times:
+I'll demonstrate the IAtomicLong by creating an instance and incrementing it one million times:
 \begin{lstlisting}[language=java]
-public class AtomicNumberMember {
+public class Member {
     public static void main(String[] args) {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        AtomicNumber counter = hzInstance.getAtomicNumber("counter");
+        IAtomicLong counter = hzInstance.getAtomicLong("counter");
         for (int k = 0; k < 1000 * 1000; k++) {
             if (k % 500000 == 0) System.out.println("At: "+k);
             counter.incrementAndGet();
         }
         System.out.printf("Count is %s\n", counter.get());}}
 \end{lstlisting}
-If you start the AtomicNumberMember, you will see this:
+If you start this Member, you will see this:
 \begin{lstlisting}
 At: 0
 At: 500000
@@ -26,7 +26,7 @@ Count is 1000000
 \end{lstlisting}
 If you run multiple instances of this member, then the total count should be equal to one million times the number of members you have started.
 
-If the AtomicNumber is a contention point in your system, there are a few ways of dealing with it, depending on your requirements. One of the options it to create a stripe (essentially an array) of AtomicNumbers to reduce pressure. Another options is to keep changes local and only publish them to the AtomicNumber once and a while. There are a few downsides here; you could loose information if a member goes down and is that the newest value is not always immediately visible to the outside world. If you want to generate unique id's, you can have a look at the IdGenerator.
+If the IAtomicLong becomes a contention point in your system, there are a few ways of dealing with it, depending on your requirements. One of the options it to create a stripe (essentially an array) of IAtomicLong instances to reduce pressure. Another options is to keep changes local and only publish them to the IAtomicLong once and a while. There are a few downsides here; you could loose information if a member goes down and is that the newest value is not always immediately visible to the outside world. If you want to generate unique id's, you can have a look at the IdGenerator.
 
 Hazelcast only provides support for the long, but you can always simulate other types:
 \begin{enumerate}
@@ -45,8 +45,8 @@ To show you how a race problem can be solved with a Hazelcast lock:
 public class RaceFreeMember {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        AtomicNumber number1 = hzInstance.getAtomicNumber("number1");
-        AtomicNumber number2 = hzInstance.getAtomicNumber("number2");
+        IAtomicLong number1 = hzInstance.getAtomicLong("number1");
+        IAtomicLong number2 = hzInstance.getAtomicLong("number2");
         ILock lock = hazelcastInstance.getLock("lock");
         System.out.println("Started");
         for (int k = 0; k < 10000; k++) {
@@ -92,13 +92,13 @@ Hazelcast provides a distributed version of the java.util.concurrent.Semaphore n
 \item a permit is available. The number of permits in the semaphore is decreased by one and the calling thread can continue. 
 \item no permit is available. The calling thread will block until a permit comes available, a timeout happens, the thread is interrupted or when the semaphore is destroyed an InstanceDestroyedException will be thrown.
 \end{enumerate}
-I'll explain the semaphore with an example. To simulate a shared resource we have an AtomicNumber initialized with the value 0. This resource is going to used 1000 times, When a thread starts to use that resource it increments it and once completed it decrements it.
+I'll explain the semaphore with an example. To simulate a shared resource we have an IAtomicLong initialized with the value 0. This resource is going to used 1000 times, When a thread starts to use that resource it increments it and once completed it decrements it.
 \begin{lstlisting}[language=java]
 public class SemaphoreMember {
     public static void main(String[] args)throws Exception{
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
         ISemaphore semaphore = hzInstance.getSemaphore("semaphore");
-        AtomicNumber resource = hzInstance.getAtomicNumber("resource");
+        IAtomicLong resource = hzInstance.getAtomicLong("resource");
         for(int k=0;k<1000;k++){
             System.out.println("At iteration: "+k +", Active Threads: " + resource.get());
             semaphore.acquire();
@@ -181,7 +181,7 @@ One thing to watch out for is that a ICountDownLatch waiter can be notified prem
 Although the ICountdownLatch is a very useful synchronization aid, it probably isn't one you will use on a daily basis. Unlike Java's implementation, Hazelcast's ICountDownLatch count can be re-set after a countdown has finished but not during an active count. 
 
 \section{IdGenerator}
-In the beginning of this chapter we introduced the AtomicNumber and one of the things it can be used for is to generated unique id's within a cluster. Although it will work, it probably isn't the most scalable solution since all member will content on incrementing the value. If you are only interested in unique id's you can have a look at the com.hazelcast.core.IdGenerator:
+In the beginning of this chapter we introduced the IAtomicLong and one of the things it can be used for is to generated unique id's within a cluster. Although it will work, it probably isn't the most scalable solution since all member will content on incrementing the value. If you are only interested in unique id's you can have a look at the com.hazelcast.core.IdGenerator:
 \begin{lstlisting}[language=java]
 public class IdGeneratorMember {
     public static void main(String[] args) throws Exception{
@@ -196,7 +196,7 @@ public class IdGeneratorMember {
 \end{lstlisting}
 If you start this multiple times, you will see in the console that there will not be any duplicate id's.
 
-The way the IdGenerator works is that each member claims a segment of 1 million id's to generate. This is done behind the scenes by using an AtomicNumber and claiming a segment is done by incrementing that AtomicNumber by a million. After the claiming the segment, the IdGenerator can increment a local counter. Once all id's in the segment are used, it needs to claim a new segment. The consequence of this approach is that only 1 in a million times you need to do network traffic; so 999.999 out of 1.000.000 the id generation can be done in memory and is extremely fast. Another consequence is that this approach scales a lot better than an AtomicNumber because there is a lot less contention on the AtomicNumber (1 out of 1.000.000 instead of 1 out of 1).
+The way the IdGenerator works is that each member claims a segment of 1 million id's to generate. This is done behind the scenes by using an IAtomicLong and claiming a segment is done by incrementing that IAtomicLong by a million. After the claiming the segment, the IdGenerator can increment a local counter. Once all id's in the segment are used, it needs to claim a new segment. The consequence of this approach is that only 1 in a million times you need to do network traffic; so 999.999 out of 1.000.000 the id generation can be done in memory and is extremely fast. Another consequence is that this approach scales a lot better than an IAtomicLong because there is a lot less contention: 1 out of 1.000.000 instead of 1 out of 1.
 
 Of course there are some issues you need to be aware of:
 \begin{enumerate}
@@ -205,7 +205,7 @@ Of course there are some issues you need to be aware of:
 \end{enumerate}
 For id generation, in most cases, this isn't not relevant. Apart from the IdGenerator, there are other options for creating cluster wide unique id's. One of them is the java.util.UUID, although it will take up more space than a long, it doesn't rely on access to a Hazelcast cluster.
 
-Another important issue you need to know is that if the cluster restarts, then the IdGenerator is reset and starts from 0 because the IdGenerator doesn't write to storage, e.g a database. If you need this, you can create your own IdGenerator based on the same implementation mechanism the IdGenerator uses, but you persist the updates to the AtomicNumber.
+Another important issue you need to know is that if the cluster restarts, then the IdGenerator is reset and starts from 0 because the IdGenerator doesn't write to storage, e.g a database. If you need this, you can create your own IdGenerator based on the same implementation mechanism the IdGenerator uses, but you persist the updates to the IAtomicLong.
 
 \section{What is next?}
 In this chapter we looked at various synchronization primitives that are supported by Hazelcast. If for whatever reason you need a different one you can try to build it on top of existing ones, or create a custom one using the Hazelcast SPI. One of the things I would like to see added the ability to control the partition the primitive is living on since this would improve locality of reference. 

@@ -18,8 +18,8 @@
     </parent>
 
     <modules>
+        <module>atomiclong</module>
         <module>lock</module>
-        <module>atomicnumber</module>
         <module>countdownlatch</module>
         <module>idgenerator</module>
         <module>semaphore</module>

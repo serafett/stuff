@@ -1,4 +1,4 @@
-\documentclass[oneside]{book}
+\documentclass[oneside,20pt]{book}
 \usepackage[a4paper, top=3cm, bottom=3cm]{geometry}
 \usepackage[latin1]{inputenc}
 \usepackage{setspace}
@@ -14,9 +14,9 @@
 \usepackage{listings}
 \usepackage{textcomp}
 \usepackage{enumitem}
-\lstset{language=Java,
+\lstset{language=java,
     keywordstyle=\color{RoyalBlue},
-    basicstyle=\scriptsize\ttfamily,
+    basicstyle=\normalsize\ttfamily,
     commentstyle=\color{Green}\ttfamily,
     rulecolor=\color{black},
     upquote=true,
@@ -39,8 +39,8 @@
 
 %\usepackage{helvet}
 %\renewcommand{\familydefault}{\sfdefault}
-\fontsize{12pt}{20pt}
-\selectfont
+%\fontsize{12pt}{20pt}
+%\selectfont
 
 \addtolength{\parskip}{\baselineskip}
 \begin{document}
@@ -79,6 +79,9 @@ Peter Veentjer.
 % Set custom header
 \lhead[]{\thepage}
 \rhead[\thepage]{}
+
+\fontsize{12pt}{18pt}
+\selectfont
 
 % Set arabic (1,2,3...) page numbering
 \pagenumbering{arabic}

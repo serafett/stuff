@@ -43,7 +43,7 @@ public class MasterMember {
 First we retrieve the executor from the HazelcastInstance and then we slowly submit 1000 echo tasks. One if the differences between Hazelcast 2.x and 3.x is that the HazelcastInstance.getExecutorService() method has disappeared; you now always need to provide a name instead of relying on the default one. By default Hazelcast configures the executor with 8 threads in the pool. For our example we only need 1, so we configure it in the hazelcast.xml file like this:
 \begin{lstlisting}[language=xml]
 <executor-service name="executor">
-    <max-pool-size>1</max-pool-size>
+    <pool-size>1</pool-size>
 </executor-service>
 \end{lstlisting}
 Another difference is that the core-pool-size and keep-alive-seconds properties from Hazelcast 2.x have disappeared, so the pool will have a fixed size.
@@ -73,7 +73,7 @@ When you scale up you need to look carefully at the JVM if it can handle the add
 Scaling up the ExecutorService in Hazelcast is very simple, just increment the maxPoolSize. Since we know that 5 threads is going to give maximum performance, lets set them to 5.
 \begin{lstlisting}[language=xml]
 <executor-service name="executor">
-    <max-pool-size>5</max-pool-size>
+    <pool-size>5</max-pool>
 </executor-service>
 \end{lstlisting}
 When we run the MasterNode we'll see something like this:
