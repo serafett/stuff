@@ -1,9 +1,9 @@
 import com.hazelcast.core.*;
 public class SemaphoreMember {
     public static void main(String[] args)throws Exception{
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        ISemaphore semaphore = hzInstance.getSemaphore("semaphore");
-        IAtomicLong resource = hzInstance.getAtomicLong("resource");
+        HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+        ISemaphore semaphore = hz.getSemaphore("semaphore");
+        IAtomicLong resource = hz.getAtomicLong("resource");
         for(int k=0;k<1000;k++){
             System.out.println("At iteration: "+k +", Active Threads: " + resource.get());
             semaphore.acquire();

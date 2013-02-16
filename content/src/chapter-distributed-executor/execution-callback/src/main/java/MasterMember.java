@@ -5,8 +5,8 @@ import com.hazelcast.core.IExecutorService;
 
 public class MasterMember {
     public static void main(String[] args){
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        IExecutorService executor = hzInstance.getExecutorService("executor");
+        HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+        IExecutorService executor = hz.getExecutorService("executor");
         ExecutionCallback<Long> executionCallback = new ExecutionCallback<Long>() {
             public void onFailure(Throwable t) {
                 t.printStackTrace();}

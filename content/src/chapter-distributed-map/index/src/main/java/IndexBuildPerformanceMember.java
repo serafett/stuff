@@ -6,8 +6,8 @@ public class IndexBuildPerformanceMember {
     public final static int MAP_SIZE = 100000;
 
     public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        IMap<String, Person> personMap = hzInstance.getMap("persons");
+        HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+        IMap<String, Person> personMap = hz.getMap("persons");
 
         System.out.println("Generating testdata");
         System.out.println("Starting benchmark");

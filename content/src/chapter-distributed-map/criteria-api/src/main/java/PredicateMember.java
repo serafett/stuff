@@ -15,8 +15,8 @@ import static com.hazelcast.query.Predicates.or;
 
 public class PredicateMember {
 
-    private HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-    private IMap<String, Person> personMap = hzInstance.getMap("personMap");
+    private HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+    private IMap<String, Person> personMap = hz.getMap("personMap");
 
     public static void main(String[] args) {
         new PredicateMember().run();
@@ -30,7 +30,7 @@ public class PredicateMember {
         personMap.put("5", new Person("Rob", true, 60));
         personMap.put("6", new Person("Jane", false, 43));
 
-        Set s = hzInstance.getSet("foo");
+        Set s = hz.getSet("foo");
         Person p = new Person("Peter", true, 37);
         s.add(p);
         Person p1 = (Person) s.iterator().next();

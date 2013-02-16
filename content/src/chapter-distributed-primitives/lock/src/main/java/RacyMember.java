@@ -1,9 +1,9 @@
 import com.hazelcast.core.*;
 public class RacyMember {
     public static void main(String[] args) throws InterruptedException {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        IAtomicLong number1 = hzInstance.getAtomicLong("number1");
-        IAtomicLong number2 = hzInstance.getAtomicLong("number2");
+        HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+        IAtomicLong number1 = hz.getAtomicLong("number1");
+        IAtomicLong number2 = hz.getAtomicLong("number2");
         System.out.println("Started");
         for (int k = 0; k < 1000000; k++) {
             if (k % 10000 == 0) System.out.println("at: " + k);

@@ -6,15 +6,15 @@ import java.io.Serializable;
 
 public class WriteMember {
     public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        //ISet<String> set = hzInstance.getSet("set");
+        HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+        //ISet<String> set = hz.getSet("set");
         //set.add("Tokyo");
         //set.add("Paris");
         //set.add("London");
         //set.add("New York");
         //System.out.println("Putting finished!");
 
-        ISet x = hzInstance.getSet("x");
+        ISet x = hz.getSet("x");
         x.add(new Foo(10,0));
         x.add(new Foo(20,0));
 

@@ -8,8 +8,8 @@ As an example we'll create a producer/consumer implementation that is connected 
 \begin{lstlisting}[language=java]
 public class ProducerMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hi = Hazelcast.newHazelcastInstance();
-        IQueue<Integer> queue = hi.getQueue("queue");
+        HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+        IQueue<Integer> queue = hz.getQueue("queue");
         for (int k = 1; k < 100; k++) {
             queue.put(k);
             System.out.println("Producing: " + k);
@@ -26,8 +26,8 @@ The consumer will take the message from the queue, print it and waits 5 seconds 
 \begin{lstlisting}[language=java]
 public class ConsumerMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hi = Hazelcast.newHazelcastInstance();
-        IQueue<Integer> queue = hi.getQueue("queue");
+        HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+        IQueue<Integer> queue = hz.getQueue("queue");
         while (true){
             int item = queue.take();
             System.out.println("Consumed: " + item);
@@ -117,8 +117,8 @@ A List is a collection where every element only occurs ones and where the order 
 \begin{lstlisting}[language=java]
 public class WriteMember {
    public static void main(String[] args) {
-      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
-      IList<String> list = hi.getList("list");
+      HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+      IList<String> list = hz.getList("list");
       list.add("Tokyo");
       list.add("Paris");
       list.add("New York");
@@ -127,8 +127,8 @@ public class WriteMember {
 }
 public class ReadMember {
    public static void main(String[] args) {
-      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
-      IList<String> list = hi.getList("list");
+      HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+      IList<String> list = hz.getList("list");
       for (String s : list) 
          System.out.println(s);
       System.out.println("Reading finished!");
@@ -149,8 +149,8 @@ A Set is a collection where every element only occurs once and where the order o
 \begin{lstlisting}[language=java]
 public class WriteMember {
    public static void main(String[] args) {
-      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
-      ISet<String> set = hi.getSet("set");
+      HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+      ISet<String> set = hz.getSet("set");
       set.add("Tokyo");
       set.add("Paris");
       set.add("New York");
@@ -159,8 +159,8 @@ public class WriteMember {
 }
 public class ReadMember {
    public static void main(String[] args) {
-      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
-      ISet<String> set = hi.getSet("set");
+      HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+      ISet<String> set = hz.getSet("set");
       for(String s: set) 
          System.out.println(s);
       System.out.println("Reading finished!");
@@ -187,8 +187,8 @@ The following example shows an ItemListener that listens to all changes made in 
 \begin{lstlisting}[language=java]
 public class ItemListenerMember {
    public static void main(String[] args) throws Exception {
-      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
-      ICollection<String> q = hi.getQueue("queue");
+      HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+      ICollection<String> q = hz.getQueue("queue");
       q.addItemListener(new ItemListenerImpl<String>(), true);
       System.out.println("ItemListener started");
    }
@@ -209,8 +209,8 @@ To see that the ItemListener really is working, we'll create a member that makes
 \begin{lstlisting}[language=java]
 public class CollectionChangeMember{
    public static void main(String[] args) throws Exception {
-      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
-      BlockingQueue<String> q = hi.getQueue("queue");
+      HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+      BlockingQueue<String> q = hz.getQueue("queue");
       q.put("foo");
       q.put("bar");
       q.take();

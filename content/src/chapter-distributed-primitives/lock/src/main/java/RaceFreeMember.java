@@ -1,10 +1,10 @@
 import com.hazelcast.core.*;
 public class RaceFreeMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        IAtomicLong number1 = hzInstance.getAtomicLong("number1");
-        IAtomicLong number2 = hzInstance.getAtomicLong("number2");
-        ILock lock = hzInstance.getLock("lock");
+        HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+        IAtomicLong number1 = hz.getAtomicLong("number1");
+        IAtomicLong number2 = hz.getAtomicLong("number2");
+        ILock lock = hz.getLock("lock");
         System.out.println("Started");
         for (int k = 0; k < 10000; k++) {
             if (k % 100 == 0) System.out.println("at: " + k);

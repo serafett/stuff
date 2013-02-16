@@ -8,8 +8,8 @@ import java.util.Map;
 
 public class ProcessingMember {
     public static void main(String[] args){
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        IMap map = hzInstance.getMap("theMap");
+        HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+        IMap map = hz.getMap("theMap");
         map.put("peter","onzin");
         map.executeOnKey("peter", new EntryProcessor() {
             @Override

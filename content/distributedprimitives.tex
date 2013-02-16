@@ -10,8 +10,8 @@ I'll demonstrate the IAtomicLong by creating an instance and incrementing it one
 \begin{lstlisting}[language=java]
 public class Member {
    public static void main(String[] args) {
-      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
-      IAtomicLong counter = hi.getAtomicLong("counter");
+      HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+      IAtomicLong counter = hz.getAtomicLong("counter");
       for (int k = 0; k < 1000 * 1000; k++) {
          if (k % 500000 == 0) 
             System.out.println("At: "+k);
@@ -47,9 +47,9 @@ To show you how a race problem can be solved with a Hazelcast lock:
 \begin{lstlisting}[language=java]
 public class RaceFreeMember {
    public static void main(String[] args) throws Exception {
-      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
-      IAtomicLong number1 = hi.getAtomicLong("number1");
-      IAtomicLong number2 = hi.getAtomicLong("number2");
+      HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+      IAtomicLong number1 = hz.getAtomicLong("number1");
+      IAtomicLong number2 = hz.getAtomicLong("number2");
       ILock lock = hi.getLock("lock");
       System.out.println("Started");
       for (int k = 0; k < 10000; k++) {
@@ -103,9 +103,9 @@ I'll explain the semaphore with an example. To simulate a shared resource we hav
 \begin{lstlisting}[language=java]
 public class SemaphoreMember {
    public static void main(String[] args)throws Exception{
-      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
-      ISemaphore semaphore = hi.getSemaphore("semaphore");
-      IAtomicLong resource = hi.getAtomicLong("resource");
+      HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+      ISemaphore semaphore = hz.getSemaphore("semaphore");
+      IAtomicLong resource = hz.getAtomicLong("resource");
       for(int k=0;k<1000;k++){
          System.out.println("At iteration: "+k +
             ", Active Threads: " + resource.get());
@@ -152,8 +152,8 @@ To explain the ICountDownLatch, image there is a leader process that is executin
 \begin{lstlisting}[language=java]
 public class Leader{
    public static void main(String[] args)throws Exception{
-      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
-      ICountDownLatch latch = hi.getCountDownLatch("latch");      
+      HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+      ICountDownLatch latch = hz.getCountDownLatch("latch");      
       System.out.println("Starting");
       latch.trySetCount(1); 
       Thread.sleep(5000);
@@ -169,12 +169,12 @@ The next part is the Follower:
 \begin{lstlisting}[language=java]
 public class Follower {
    public static void main(String[] args) throws Exception {
-      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
-      ICountDownLatch latch = hi.getCountDownLatch("latch");
+      HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+      ICountDownLatch latch = hz.getCountDownLatch("latch");
       System.out.println("Waiting");
       boolean success = latch.await(10, TimeUnit.SECONDS);
       System.out.println("Complete:"+success);
-   }
+hz }
 }
 \end{lstlisting}
 As you can see we first retrieve the ICountDownLatch and then call await on it so the thread listens for the ICountDownLatch to reach 0. In practice it can happen than a process that should have called the ICountDownLatch.countDown method, fails and therefor the ICountDownLatch will never reach 0. To force you to deal with this situation, there is no await method without a timeout to prevent waiting indefinitely. 
@@ -194,8 +194,8 @@ So lets see the IdGenerator in action:
 \begin{lstlisting}[language=java]
 public class IdGeneratorMember {
    public static void main(String[] args) throws Exception{
-      HazelcastInstance hi = Hazelcast.newHazelcastInstance();
-      IdGenerator idGenerator = hi.getIdGenerator("id");
+      HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+      IdGenerator idGenerator = hz.getIdGenerator("id");
       for (int k = 0; k < 1000; k++){
          Thread.sleep(1000);
          System.out.printf("Id : %s\n", idGenerator.newId());

@@ -4,8 +4,8 @@ import com.hazelcast.core.IQueue;
 
 public class ConsumerMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        IQueue<Integer> queue = hzInstance.getQueue("queue");
+        HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+        IQueue<Integer> queue = hz.getQueue("queue");
         while (true) {
             int item = queue.take();
             System.out.println("Consumed: " + item);

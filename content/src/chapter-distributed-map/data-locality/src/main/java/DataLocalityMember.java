@@ -6,9 +6,9 @@ import com.hazelcast.partition.Partition;
 import java.util.Map;
 public class DataLocalityMember {
     public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        Map<Long, Customer> customerMap = hzInstance.getMap("customers");
-        Map<OrderKey, Order> orderMap = hzInstance.getMap("orders");
+        HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+        Map<Long, Customer> customerMap = hz.getMap("customers");
+        Map<OrderKey, Order> orderMap = hz.getMap("orders");
 
         long customerId = 100;
         long orderId = 200;
@@ -21,7 +21,7 @@ public class DataLocalityMember {
         Order order = new Order(orderKey.orderId,customer.id,articleId);
         orderMap.put(orderKey, order);
 
-        PartitionService pService = hzInstance.getPartitionService();
+        PartitionService pService = hz.getPartitionService();
         Partition cPartition = pService.getPartition(customerId);
         Partition kPartition = pService.getPartition(new OrderKey(orderId, customerId));
         Partition oPartition = pService.getPartition(orderId);

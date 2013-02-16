@@ -2,8 +2,8 @@ import com.hazelcast.core.*;
 import java.io.Serializable;
 public class AbaProtectedOptimisticMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        IMap<String, Value> map = hzInstance.getMap("map");
+        HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+        IMap<String, Value> map = hz.getMap("map");
         String key = "1";
         map.put(key, new Value());
         System.out.println("Starting");

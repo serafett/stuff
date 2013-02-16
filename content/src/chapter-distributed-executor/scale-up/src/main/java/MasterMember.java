@@ -4,8 +4,8 @@ import com.hazelcast.core.IExecutorService;
 
 public class MasterMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        IExecutorService executor = hzInstance.getExecutorService("executor");
+        HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+        IExecutorService executor = hz.getExecutorService("executor");
         for (int k = 1; k <= 1000; k++) {
             Thread.sleep(1000);
             System.out.println("Producing Task: " + k);

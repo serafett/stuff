@@ -2,9 +2,9 @@ import com.hazelcast.core.*;
 import java.util.Map;
 public class TransactionalMember {
     public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        Map<String,String> map = hzInstance.getMap("map");
-        Transaction txn = hzInstance.getTransaction();
+        HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+        Map<String,String> map = hz.getMap("map");
+        Transaction txn = hz.getTransaction();
         txn.begin();
         try {
             map.put("1", "1");

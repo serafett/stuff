@@ -4,21 +4,27 @@ Till so far the examples showed members that were full participants in the clust
 We are going to implement client example where a message will be put on a queue by a client and taken from the queue by a fill member:
 \begin{lstlisting}[language=java]
 public class FullMember {
-    public static void main(String[] args)throws Exception{
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        BlockingQueue<String> queue = hzInstance.getQueue("queue");
-        for(;;) System.out.println(queue.take());}}
+   public static void main(String[] args)throws Exception{
+      HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+      BlockingQueue<String> queue = hz.getQueue("queue");
+      for(;;) 
+         System.out.println(queue.take());
+   }
+}
 \end{lstlisting}
 
 With the client one can connect to the cluster purely as a client and not have any of the responsibilities a normal cluster member has. When a Hazelcast operation is performed by a client, it is forwarded to a cluster member where it will be processed. A client only needs to have the hazelcast-client.jar on the classpath (+/- 150 kB depending on the version) [todo: verify], the normal Hazelcast jar is not needed. Underneath you can see the client example:
 \begin{lstlisting}[language=java]
 public class Client {
-    public static void main(String[] args) throws Exception {
-        ClientConfig clientConfig = new ClientConfig().addAddress("127.0.0.1");
-        HazelcastInstance client = HazelcastClient.newHazelcastClient(clientConfig);
-        BlockingQueue<String> queue = client.getQueue("queue");
-        queue.put("Hello");
-        System.out.println("Message send by Client!");}}
+   public static void main(String[] args) throws Exception {
+      ClientConfig cfg = new ClientConfig()
+         .addAddress("127.0.0.1");
+      HazelcastInstance client = HazelcastClient.newHazelcastClient(cfg);
+      BlockingQueue<String> queue = client.getQueue("queue");
+      queue.put("Hello");
+      System.out.println("Message send by Client!");
+   }
+}
 \end{lstlisting}
 The client HazelcastInstance is created based on the com.hazelcast.client.ClientConfig. This config is configured with 127.0.0.1 as address since the full member will be running on the same machine as the client.
 

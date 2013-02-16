@@ -9,37 +9,42 @@ In this section we are going to show you a very basic service that will be start
 
 \begin{lstlisting}[language=java]
 public class DistributedCounterService implements ManagedService {
-    private NodeEngine nodeEngine;
-    public void init(NodeEngine nodeEngine, Properties properties) {
-        System.out.println("DistributedCounterService.init");
-        this.nodeEngine = nodeEngine;}
-    public void shutdown() {
-        System.out.println("DistributedCounterService.shutdown");}}
+   private NodeEngine nodeEngine;
+   public void init(NodeEngine nodeEngine, Properties properties) {
+      System.out.println("DistributedCounterService.init");
+      this.nodeEngine = nodeEngine;
+   }
+   public void shutdown() {
+      System.out.println("DistributedCounterService.shutdown");
+   }
+}
 \end{lstlisting}
 
 \begin{lstlisting}[language=xml]
 <network>
-     <join><multicast enabled="true"/> </join>
+   <join><multicast enabled="true"/> </join>
 </network>
 <services>
-    <service enabled="true">
-        <name>DistributedCounterService</name>
-         <class-name>DistributedCounterService</class-name>
-     </service>
+   <service enabled="true">
+      <name>DistributedCounterService</name>
+      <class-name>DistributedCounterService</class-name>
+   </service>
 </services>
 \end{lstlisting}
 If you need to set additional properties on the Service, a '<properties>' section can be added to the service. We also enabled multicast discovery since we'll rely on that later.
 
 \begin{lstlisting}[language=java]
 public class Member {
-    public static void main(String[] args) {
-        Hazelcast.newHazelcastInstance();
-    }}
+   public static void main(String[] args) {
+      Hazelcast.newHazelcastInstance();
+   }
+}
 \end{lstlisting}
 If we start it we'll see:
 \begin{lstlisting}
 DistributedCounterService.init
 \end{lstlisting}
+So the DistributedCounterService is started as part of the startup of the HazelcastInstance, it is done eagerly.. not lazily.
 
 \section{Phase 2}
 This example shows invoke operations on potentially a machine. The basis will be an Echo Service, that accepts a routing id and a message that needs to be echoed.

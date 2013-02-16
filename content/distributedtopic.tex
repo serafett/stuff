@@ -7,8 +7,8 @@ I'll show how the distributed topic works based on a very simple example; there 
 \begin{lstlisting}[language=java]
 public class PublisherMember {
     public static void main(String[] args){
-        HazelcastInstance hi = Hazelcast.newHazelcastInstance();
-        ITopic<Date> topic = hi.getTopic("topic");
+        HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+        ITopic<Date> topic = hz.getTopic("topic");
         topic.publish(new Date());
         System.out.println("Published");
         System.exit(0);
@@ -19,8 +19,8 @@ And the subscriber acquires the same topic and adds a MessageListener to subscri
 \begin{lstlisting}[language=java]
 public class SubscribedMember {
     public static void main(String[] args){
-        HazelcastInstance hi = Hazelcast.newHazelcastInstance();
-        ITopic<Date> topic = hi.getTopic("topic");
+        HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+        ITopic<Date> topic = hz.getTopic("topic");
         topic.addMessageListener(new MessageListenerImpl());
         System.out.println("Subscribed");
     }

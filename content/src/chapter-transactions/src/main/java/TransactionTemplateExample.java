@@ -7,30 +7,30 @@ import java.util.Map;
 public class TransactionTemplateExample {
 
     public static void main(String[] args) throws Throwable {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        final Map map = hzInstance.getMap("map");
+        HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+        final Map map = hz.getMap("map");
 
-        new TransactionTemplate<String>(){
+        new TransactionTemplate<String>() {
             @Override
-            public String call(HazelcastInstance hzInstance) {
-                map.put("foo","bar");
+            public String call(HazelcastInstance hz) {
+                map.put("foo", "bar");
                 return null;
             }
-        }.execute(hzInstance);
+        }.execute(hz);
     }
 
     static abstract class TransactionTemplate<E> {
 
-        public abstract E call(HazelcastInstance hzInstance);
+        public abstract E call(HazelcastInstance hz);
 
-        public E execute(HazelcastInstance hzInstance) {
-            Transaction txn = hzInstance.getTransaction();
+        public E execute(HazelcastInstance hz) {
+            Transaction txn = hz.getTransaction();
             boolean freshTx = txn.getStatus() == Transaction.TXN_STATUS_NO_TXN;
             boolean success = false;
-            if(freshTx) txn.begin();
+            if (freshTx) txn.begin();
 
             try {
-                E result = call(hzInstance);
+                E result = call(hz);
                 success = true;
                 return result;
             } finally {

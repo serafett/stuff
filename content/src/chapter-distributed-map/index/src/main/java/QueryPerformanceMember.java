@@ -15,14 +15,14 @@ public class QueryPerformanceMember {
             "Ethan", "Abigail",  "Alexander", "Madison","Aiden", "Mia","Daniel", "Chloe"};
 
     public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
+        HazelcastInstance hz = Hazelcast.newHazelcastInstance();
         boolean indexEnabled = true;
 
         IMap<String, Person> personMap;
         if(indexEnabled){
-            personMap = hzInstance.getMap("persons");
+            personMap = hz.getMap("persons");
         } else{
-            personMap = hzInstance.getMap("persons_");
+            personMap = hz.getMap("persons_");
         }
 
         System.out.println("Generating testdata");
@@ -44,7 +44,7 @@ public class QueryPerformanceMember {
         long durationMs = System.currentTimeMillis()-startMs;
         double performance = (SEARCH_COUNT*1000d)/durationMs;
         System.out.println("Index enabled: "+indexEnabled);
-        System.out.println("Distributed searches: "+(hzInstance.getCluster().getMembers().size()>1));
+        System.out.println("Distributed searches: "+(hz.getCluster().getMembers().size()>1));
         System.out.println("Total map size: "+personMap.size());
         System.out.println("Total searches: "+SEARCH_COUNT);
         System.out.println("Total duration: "+durationMs+" ms");

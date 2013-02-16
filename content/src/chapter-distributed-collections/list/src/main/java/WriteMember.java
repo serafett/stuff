@@ -4,8 +4,8 @@ import com.hazelcast.core.IList;
 
 public class WriteMember {
     public static void main(String[] args) {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        IList<String> list = hzInstance.getList("list");
+        HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+        IList<String> list = hz.getList("list");
         list.add("Tokyo");
         list.add("Paris");
         list.add("London");

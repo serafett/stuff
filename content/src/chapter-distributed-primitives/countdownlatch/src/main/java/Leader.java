@@ -1,8 +1,8 @@
 import com.hazelcast.core.*;
 public class Leader {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        ICountDownLatch latch = hzInstance.getCountDownLatch("countDownLatch");
+        HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+        ICountDownLatch latch = hz.getCountDownLatch("countDownLatch");
         System.out.println("Starting");
         //we init the latch with 1, since we only need to complete a single step.
          latch.trySetCount(1);

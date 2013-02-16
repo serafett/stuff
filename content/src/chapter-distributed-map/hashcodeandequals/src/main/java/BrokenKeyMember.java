@@ -8,8 +8,8 @@ import java.util.Map;
 public class BrokenKeyMember {
 
     public static void main(String[] args){
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        Map<BrokenKey,String> hzmap = hzInstance.getMap("map");
+        HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+        Map<BrokenKey,String> hzmap = hz.getMap("map");
         Map<BrokenKey,String> normalMap = new HashMap<BrokenKey,String>();
 
         BrokenKey key1 = new BrokenKey("a","b");

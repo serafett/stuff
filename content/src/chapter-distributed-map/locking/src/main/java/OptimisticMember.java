@@ -7,8 +7,8 @@ import java.io.Serializable;
 //This code is broken on purpose.
 public class OptimisticMember {
     public static void main(String[] args) throws Exception {
-        HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        IMap<String, Value> map = hzInstance.getMap("map");
+        HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+        IMap<String, Value> map = hz.getMap("map");
         String key = "1";
         map.put(key, new Value());
         System.out.println("Starting");
@@ -25,13 +25,17 @@ public class OptimisticMember {
         }
         System.out.println("Finished! Result = " + map.get(key).amount);
     }
+
     static class Value implements Serializable {
         public int amount;
-    public Value() {
+
+        public Value() {
         }
+
         public Value(Value that) {
             this.amount = that.amount;
         }
+
         public boolean equals(Object o) {
             if (o == this) return true;
             if (!(o instanceof Value)) return false;

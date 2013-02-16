@@ -3,11 +3,11 @@
     <modelVersion>4.0.0</modelVersion>
     <packaging>jar</packaging>
 
-    <artifactId>configuring-definitions</artifactId>
-    <name>Chapter Learning Basics - Configuring Definitions</name>
+    <artifactId>retrieving-instances</artifactId>
+    <name>Chapter Learning Basics - Retrieving instances</name>
 
     <description>
-        Chapter Learning Basics - Configuring Definitions
+        Chapter Learning Basics - Retrieving instances
     </description>
 
     <parent>
