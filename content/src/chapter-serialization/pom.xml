@@ -24,5 +24,6 @@
         <module>portable</module>
         <module>type-serializer</module>
         <module>global-serializer</module>
+        <module>hazelcastinstanceaware</module>
     </modules>
 </project>

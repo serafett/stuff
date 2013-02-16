@@ -129,23 +129,6 @@ echo:35
 \end{lstlisting}
 So in only a few lines of code, we are now able to scale out! If you want, you can start more slave members, but with tasks being created at 1 task/second, maximum performance is reached with 4 slaves.
 
-\section{Executors and HazelcastInstanceAware}
-In a lot of cases when you execute a task, the task needs access to the HazelcastInstance to retrieve Hazelcast dependencies like a map. This can be done by implementing HazelcastInstanceAware, e.g.:
-\begin{lstlisting}[language=java]
-public class SomeTask implements
-      Runnable, Serializable, HazelcastInstanceAware {
-   private transient HazelcastInstance hz;
-   public void setHazelcastInstance(HazelcastInstance hz) {
-      this.hz = hz;}
-   public void run() {
-      ....
-   }
-}
-\end{lstlisting}
-When this Task is processed, not when it is submitted, the Hazelcast executor checks if the task implements HazelcastInstanceAware. If so, it will inject the HazelcastInstance of the executor by calling the 'setHazelcastInstance' method. The hz field needs be transient since it should not be serialized.
-
-Obtaining other dependencies than a HazelcastInstances can be a bit more complicated. Often the only way out is to rely on some form of singleton. But luckily Hazelcast 3 provides a new solution using the HazelcastInstance.fooMap which returns a ConcurrentMap. In this Map dependencies can be placed, so that they can be retrieved later when you only have a reference to the HazelcastInstance. This makes it a lot easier to a lookup for a dependency without relying on statics/singletons. This fooMap is a pure local data-structure so it will not be published to other members.
-
 \section{Routing}
 Till so far we didn't care about which member did the actual processing of the task; as long as a member picks it up. But in some cases you do want to have that control. Luckily the IExecutorService provides different ways to route tasks:
 \begin{enumerate}
@@ -193,9 +176,12 @@ public class VerifyTask implements
        Runnable, Serializable, HazelcastInstanceAware {
    private final String key;
    private transient HazelcastInstance hz;
-   public VerifyTask(String key) { this.key = key;}
+   public VerifyTask(String key) { 
+      this.key = key;
+   }
    public void setHazelcastInstance(HazelcastInstance hz) {
-      this.hz = hz;}
+      this.hz = hz;
+   }
    public void run() {
       IMap map = hz.getMap("map");
       boolean localKey = map.localKeySet().contains(key);
@@ -203,7 +189,9 @@ public class VerifyTask implements
    }
 }
 \end{lstlisting}
-If you look at the run method, you can see it accesses the map and checks if the key is hosted locally and prints the result. The next step is the MasterMember which first creates a map with some entries; we only care about the key so the value is bogus. And then iterates over the keys in the map and send a VerifyTask for each key:
+If you look at the run method, you can see it accesses the map and checks if the key is hosted locally and prints the result. Another thing that is interesting is that this task implements HazelcastInstanceAware. This signals to Hazelcast that when this class is deserialized for execution, it will inject the HazelcastInstance executing that task. For more information see [reference to serialization/HazelcastInstanceAware section]
+
+The next step is the MasterMember which first creates a map with some entries; we only care about the key so the value is bogus. And then iterates over the keys in the map and send a VerifyTask for each key:
 \begin{lstlisting}[language=java]
 public class MasterMember {
    public static void main(String[] args) throws Exception {

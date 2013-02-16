@@ -125,7 +125,7 @@ public class MainInstantiate {
 \subsection{Retrieving multiple times}
 In most cases once you have retrieved the DistributedObject you probably keep a reference to it and inject it all places where it is needed. But you can safely get the same DistributedObject multiple times from the HazelcastInstance without additional instances being created. In some cases, like deserialization, when you need to get reference to a Hazelcast DistributedObject, this is the only way out. If you have a Spring background, you could consider the configuration to be singleton bean definition. If there is no explicit configuration available for that specific data-structure, Hazelcast will use the default settings from the file 'hazelcast-default.xml' so you can safely get a DistributedObject from the HazelcastInstance without it being explicitly configured.
 
-Lazy
+todo: Lazy
 
 \subsection{Destroying}
 DistributedObject can be destroyed using the DistributedObject.destroy() method which clears and releases all resources for this object within the cluster. But it should be used with a lot of care because of the following reason: once the destroy is called and the resources are released, a subsequent get of that DistributedObject from the HazelcastInstance will result in a new data-structure and will not lead to an exception. 
@@ -139,9 +139,11 @@ public class MainDestroy {
       IQueue<String> q1 = hz1.getQueue("q");
       IQueue<String> q2 = hz2.getQueue("q");
       q1.add("foo");
-      System.out.println("q1.size: "+q1.size()+" q2.size:"+q2.size());
+      System.out.println("q1.size: "+q1.size()+
+          " q2.size:"+q2.size());
       q1.destroy();
-      System.out.println("q1.size: "+q1.size()+" q2.size:"+q2.size());
+      System.out.println("q1.size: "+q1.size()+
+          " q2.size:"+q2.size());
     }
 }
 \end{lstlisting}
@@ -180,16 +182,14 @@ Something thing you need to watch out for are multiple configurations that match
 \end{lstlisting}
 A map can be loaded calling 'Map map1 = hi.getMap("com.foo.testmap1")'. 
 
-
-
 \section{Properties}
-In the Hazelcast xml file properties can be included like this:
+In the hazelcast.xml file properties can be included like this:
 \begin{lstlisting}[language=xml]
 <properties>
    <property name="property-name">property-value</property>
 </properties>
 \end{lstlisting}
- Apart from properties in the hazelcast.xml, they can also be passed on the commandline 'java -Dproperty-name=property-value'. One thing to watch out for; you can't override properties from the hazelcast.xml/programmatic-configuration from the command line because the latter has a lower priority. For a full listing of available properties see the 'Advanced configuration' chapter of the Hazelcast reference manual.
+Apart from properties in the hazelcast.xml, they can also be passed on the commandline 'java -Dproperty-name=property-value'. One thing to watch out for; you can't override properties in the hazelcast.xml/programmatic-configuration from the command line because the latter has a lower priority. For a full listing of available properties see the 'Advanced configuration' chapter of the Hazelcast reference manual.
 
 \section{Import}
 [todo:this functionality is not yet implemented in Hazelcast 3]

@@ -162,7 +162,7 @@ Serialization of the DistributedObject is not provided out of the box, so you ca
 
 One solution is to pass the id of the DistributedObject, perhaps in combination with the type. When deserializing look up the object in the HazelcastInstance; e.g. in case of a IQueue you can call HazelcastInstance.getQueue(id) or the Hazelcast.getDistributedObject. Passing the type is useful if you don't know the type of the DistributedObject.
 
-If you are deserializing your own Portable Distributed Object object and it receives an id that needs to be looked up; the class can implement the HazelcastInstanceAware interface, but this will be called after the deserialization. In that case it is best to store the id when deserializing and call the getDistributedObject when the setHazelcastInstance method is called.
+If you are deserializing your own Portable Distributed Object object and it receives an id that needs to be looked up; the class can implement the HazelcastInstanceAware interface: [reference to HazelcastInstanceAware section]. To because the HazelcastInstance is set after deserialization, you need to store the id's first and you could do the actual retrieval of the DistributedObjects in the setHazelcastInstance method.
 
 \subsection*{Cycles}
 One thing to look out for, this also goes for the DataSerializable, are cycles between objects because it can lead to a stack overflow. Standard Java serialization protects against this, but since manual traversal is done in Portable objects, there is no out of the box protection. If this is an issue, you could store a map in a ThreadLocal that can be used to detect cycles and a special placeholder value could be serialized to end the cycle.
@@ -233,6 +233,29 @@ The new Hazelcast serialization functionality also makes it possible to configur
 </serialization>
 \end{lstlisting}
 There can only be a single global serializer and for this global serializer the TypeSerializer.getTypeId method doesn't need to return a relevant value.
+
+\section{HazelcastInstanceAware}
+In some cases when an object is deserialized, it needs access to the HazelcastInstance so that DistributedObjects can be accessed. This can be done by implementing HazelcastInstanceAware, e.g.:
+\begin{lstlisting}[language=java]
+public class Person implements Serializable,HazelcastInstanceAware {
+   private static final long serialVersionUID = 1L;
+   private String name;
+   private transient  HazelcastInstance hz;
+   public Person(String name) {
+      this.name = name;
+   }
+   public void setHazelcastInstance(HazelcastInstance hz) {
+      this.hz = hz;
+      System.out.println("hazelcastInstance set");
+   }
+   public String toString() {
+      return String.format("Person(name=%s)",name);
+   }
+}
+\end{lstlisting}
+The hz field needs be transient since it should not be serialized. After this person is deserialized, Hazelcast will check if the object implements HazelcastInstanceAware and will call the setHazelcastInstance method.
+
+Obtaining other dependencies than a HazelcastInstances can be a bit more complicated. Often the only way out is to rely on some form of singleton. But luckily Hazelcast 3 provides a new solution using the HazelcastInstance.fooMap which returns a ConcurrentMap. In this Map dependencies can be placed, so that they can be retrieved later when you only have a reference to the HazelcastInstance. This makes it a lot easier to do a lookup for a dependency without relying on statics/singletons. This fooMap is a pure local data-structure so it will not be published to other members.
 
 \section{Good to know}
 
