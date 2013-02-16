@@ -3,6 +3,8 @@ Till so far the examples have relied on standard Java serialization by letting t
 
 Serialization in Hazelcast works like this: when an object is placed in a Hazelcast data-structure, e.g. in a map or queue, Hazelcast first checks if it is an instance of DataSerializable or Portable. If that fails it checks if is a well known type like String, Long, Integer, byte[], ByteBuffer, Date etc, since serialization for these types can be optimized. Then user specified types [reference to TypeSerializers] If that fails it will fall back on Java serialization (including the Externalizable) or fails because the class can't be serialized. These sequence of steps also is useful to determine which serialization mechanism is going to be used by Hazelcast if a class implements multiple interfaces, e.g. Serializable and Portable.
 
+Whatever serialization technology is used, they all require the class definitions to be available from the class loader. Hazelcast will not automatically send missing class definitions from one machine to another. 
+
 \section{Serializable}
 The native Java serialization is the easiest serialization mechanism since often a class only needs to implement the java.io.Serializable interface:
 \begin{lstlisting}[language=java]
