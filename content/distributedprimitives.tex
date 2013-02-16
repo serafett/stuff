@@ -174,7 +174,7 @@ public class Follower {
       System.out.println("Waiting");
       boolean success = latch.await(10, TimeUnit.SECONDS);
       System.out.println("Complete:"+success);
-hz }
+  }
 }
 \end{lstlisting}
 As you can see we first retrieve the ICountDownLatch and then call await on it so the thread listens for the ICountDownLatch to reach 0. In practice it can happen than a process that should have called the ICountDownLatch.countDown method, fails and therefor the ICountDownLatch will never reach 0. To force you to deal with this situation, there is no await method without a timeout to prevent waiting indefinitely. 

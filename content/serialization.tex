@@ -3,7 +3,7 @@ Till so far the examples have relied on standard Java serialization by letting t
 
 Serialization in Hazelcast works like this: when an object is placed in a Hazelcast data-structure, e.g. in a map or queue, Hazelcast first checks if it is an instance of DataSerializable or Portable. If that fails it checks if is a well known type like String, Long, Integer, byte[], ByteBuffer, Date etc, since serialization for these types can be optimized. Then user specified types [reference to TypeSerializers] If that fails it will fall back on Java serialization (including the Externalizable) or fails because the class can't be serialized. These sequence of steps also is useful to determine which serialization mechanism is going to be used by Hazelcast if a class implements multiple interfaces, e.g. Serializable and Portable.
 
-Whatever serialization technology is used, they all require the class definitions to be available from the class loader. Hazelcast will not automatically send missing class definitions from one machine to another. 
+Whatever serialization technology is used, they all require the class definitions to be available from the class loader. Hazelcast will not automatically send missing class definitions from one machine to another. So if a member needs a certain class definition, make sure the classes are available from the classpath. 
 
 \section{Serializable}
 The native Java serialization is the easiest serialization mechanism since often a class only needs to implement the java.io.Serializable interface:
@@ -255,9 +255,9 @@ public class Person implements Serializable,HazelcastInstanceAware {
    }
 }
 \end{lstlisting}
-The hz field needs be transient since it should not be serialized. After this person is deserialized, Hazelcast will check if the object implements HazelcastInstanceAware and will call the setHazelcastInstance method.
+After this person is deserialized, Hazelcast will check if the object implements HazelcastInstanceAware and will call the setHazelcastInstance method. The hz field needs be transient since it should not be serialized. 
 
-Obtaining other dependencies than a HazelcastInstances can be a bit more complicated. Often the only way out is to rely on some form of singleton. But luckily Hazelcast 3 provides a new solution using the HazelcastInstance.fooMap which returns a ConcurrentMap. In this Map dependencies can be placed, so that they can be retrieved later when you only have a reference to the HazelcastInstance. This makes it a lot easier to do a lookup for a dependency without relying on statics/singletons. This fooMap is a pure local data-structure so it will not be published to other members.
+Obtaining other dependencies than a HazelcastInstances can be a bit more complicated. Often the only way out is to rely on some form of singleton. But luckily Hazelcast 3 provides a new solution using the HazelcastInstance.getUserContext() method which returns a ConcurrentMap. In this Map dependencies can be placed based on some name, so that they can be retrieved later when you only have a reference to the HazelcastInstance. This makes it a lot easier to do a lookup for a dependency without relying on statics/singletons. This user context is a pure local data-structure so it will not be published to other members.
 
 \section{Good to know}
 
