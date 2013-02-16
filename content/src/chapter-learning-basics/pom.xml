@@ -18,12 +18,13 @@
     </parent>
 
     <modules>
-       <module>retrieving-instances</module>
-       <module>multiple-hazelcast-instances</module>
-       <module>configure-programmatic</module>
-       <module>configure-xml</module>
-       <module>wildcard-configuration</module>
-       <module>configure-logging</module>
+        <module>configure-programmatic</module>
+        <module>configure-xml</module>
+        <module>wildcard-configuration</module>
+        <module>multiple-hazelcast-instances</module>
+        <module>loading-instances</module>
+        <module>destroying-instances</module>
+        <module>configure-logging</module>
     </modules>
 
 </project>

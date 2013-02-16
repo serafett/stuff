@@ -107,32 +107,31 @@ Members [2] {
 \end{lstlisting}
 As you can see there is a 2 member cluster created.
 
-\section{Retrieving DistributedObject}
-In the previous section we saw how a HazelcastInstance can be created. From this HazelcastInstance you can load DistributedObject instances like the Queue using one of the many get method, in case of the IQueue you can make use of the HazelcastInstance.getQueue method:
+\section{Loading DistributedObject}
+In the previous sections we saw how a HazelcastInstance can be created, but in most cases you want to load a DistributedObject, e.g. a queue, from this HazelcastInstance. So lets define a queue in the hazelcast.xml:
 \begin{lstlisting}[language=xml]
 <queue name="q"/>
 \end{lstlisting}
-can be retrieved using the HazelcastInstance.getQueue(String name) method:
+And the queue can be loaded like this:
 \begin{lstlisting}[language=java]
-public class MainInstantiate {
+public class Member {
    public static void main(String[] args) throws Exception{
       HazelcastInstance hz = Hazelcast.newHazelcastInstance();
-      IQueue<String> q1 = hz.getQueue("q");
+      IQueue<String> q = hz.getQueue("q");
    }
 }
 \end{lstlisting}
+For most of the DistributedObjects you can find a get method on the HazelcastInstance. In case you are writing custom distributed data-structures using the SPI [reference to spi chapter] you can make use of the HazelcastInstance.getDistributedObject. One thing worth mentioning is that most of the DistributedObjects defined in the configuration are created lazily; so they are created on the first operation that accesses them.
 
-\subsection{Retrieving multiple times}
-In most cases once you have retrieved the DistributedObject you probably keep a reference to it and inject it all places where it is needed. But you can safely get the same DistributedObject multiple times from the HazelcastInstance without additional instances being created. In some cases, like deserialization, when you need to get reference to a Hazelcast DistributedObject, this is the only way out. If you have a Spring background, you could consider the configuration to be singleton bean definition. If there is no explicit configuration available for that specific data-structure, Hazelcast will use the default settings from the file 'hazelcast-default.xml' so you can safely get a DistributedObject from the HazelcastInstance without it being explicitly configured.
-
-todo: Lazy
+\subsection{Loading multiple times}
+In most cases once you have loaded the DistributedObject you probably keep a reference to it and inject it all places where it is needed. But you can safely load the same DistributedObject multiple times from the HazelcastInstance without additional instances being created. In some cases, like deserialization, when you need to get reference to a Hazelcast DistributedObject, this is the only way out. If you have a Spring background, you could consider the configuration to be singleton bean definition. If there is no explicit configuration available for that specific data-structure, Hazelcast will use the default settings from the file 'hazelcast-default.xml' so you can safely load a DistributedObject from the HazelcastInstance without it being explicitly configured.
 
 \subsection{Destroying}
-DistributedObject can be destroyed using the DistributedObject.destroy() method which clears and releases all resources for this object within the cluster. But it should be used with a lot of care because of the following reason: once the destroy is called and the resources are released, a subsequent get of that DistributedObject from the HazelcastInstance will result in a new data-structure and will not lead to an exception. 
+DistributedObject can be destroyed using the DistributedObject.destroy() method which clears and releases all resources for this object within the cluster. But it should be used with a lot of care because of the following reason: once the destroy is called and the resources are released, a subsequent load with the same id from the HazelcastInstance will result in a new data-structure and will not lead to an exception. 
 
 A similar issues happens to references: if a reference to a DistributedObject is used after the DistributedObject is destroyed, new resources will be created. In the following case we create a cluster with 2 members, and each member gets a reference to the queue q. First we place an item in the queue When the queue is destroyed from the first member (q1) and q2 is accessed, a new queue will be created. 
 \begin{lstlisting}[language=java]
-public class MainDestroy {
+public class Member {
    public static void main(String[] args) throws Exception {
       HazelcastInstance hz1 = Hazelcast.newHazelcastInstance();
       HazelcastInstance hz2 = Hazelcast.newHazelcastInstance();
