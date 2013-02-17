@@ -10,9 +10,9 @@ In this section we are going to show you a very basic service that will be start
 \begin{lstlisting}[language=java]
 public class DistributedCounterService implements ManagedService {
    private NodeEngine nodeEngine;
-   public void init(NodeEngine nodeEngine, Properties properties) {
+   public void init(NodeEngine e, Properties p) {
       System.out.println("DistributedCounterService.init");
-      this.nodeEngine = nodeEngine;
+      this.nodeEngine = e;
    }
    public void shutdown() {
       System.out.println("DistributedCounterService.shutdown");
@@ -60,16 +60,21 @@ The echo method takes 2 parameters: the routingId and the msg. The routingId is 
 
 The next step is the EchoService. Apart from implementing the 'ManagedService' interface, it now also implements the 'RemoteService' interface. Through this interface a client will be able to get a handle of an Echoer instance.
 \begin{lstlisting}[language=java]
-public class DistributedCounterService implements ManagedService, RemoteService {
-    ...  
-    public DistributedObject createDistributedObject(Object objectId) {
-        return new DistributedCounterProxy(String.valueOf(objectId),nodeEngine);
-    }
-    public String getServiceName() {return "DistributedCounterProxy";}
-    public DistributedObject createDistributedObjectForClient(Object objectId) {
-        return null;
-    }
-    public void destroyDistributedObject(Object objectId) {}
+public class DistributedCounterService 
+   implements ManagedService, RemoteService {
+   ...  
+   public DistributedObject createDistributedObject(Object objectId) {
+      String id = String.valueOf(objectId)
+      return new DistributedCounterProxy(id,nodeEngine);
+   }
+   public String getServiceName() {
+      return "DistributedCounterProxy";
+   }
+   public DistributedObject createDistributedObjectForClient(Object objectId) {
+      return null;
+   }
+   public void destroyDistributedObject(Object objectId) {
+   }
 }
 \end{lstlisting}
 [todo: destroyDistributedObject]
@@ -84,46 +89,61 @@ The DistributedCounter has a single method: inc. This method needs to be invoked
 \end{enumerate}
 [todo:In the case of the IncMethod, do we need a PartitionAwareOperation or do we want a KeyBasedOperation? Since we probably don't want to deal with concurrency, the KeyBasedOperation could handle the problems.]
 
+The operation. It is instance of PartitionAwareOperation since we want to prevent the partition from moving
 \begin{lstlisting}[language=java]
-public class DistributedCounterProxy implements DistributedCounter {
-    private final NodeEngine nodeEngine;
-    private final String objectId;
-    public DistributedCounterProxy(String objectId, NodeEngine nodeEngine) {
-        this.nodeEngine = nodeEngine;
-        this.objectId = objectId;}
-    public Object getId() {return objectId;}
-    public String getName() {return null;}
-    public int inc(int amount) {
-        IncOperation operation = new IncOperation(objectId, amount);
-        int partitionId = nodeEngine.getPartitionService().getPartitionId(objectId);
-        InvocationBuilder builder = nodeEngine.getOperationService()
-                .createInvocationBuilder("DistributedCounterService", operation, partitionId);
-        try {
-            final Future<Integer> future = builder.build().invoke();
-            return future.get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);}}
-    static class IncOperation extends AbstractOperation {
-        private String objectId;
-        private int amount,returnValue;
-        public IncOperation(){}
-        public IncOperation(String objectId, int amount) {
-            this.amount = amount;
-            this.objectId = objectId;}
-        protected void writeInternal(ObjectDataOutput out) throws IOException {
-            super.writeInternal(out);
-            out.writeUTF(objectId);
-            out.writeInt(amount);}
-        protected void readInternal(ObjectDataInput in) throws IOException {
-            super.readInternal(in);
-            objectId = in.readUTF();
-            amount = in.readInt();}
-        public void run() throws Exception {
-           System.out.println("Executing "+objectId+".inc() on: "+getNodeEngine().getThisAddress());            
-           returnValue = 0;}
-        public boolean returnsResponse() {return true;}
-        public Object getResponse() {return returnValue;}}
-    public void destroy() {}
+class IncOperation extends PartitionAwareOperation {
+   private String objectId;
+   private int amount,returnValue;
+   public IncOperation(){}
+   public IncOperation(String objectId, int amount) {
+      this.amount = amount;
+      this.objectId = objectId;}
+   protected void writeInternal(ObjectDataOutput out) 
+         throws IOException {
+      super.writeInternal(out);
+      out.writeUTF(objectId);
+      out.writeInt(amount);}
+   protected void readInternal(ObjectDataInput in) 
+        throws IOException {
+      super.readInternal(in);
+      objectId = in.readUTF();
+      amount = in.readInt();}
+   public void run() throws Exception {
+      System.out.println("Executing "+objectId+".inc() on: "+
+         getNodeEngine().getThisAddress());            
+      returnValue = 0;}
+   public boolean returnsResponse() {return true;}
+   public Object getResponse() {return returnValue;}}
+   public void destroy() {}
+}	
+\end{lstlisting}
+Because the IncOperation needs to be serialized, the writeInternal and readInternal methods needs to be overwritten so that the objectId will be send over the line.
+
+Executing the operation
+\begin{lstlisting}[language=java]
+public class DistributedCounterProxy 
+      implements DistributedCounter {
+   private final NodeEngine nodeEngine;
+   private final String objectId;
+   public DistributedCounterProxy(String objectId, NodeEngine e) {
+      this.nodeEngine = e;
+      this.objectId = objectId;}
+   public Object getId() {return objectId;}
+   public String getName() {return null;}
+   public int inc(int amount) {
+      IncOperation operation = new IncOperation(objectId, amount);
+      int partitionId = nodeEngine.getPartitionService()
+         .getPartitionId(objectId);
+      InvocationBuilder builder = nodeEngine.getOperationService()
+         .createInvocationBuilder("DistributedCounterService", 
+            operation, partitionId);
+      try {
+         final Future<Integer> future = builder.build().invoke();
+         return future.get();
+      } catch (InterruptedException | ExecutionException e) {
+         throw new RuntimeException(e);
+      }
+   }
 }
 \end{lstlisting}
 todo: the operations always need to have a no arg constructor for deserialization purposes. You can also see that the right hazelcast partition to send the inc operation to is based on the object id. Of course you are free to route on any other field, or not route at all [todo: confirm that without the routing id, it will be a random machine]. Also a future is used as a handle to the operation completion. Currently I don't use any timeout, but you are free to add timouts. Instead of returning the value, you could expose the Future in the api, e.g. Future<Integer> inc(). In the example I do no deal correctly with the ExecutionException, it is best to get the cause and throw that. There is one thing you need to watch out for in that case, the stacktrace of that exception will represent the callstack of the thread executing the remote operation, not the callstack on the client side. An easy way to fix that is to prepend  the client side stacktrace in the stacktrace (the stacktrace is just an array of StackTraceElements)
@@ -131,19 +151,19 @@ todo: the operations always need to have a no arg constructor for deserializatio
 Of course we also want to run the EchoService; the following example shows how it is run:
 \begin{lstlisting}[language=java]
 public class Member {
-    public static void main(String[] args) {
-        HazelcastInstance[] instances = new HazelcastInstance[2];
-        for (int k = 0; k < instances.length; k++) 
-            instances[k] = Hazelcast.newHazelcastInstance();
-        DistributedCounter[] counters = new DistributedCounter[4];
-        for (int k = 0; k < counters.length; k++) {
-            DistributedCounter counter = (DistributedCounter) instances[0]
-               .getDistributedObject("DistributedCounterService", "counter" + k);
-            counters[k] = counter;
-            System.out.println(counter.inc(1));
-        }
-       System.out.println("Finished");
-    }
+   public static void main(String[] args) {
+      HazelcastInstance[] instances = new HazelcastInstance[2];
+      for (int k = 0; k < instances.length; k++) 
+         instances[k] = Hazelcast.newHazelcastInstance();
+      DistributedCounter[] counters = new DistributedCounter[4];
+      for (int k = 0; k < counters.length; k++) {
+         DistributedCounter counter = (DistributedCounter) instances[0]
+            .getDistributedObject("DistributedCounterService", "counter" + k);
+         counters[k] = counter;
+         System.out.println(counter.inc(1));
+      }
+      System.out.println("Finished");
+   }
 }
 \end{lstlisting}
 
@@ -164,39 +184,42 @@ We can see that our counters are being stored in different members (check the di
 \section{Phase 3}
 In this section we are going to make use of real DistributedCounter; so some kind of data-structure that will hold an integer value (an AtomicInteger) and can be incremented. The first thing we do is for every partition we have, we are going to create a Container. And this contains will contain all AtomicIntegers for that given partition:
 \begin{lstlisting}[language=java]
-public class DistributedCounterService implements ManagedService, RemoteService {
-    private NodeEngine nodeEngine;
-    DistributedMapContainer[] containers;
-    public void init(NodeEngine nodeEngine, Properties properties) {
-        this.nodeEngine = nodeEngine;
-        containers = new Container[nodeEngine.getPartitionService().getPartitionCount()];
-        for(int k=0;k<containers.length;k++) containers[k]=new Container();
-    }
-    public class Container{
-        private final ConcurrentMap<String,AtomicInteger> counterMap = new ConcurrentHashMap<>();
-        public int inc(String id,  int amount) {
-            AtomicInteger counter = counterMap.get(id);
-            if(counter == null){
-                counter = new AtomicInteger();
-                AtomicInteger found = counterMap.putIfAbsent(id, counter);
-                counter = found == null ? counter : found;
-            }
-            return counter.addAndGet(amount);
-        }
-    }
+public class DistributedCounterService 
+      implements ManagedService, RemoteService {
+   private NodeEngine nodeEngine;
+   DistributedMapContainer[] containers;
+   public void init(NodeEngine e, Properties p) {
+      this.nodeEngine = e;
+      this count = nodeEngine.getPartitionService().getPartitionCount();
+      containers = new Container[count];
+      for(int k=0;k<containers.length;k++) 
+         containers[k]=new Container();
+   }
+   public class Container{
+      private final ConcurrentMap<String,AtomicInteger> counterMap 
+         = new ConcurrentHashMap<>();
+   
+      public int inc(String id,  int amount) {
+         AtomicInteger counter = counterMap.get(id);
+         if(counter == null){
+            counter = new AtomicInteger();
+            AtomicInteger found = counterMap.putIfAbsent(id, counter);
+            counter = found == null ? counter : found;
+         }
+         return counter.addAndGet(amount);
+      }
+   }
+}
 \end{lstlisting}
 As you can see the partitions are created in the init method. The Container also has an inc method, that looks up the AtomicInteger based on the id and increments it. Of course we need to connect the IncOperation.run method to the Container.inc method:
 \begin{lstlisting}[language=java]
-public class DistributedCounterProxy implements DistributedCounter {
-    ... 
-    static class IncOperation extends AbstractOperation {
-        public void run() throws Exception {
-                DistributedCounterService service = getService();
-                System.out.println("Executing "+objectId+".inc() on: "+getNodeEngine().getThisAddress());
-                returnValue = service.containers[getPartitionId()].inc(objectId, amount);
-        }
-        ...
-    }
+class IncOperation extends AbstractOperation {
+   public void run() throws Exception {
+      DistributedCounterService service = getService();
+      System.out.println("Executing "+objectId+
+         ".inc() on: "+getNodeEngine().getThisAddress());
+      returnValue = service.containers[getPartitionId()].inc(objectId, amount);
+   }
 }
 \end{lstlisting}
 When we run the code, we'll see:

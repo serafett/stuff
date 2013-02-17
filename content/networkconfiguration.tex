@@ -138,25 +138,7 @@ And the aws tag accepts an attribute called "conn-timeout-seconds". The default 
 
 In case you are using a different cloud provider than Amazon EC2, you can still make use of Hazelcast. What you can do it to use the programmatic api to configure a tcp-ip cluster and the well known members need to be retrieved from your cloud provider (e.g. using jclouds).
 
-\includegraphics[scale=0.40]{ec2-1.png}
-
-\includegraphics[scale=0.40]{ec2-2.png}
-
-\includegraphics[scale=0.40]{ec2-3.png}
-
-\includegraphics[scale=0.40]{ec2-4.png}
-
-\includegraphics[scale=0.40]{ec2-5.png}
-
-\includegraphics[scale=0.40]{ec2-6.png}
-
-\includegraphics[scale=0.40]{ec2-7.png}
-
-\includegraphics[scale=0.40]{ec2-8.png}
-
-\includegraphics[scale=0.40]{ec2-9.png}
-
-\includegraphics[scale=0.40]{ec2-10.png}
+A full step by step tutorial on how to start a demo application on Amazon EC2 can be found in the appendix.
 
 \section{Partition Group Configuration}
 Normally Hazelcast prevents the master and the backup partitions to be stored on the same JVM to guarantee high availability. But it can be that multiple Hazelcast members of the same cluster are running on the same machine; so when the machine fails it can still happen that both master and backup fail. Luckily Hazelcast provides a solution for this problem in the form of partition groups:
