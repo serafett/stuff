@@ -72,7 +72,7 @@ public class DistributedCounterService
       return new DistributedCounterProxy(id,nodeEngine);
    }
    public String getServiceName() {
-      return "DistributedCounterProxy";
+      return "DistributedCounterService";
    }
    public DistributedObject createDistributedObjectForClient(Object objectId) {
       return null;
@@ -97,7 +97,7 @@ public class DistributedCounterProxy
    public Object getId() {return objectId;}
    public String getName() {return null;}
    public int inc(int amount) {
-      IncOperation operation = new IncOperation(objectId, amount);
+      IncOperation operation = new IncOperation(objectId, amount);   
       int partitionId = nodeEngine.getPartitionService()
          .getPartitionId(objectId);
       InvocationBuilder builder = nodeEngine.getOperationService()
@@ -112,9 +112,15 @@ public class DistributedCounterProxy
    }
 }
 \end{lstlisting}
-The inc method of DistributedCounterProxy needs to be invoked on another machine, this can be done using the Hazelcast Operation, part of the new SPI. 
+The DistributedCounterProxy doesn't contain counter state; it is just a local representative of remote data/functionality. Therefor the inc method of DistributedCounterProxy needs to be invoked on the machine responsible for hosting the real counter. This can be done using the Hazelcast Operation, part of the new SPI. 
 
-You can also see that the right hazelcast partition to send the inc operation to is based on the object id. Of course you are free to route on any other field, or not route at all [todo: confirm that without the routing id, it will be a random machine]. Also a future is used as a handle to the operation completion. Currently I don't use any timeout, but you are free to add timouts. Instead of returning the value, you could expose the Future in the api, e.g. Future<Integer> inc(). In the example I do no deal correctly with the ExecutionException, it is best to get the cause and throw that. There is one thing you need to watch out for in that case, the stacktrace of that exception will represent the callstack of the thread executing the remote operation, not the callstack on the client side. An easy way to fix that is to prepend  the client side stacktrace in the stacktrace (the stacktrace is just an array of StackTraceElements)
+If you take a closer look at the inc method, the first thing we do is to create the IncOperation with the given objectId and the amount. The next step is to get the partitionId; this is done based on the objectId so that all operations for a given objectId will always result in the same partitionId. Then we create an InvocationBuilder based on the operation and the partitionId. This is where the connection is made between the operation and the partition. 
+
+The last part of the logic is actually invoking the operation and waiting for its result. This is done using a Future which gives us the ability to synchronize on completion of that remote executed operation and to get the results. In our case we do a simple get since we don't care about a timeout, but for real system it often is better to use a timeout since most operations should complete in a certain amount of time. If they don't complete, it could be a sign of problems and waiting indefinitely could lead to stalling systems without any form of error logging.
+
+In the example I do no deal correctly with the ExecutionException, it is best to get the cause and throw that. There is one thing you need to watch out for in that case, the stacktrace of that exception will represent the callstack of the thread executing the remote operation, not the callstack of the thread executing the DistributedCounterProxy.inc method. An easy way to fix that is to prepend the client side stacktrace to the stacktrace (the stacktrace is just an array of StackTraceElements)
+
+todo; can the operation be interrupted if the future.cancel is called?
 
 There are 4 types of operations:
 \begin{enumerate}
@@ -123,10 +129,11 @@ There are 4 types of operations:
 \item KeyBasedOperations extends PartitionAwareOperation and can specify key locks that prevent other KeyBasedOperations for the same key to execute on that operations [todo: is this a readlock or writelock]
 \item PartitionLevelOperation are the counter part of the PartitionAwareOperation since they acquire the writelock on the Partition so that no other PartitionAware and PartitionLevelOperations can be executed on that partition for the duration of that writelock. If the read or write-lock on the partition already is acquired, the call blocks until lock is released. [todo: timeout?]
 \end{enumerate}
-In our example the IncOperation is going to make use of the KeyBasedOperation to prevent dealing with concurrency control; Hazelcast will lock the correct partition and key. 
-
+In our example the IncOperation is going to make use of the KeyBasedOperation to prevent dealing with concurrency control; Hazelcast will lock the correct partition and key:
 \begin{lstlisting}[language=java]
-class IncOperation extends PartitionAwareOperation {
+class IncOperation 
+      extends PartitionAwareOperation, 
+              KeyBasedOperation{
    private String objectId;
    private int amount,returnValue;
    public IncOperation(){}
@@ -158,11 +165,11 @@ class IncOperation extends PartitionAwareOperation {
    }
 }	
 \end{lstlisting}
-Because the IncOperation needs to be serialized, the writeInternal and readInternal methods needs to be overwritten so that the objectId will be send over the line.
+Hazelcast will determine the key to lock with the getKeyHash method. Internally Hazelcast uses a similar approach as being used in the ConcurrentHashMap where a stripe of locks is used and the keyhash is used as a basis for the index. So the same keyhash will make sure the same key is locked. Of course it can happen that you get unexpected collisions due to a bad keyhashing method or just by the nature of this approach. 
+[todo: can the size of the lockstripe be influenced]
+[todo: what about timeouts?]
 
-Also another change has been made to the IncOperation; it is now implementing the KeyBasedOperation. With the KeyBasedOperation, Hazelcast will automatically lock the partition and it will automatically lock the key so that other KeyOperations for the same key are [todo: blocked or rejected? timeout??] The correct key is found using the 'getKeyHash'. Hazelcast internally used an array of locks where the correct lock is found based on that hash. 
-
-todo: the operations always need to have a no arg constructor for deserialization purposes. 
+Another thing worth mentioning is that because the IncOperation needs to be serialized, the writeInternal and readInternal methods needs to be overwritten so that the objectId and amount are serialized and will be available when this operation runs. For deserialization it also is needed that the operation always needs to have a no arg constructor.
 
 Of course we also want to run the code; the following example shows how it is run:
 \begin{lstlisting}[language=java]

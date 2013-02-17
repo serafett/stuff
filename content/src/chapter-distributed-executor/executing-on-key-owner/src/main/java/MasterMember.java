@@ -1,6 +1,10 @@
-import com.hazelcast.core.*;
-import java.util.*;
-import java.util.concurrent.ExecutorService;
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.core.IExecutorService;
+
+import java.util.Map;
+import java.util.UUID;
+
 public class MasterMember {
     public static void main(String[] args) throws Exception {
         HazelcastInstance hz = Hazelcast.newHazelcastInstance();

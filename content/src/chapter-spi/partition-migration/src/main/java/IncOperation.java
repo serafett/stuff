@@ -2,7 +2,6 @@ import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.spi.AbstractOperation;
 import com.hazelcast.spi.KeyBasedOperation;
-import com.hazelcast.spi.PartitionAwareOperation;
 
 import java.io.IOException;
 
@@ -38,7 +37,7 @@ class IncOperation extends AbstractOperation implements KeyBasedOperation {
 
     @Override
     public int getKeyHash() {
-        return ("DistributedCounterService"+objectId).hashCode();
+        return ("DistributedCounterService" + objectId).hashCode();
     }
 
     public boolean returnsResponse() {

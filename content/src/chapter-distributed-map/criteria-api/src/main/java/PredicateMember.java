@@ -8,10 +8,7 @@ import com.hazelcast.query.PredicateBuilder;
 import java.util.HashSet;
 import java.util.Set;
 
-import static com.hazelcast.query.Predicates.and;
-import static com.hazelcast.query.Predicates.equal;
-import static com.hazelcast.query.Predicates.not;
-import static com.hazelcast.query.Predicates.or;
+import static com.hazelcast.query.Predicates.*;
 
 public class PredicateMember {
 
@@ -43,10 +40,10 @@ public class PredicateMember {
         //}
     }
 
-    public Set<Person> getWithNameNaive(String name){
+    public Set<Person> getWithNameNaive(String name) {
         Set<Person> result = new HashSet<Person>();
-        for(Person person: personMap.values()){
-            if(person.name.equals(name)){
+        for (Person person : personMap.values()) {
+            if (person.name.equals(name)) {
                 result.add(person);
             }
         }

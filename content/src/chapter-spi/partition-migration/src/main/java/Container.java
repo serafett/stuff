@@ -2,7 +2,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 class Container {
     private final ConcurrentMap<String, Integer> counterMap = new ConcurrentHashMap<>();

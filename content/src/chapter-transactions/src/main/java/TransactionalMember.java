@@ -1,9 +1,13 @@
-import com.hazelcast.core.*;
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.core.Transaction;
+
 import java.util.Map;
+
 public class TransactionalMember {
     public static void main(String[] args) {
         HazelcastInstance hz = Hazelcast.newHazelcastInstance();
-        Map<String,String> map = hz.getMap("map");
+        Map<String, String> map = hz.getMap("map");
         Transaction txn = hz.getTransaction();
         txn.begin();
         try {

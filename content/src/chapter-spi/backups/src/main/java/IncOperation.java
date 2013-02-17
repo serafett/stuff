@@ -1,10 +1,13 @@
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
-import com.hazelcast.spi.*;
+import com.hazelcast.spi.AbstractOperation;
+import com.hazelcast.spi.BackupAwareOperation;
+import com.hazelcast.spi.KeyBasedOperation;
+import com.hazelcast.spi.Operation;
 
 import java.io.IOException;
 
-class IncOperation extends AbstractOperation implements KeyBasedOperation,BackupAwareOperation {
+class IncOperation extends AbstractOperation implements KeyBasedOperation, BackupAwareOperation {
     private String objectId;
     private int amount, returnValue;
 
@@ -32,11 +35,12 @@ class IncOperation extends AbstractOperation implements KeyBasedOperation,Backup
         DistributedCounterService service = getService();
         System.out.println("Executing " + objectId + ".inc() on: " + getNodeEngine().getThisAddress());
         Container c = service.containers[getPartitionId()];
+        Thread.sleep(1000000000);
         returnValue = c.inc(objectId, amount);
     }
 
     public int getKeyHash() {
-        return ("DistributedCounterService"+objectId).hashCode();
+        return ("DistributedCounterService" + objectId).hashCode();
     }
 
     public int getAsyncBackupCount() {
