@@ -137,14 +137,14 @@ There is one thing you need to watch out for in that case, the stacktrace of tha
 todo; can the operation be interrupted if the future.cancel is called?
 todo; will hazelcast take care of resending an operation to the correct machine when the partitionlock is exclusive?
 
-
 There are 4 types of operations:
 \begin{enumerate}
 \item Basic operations are executed always immediately, they don't require any lock and they don't wait any other operation. These operations hi
 \item PartitionAwareOperation: will be executed on a specific partition by returning the partition id. Once they are executed, the partition read-lock will be acquired and will prevent PartitionLevelOperations from executing on that partition. If a PartitionLevelOperation acquired the writelock before the PartitionAwareOperation acquired the readlock, a retry exception is returned to the caller so the operation can be redirected to the new partition owner. [todo: on the caller side we need to deal with a retry exception, or is this already dealt with]
-\item KeyBasedOperations extends PartitionAwareOperation and can specify key locks that prevent other KeyBasedOperations for the same key to execute on that operations [todo: is this a readlock or writelock]
+\item KeyBasedOperations extends PartitionAwareOperation and can specify key locks that prevent other KeyBasedOperations for the same key to execute on that operations. The lock that is acquired for the key is an exclusive lock, so concurrent execution of  KeyBasedOperations for the same key is not possible and this can cause a performance/scalability issue. If that is the case it is better to only make use of the PartitionAwareOperation and rely custom concurrency control.
 \item PartitionLevelOperation are the counter part of the PartitionAwareOperation since they acquire the writelock on the Partition so that no other PartitionAware and PartitionLevelOperations can be executed on that partition for the duration of that writelock. If the read or write-lock on the partition already is acquired, the call blocks until lock is released. [todo: timeout?]
 \end{enumerate}
+
 In our example the IncOperation is going to make use of the KeyBasedOperation to prevent dealing with concurrency control; Hazelcast will lock the correct partition and key:
 \begin{lstlisting}[language=java]
 class IncOperation 
@@ -352,7 +352,7 @@ public class MigrationOperation extends AbstractOperation {
 }
 \end{lstlisting}
 
-The Hazelcast infrastructure will prevent that any PartitionAware or PartitionLevelOperation are going to be executed during the migration of this particular partition. So we don't need to be worried that for example the 'old' counters are going to be incremented and their changes will be lost when the new partition takes over.
+The Hazelcast infrastructure will prevent that any PartitionAwareOperation or KeyBasedOperations are going to be executed during the migration of this particular partition. So we don't need to be worried that for example the 'old' counters are going to be incremented and their changes will be lost when the new partition takes over.
 
 And the last part is connecting all the pieces. This is done by adding an additional MigrationAwareService interface on the DistributedCounterService which will signal Hazelcast that our service able to participate in partition migration:
 \begin{lstlisting}[language=java]
@@ -464,10 +464,8 @@ Of course we also want to see the backup functionality in action.
 public class Member {
    public static void main(String[] args) throws Exception {
       HazelcastInstance[] instances = new HazelcastInstance[2];
-      for (int k = 0; k < instances.length; k++) {
-         HazelcastInstance instance = Hazelcast.newHazelcastInstance();
-         instances[k] = instance;
-      }
+      for (int k = 0; k < instances.length; k++) 
+         instances[k] = Hazelcast.newHazelcastInstance();
 
       DistributedCounter counter = instances[0].getDistributedObject(
          "DistributedCounterService", "counter" + 0);
