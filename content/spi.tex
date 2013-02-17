@@ -182,20 +182,19 @@ Finished
 We can see that our counters are being stored in different members (check the different port numbers). We can also see that the increment doesn't do any real logic yet since the value remains 0.
 
 \section{Phase 3}
-In this section we are going to make use of real DistributedCounter; so some kind of data-structure that will hold an integer value (an AtomicInteger) and can be incremented. The first thing we do is for every partition we have, we are going to create a Container which will contain all counters for a given partition:
+In this section we are going to make use of real DistributedCounter; so some kind of data-structure that will hold an integer value and can be incremented. The first thing we do is for every partition we have, we are going to create a Container which will contain all counters for a given partition:
 \begin{lstlisting}[language=java]
-class Container{
-   final ConcurrentMap<String,AtomicInteger> counterMap 
+class Container {
+   final ConcurrentMap<String, Integer> counterMap 
       = new ConcurrentHashMap<>();
-
-   int inc(String id,  int amount) {
-      AtomicInteger counter = counterMap.get(id);
-      if(counter == null){
-         counter = new AtomicInteger();
-         AtomicInteger tmp = counterMap.putIfAbsent(id, counter);
-         counter = tmp == null ? counter : tmp;
-      }
-      return counter.addAndGet(amount);
+   
+   int inc(String id, int amount) {
+      Integer counter = counterMap.get(id);
+      if (counter == null) 
+         counter = 0;
+      counter += amount;
+      counterMap.put(id, counter);
+      return counter;
    }
 }
 \end{lstlisting}
@@ -218,7 +217,9 @@ for(Map.Entry<String,AtomicLong> entry: counters.entrySet()){
 The next step is to create a container for every partition. The number of partitions is static, so will not change. Also we are creating container for all partitions, we don't care of the container actually is used or not because every member will only host a subset of partitions. When partitions are migrated from one member to another, the container will already be there.
 \begin{lstlisting}[language=java]
 public class DistributedCounterService 
-      implements ManagedService, RemoteService {
+       implements ManagedService, 
+                  RemoteService {
+
    private NodeEngine nodeEngine;
    DistributedMapContainer[] containers;
    public void init(NodeEngine e, Properties p) {
@@ -232,15 +233,22 @@ public class DistributedCounterService
 \end{lstlisting}
 As you can see the partitions are created in the init method. Of course we need to connect the IncOperation.run method to the Container.inc method:
 \begin{lstlisting}[language=java]
-class IncOperation extends AbstractOperation {
+class IncOperation extends AbstractOperation 
+                   implements KeyBasedOperation{
+   
    public void run() throws Exception {
-        DistributedCounterService s = getService();
-        Container c = s.containers[getPartitionId()];
-        returnValue = c.inc(objectId, amount);
-    }
+      DistributedCounterService s = getService();
+      Container c = s.containers[getPartitionId()];
+      returnValue = c.inc(objectId, amount);
+   }
+   public int getKeyHash() {
+      return ("DistributedCounterService" + objectId).hashCode();
+   }
 }
 \end{lstlisting}
 The container can easily be retrieved using the partitionId since the range or partitionId's is 0 to partitionCount (exclusive) so it can be used as an index on the container array. Once the container has been retrieved the inc operation can be called on it and the result can be stored in the 'returnValue' field of the IncOperation. This value will automatically be returned to the client.
+
+Also another change has been made to the IncOperation; it is now implementing the KeyBasedOperation. With the KeyBasedOperation, Hazelcast will automatically lock the partition and it will automatically lock the key so that other KeyOperations for the same key are [todo: blocked or rejected? timeout??] The correct key is found using the 'getKeyHash'. Hazelcast internally used an array of locks where the correct lock is found based on that hash. 
 
 When we run the code, we'll see:
 \begin{lstlisting}
@@ -252,10 +260,50 @@ This means that we now have a basic distributed counter up and running!
 \section{Phase 4}
 In our previous phase we managed to create real distributed counters. The problem is that if a node goes down, there will not be any backups because the values are not replicated to another machine. This means that the DistributedCounters are not highly available. In this phase we are going to add replication.
 
+The first thing we are going to do is to add 3 operations to the Container:
+\begin{lstlisting}[language=java]
+class Container {
+   final ConcurrentMap<String, Integer> counterMap 
+     = new ConcurrentHashMap<>();
+   void clear() {
+      counterMap.clear();
+   }
+   void applyMigrationData(Map<String, Integer> d) {
+      counterMap.putAll(d);
+   }
+   Map<String, Integer> toMigrationData() {
+      return new HashMap<>(counterMap);
+   }
+}
+\end{lstlisting}
+\begin{enumerate}
+\item toMigrationData: this method is going to be called when Hazelcast wants to get started with the migration of the partition of the old partition owner. The result of the toMigrationData is data of the partition in a form so that it can be serialized to another member.
+\item applyMigrationData: this method is called when the migrationData that is created by the toMigrationData method is going to be applied to member that is going to be the new partition owner.
+\item clear: is going to be called when old partition owner can now get rid of all the data for that partition. 
+\end{enumerate}
+
+The next step is to create a MigrationOperation that will be responsible for carrying the migrationData from one machine to anther and to call the 'applyMigrationData' on the correct partition of the new partition owner.
 \begin{lstlisting}[language=java]
 public class MigrationOperation extends AbstractOperation {
    Map<String, Integer> migrationData;
-   ...
+   public MigrationOperation() {
+   }
+   public MigrationOperation(Map<String, Integer> migrationData) {
+       this.migrationData = migrationData;
+   }
+   protected void writeInternal(ObjectDataOutput out) throws IOException {
+      out.writeInt(migrationData.size());
+      for (Map.Entry<String, Integer> entry : migrationData.entrySet()) {
+         out.writeUTF(entry.getKey());
+         out.writeInt(entry.getValue());
+      }
+   }
+   protected void readInternal(ObjectDataInput in) throws IOException {
+      int size = in.readInt();
+      migrationData = new HashMap<>();
+      for (int i = 0; i < size; i++)
+         migrationData.put(in.readUTF(), in.readInt());
+   }
    public void run() throws Exception {
       DistributedCounterService service = getService();
       Container container = service.containers[getPartitionId()];
@@ -264,33 +312,12 @@ public class MigrationOperation extends AbstractOperation {
 }
 \end{lstlisting}
 
-\begin{lstlisting}[language=java]
-class Container {
-   final ConcurrentMap<String, AtomicInteger> counterMap 
-     = new ConcurrentHashMap<>();
-   void clear() {
-      counterMap.clear();
-   }
-   void applyMigrationData(Map<String, Integer> migrationData) {
-      for (Map.Entry<String, Integer> entry : migrationData.entrySet()) {
-          counterMap.put(entry.getKey(), new AtomicInteger(entry.getValue()));
-      }
-   }
-   Map<String, Integer> toMigrationData() {
-      Map<String, Integer> migrationData = new HashMap<>();
-      for (Map.Entry<String, AtomicInteger> entry : counterMap.entrySet()) {
-          String name = entry.getKey();
-          int count = entry.getValue().get();
-          migrationData.put(name, count);
-      }
-      return migrationData;
-   }
-}
-\end{lstlisting}
+The Hazelcast infrastructure will prevent that any PartitionAware or PartitionLevelOperation are going to be executed during the migration of this particular partition. So we don't need to be worried that for example the 'old' counters are going to be incremented and their changes will be lost when the new partition takes over.
 
+And the last part is connecting all the pieces. This is done by adding an additional MigrationAwareService interface on the DistributedCounterService which will signal Hazelcast that our service able to participate in partition migration:
 \begin{lstlisting}[language=java]
 public class DistributedCounterService implements 
-   ManagedService, RemoteService, MigrationAwareService {
+        ManagedService, RemoteService, MigrationAwareService {
    private NodeEngine nodeEngine;
    Container[] containers;
    public void beforeMigration(MigrationServiceEvent e) {
@@ -306,18 +333,23 @@ public class DistributedCounterService implements
    public void commitMigration(MigrationServiceEvent e) {
       if (e.getMigrationEndpoint() == MigrationEndpoint.SOURCE && 
           e.getMigrationType() == MigrationType.MOVE) {
-         containers[migrationServiceEvent.getPartitionId()].clear();
+         Container c = containers[e.getPartitionId()];
+         c.clear();
       }
-    }
-    public void rollbackMigration(MigrationServiceEvent e) {
-       if (e.getMigrationEndpoint() == MigrationEndpoint.DESTINATION)
-          containers[migrationServiceEvent.getPartitionId()].clear();
-    }
-    public int getMaxBackupCount() {
-        return 1;
-    }
+   }
+   public void rollbackMigration(MigrationServiceEvent e) {
+      if (e.getMigrationEndpoint() == MigrationEndpoint.DESTINATION){
+         Container c = containers[e.getPartitionId()];
+         c.clear();
+      }
+   }
+   public int getMaxBackupCount() {
+      return 1;
+   }
 }
 \end{lstlisting}
+
+todo: tell about max backup count. You could use the service properties to configure this.
 
 beforeMigration:
 we don't need to do anything
@@ -344,7 +376,58 @@ rollbackMigration
     // ]
 
 
-\section{Phase 4}
-Migration
+\section{Phase 5}
+In this last phase we are going to deal with backups; so make sure that when a member fails that the data is available on another node. This is done by for every operation that makes a chance, to have a backup operation executed as well. Since the IncOperation always makes a change, it will always have a backup operation. To signal Hazelcast that an operation needs a backup, the operation needs to implement the BackupAwareOperation:
+\begin{lstlisting}[language=java]
+class IncOperation extends AbstractOperation 
+   implements KeyBasedOperation,BackupAwareOperation {
+   public int getAsyncBackupCount() {
+      return 0;
+   }
+   public int getSyncBackupCount() {
+      return 1;
+   }
+   public boolean shouldBackup() {
+      return true;
+   }
+   public Operation getBackupOperation() {
+      return new IncBackupOperation(objectId, amount);
+   }
+}
+\end{lstlisting}
+As you can see some additional methods need to be implemented. The getAsyncBackupCount and getSyncBackupCount signals how many asynchronous and synchronous backups there need to be. In our case we only want a single synchronous backup and no asynchronous backups. The shouldBackup method tells Hazelcast that our Operation needs a backup. If course we could do some optimizations in case of amount = 0. The last method is the getBackupOperation which returns the backup operation of the IncOperation; in this case the IncBackupOperation:
+
+\begin{lstlisting}[language=java]
+public class IncBackupOperation 
+      extends AbstractOperation 
+      implements BackupOperation {
+   private String objectId;
+   private int amount;
+   public IncBackupOperation() {
+   }
+   public IncBackupOperation(String objectId, int amount) {
+      this.amount = amount;
+      this.objectId = objectId;
+   }
+   protected void writeInternal(ObjectDataOutput out) throws IOException {
+      super.writeInternal(out);
+      out.writeUTF(objectId);
+      out.writeInt(amount);
+   }
+   protected void readInternal(ObjectDataInput in) throws IOException {
+      super.readInternal(in);
+      objectId = in.readUTF();
+      amount = in.readInt();
+   }
+   public void run() throws Exception {
+      DistributedCounterService service = getService();
+      System.out.println("Executing backup " + objectId + ".inc() on: " + getNodeEngine().getThisAddress());
+      Container c = service.containers[getPartitionId()];
+      c.inc(objectId, amount);
+   }
+}
+\end{lstlisting}
+
 
 \section{What is next}
+In this chapter we have created step by step a distributed datastructures on top of Hazelcast. And although Hazelcast provides a whole collection of very usable distributed datastructures, the addition of the SPI changes Hazlcast from being a simple datagrid to a datagrid infrastructure where your imagination is the only limit. In distributed applications there will always be the need to create special datastructures that are very useful for very particular usecases and with the SPI you can now build these datastructures yourself.

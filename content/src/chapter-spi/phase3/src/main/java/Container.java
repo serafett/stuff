@@ -1,17 +1,16 @@
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 class Container {
-    private final ConcurrentMap<String,AtomicInteger> counterMap = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Integer> counterMap = new ConcurrentHashMap<>();
 
-    int inc(String id,  int amount) {
-        AtomicInteger counter = counterMap.get(id);
-        if(counter == null){
-            counter = new AtomicInteger();
-            AtomicInteger found = counterMap.putIfAbsent(id, counter);
-            counter = found == null?counter : found;
+    int inc(String id, int amount) {
+        Integer counter = counterMap.get(id);
+        if (counter == null) {
+            counter = 0;
         }
-        return counter.addAndGet(amount);
+        counter += amount;
+        counterMap.put(id, counter);
+        return counter;
     }
 }

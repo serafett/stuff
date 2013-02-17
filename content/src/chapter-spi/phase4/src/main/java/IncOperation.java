@@ -1,11 +1,12 @@
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.spi.AbstractOperation;
+import com.hazelcast.spi.KeyBasedOperation;
 import com.hazelcast.spi.PartitionAwareOperation;
 
 import java.io.IOException;
 
-class IncOperation extends AbstractOperation implements PartitionAwareOperation {
+class IncOperation extends AbstractOperation implements KeyBasedOperation {
     private String objectId;
     private int amount, returnValue;
 
@@ -33,6 +34,11 @@ class IncOperation extends AbstractOperation implements PartitionAwareOperation 
         DistributedCounterService service = getService();
         System.out.println("Executing " + objectId + ".inc() on: " + getNodeEngine().getThisAddress());
         returnValue = service.containers[getPartitionId()].inc(objectId, amount);
+    }
+
+    @Override
+    public int getKeyHash() {
+        return ("DistributedCounterService"+objectId).hashCode();
     }
 
     public boolean returnsResponse() {

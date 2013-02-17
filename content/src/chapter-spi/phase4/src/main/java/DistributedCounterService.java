@@ -47,14 +47,17 @@ public class DistributedCounterService implements ManagedService, RemoteService,
     public void commitMigration(MigrationServiceEvent e) {
         if (e.getMigrationEndpoint() == MigrationEndpoint.SOURCE
                 && e.getMigrationType() == MigrationType.MOVE) {
-            containers[e.getPartitionId()].clear();
+            Container c = containers[e.getPartitionId()];
+            c.clear();
         }
     }
 
     @Override
     public void rollbackMigration(MigrationServiceEvent e) {
-        if (e.getMigrationEndpoint() == MigrationEndpoint.DESTINATION)
-            containers[e.getPartitionId()].clear();
+        if (e.getMigrationEndpoint() == MigrationEndpoint.DESTINATION) {
+            Container c = containers[e.getPartitionId()];
+            c.clear();
+        }
     }
 
     @Override
