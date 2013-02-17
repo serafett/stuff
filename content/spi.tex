@@ -106,7 +106,17 @@ public class DistributedCounterProxy
       try {
          final Future<Integer> future = builder.build().invoke();
          return future.get();
-      } catch (InterruptedException | ExecutionException e) {
+      } catch (ExecutionException e) {
+         final Throwable cause = e.getCause();
+         if (cause instanceof RuntimeException) {
+            throw (RuntimeException) cause;
+         } else if (cause instanceof Error) {
+            throw (Error) cause;
+         } else {
+            throw new RuntimeException(cause);
+         }
+      } catch (InterruptedException e) {
+         Thread.currentThread().interrupt();
          throw new RuntimeException(e);
       }
    }
@@ -118,9 +128,17 @@ If you take a closer look at the inc method, the first thing we do is to create 
 
 The last part of the logic is actually invoking the operation and waiting for its result. This is done using a Future which gives us the ability to synchronize on completion of that remote executed operation and to get the results. In our case we do a simple get since we don't care about a timeout, but for real system it often is better to use a timeout since most operations should complete in a certain amount of time. If they don't complete, it could be a sign of problems and waiting indefinitely could lead to stalling systems without any form of error logging.
 
-In the example I do no deal correctly with the ExecutionException, it is best to get the cause and throw that. There is one thing you need to watch out for in that case, the stacktrace of that exception will represent the callstack of the thread executing the remote operation, not the callstack of the thread executing the DistributedCounterProxy.inc method. An easy way to fix that is to prepend the client side stacktrace to the stacktrace (the stacktrace is just an array of StackTraceElements)
+Checked exceptions; could be put in the interface.
+
+Interrupted exception; can be put in the interface to indicate blocking operation. 
+
+It can happen that a 
+
+There is one thing you need to watch out for in that case, the stacktrace of that exception will represent the callstack of the thread executing the remote operation, not the callstack of the thread executing the DistributedCounterProxy.inc method. An easy way to fix that is to prepend the client side stacktrace to the stacktrace (the stacktrace is just an array of StackTraceElements)
 
 todo; can the operation be interrupted if the future.cancel is called?
+todo; will hazelcast take care of resending an operation to the correct machine when the partitionlock is exclusive?
+
 
 There are 4 types of operations:
 \begin{enumerate}
@@ -205,7 +223,7 @@ Finished
 We can see that our counters are being stored in different members (check the different port numbers). We can also see that the increment doesn't do any real logic yet since the value remains 0.
 
 \section{Container}
-In this section we are going to make use of real DistributedCounter; so some kind of data-structure that will hold an integer value and can be incremented. The first thing we do is for every partition we have, we are going to create a Container which will contain all counters for a given partition:
+In this section we are going to make use of real DistributedCounter; so some kind of data-structure that will hold an integer value and can be incremented. The first thing we do is for every partition there is in the system, we are going to create a Container which will contain all counters for a given partition:
 \begin{lstlisting}[language=java]
 class Container {
    final ConcurrentMap<String, Integer> counterMap 
@@ -221,14 +239,16 @@ class Container {
    }
 }
 \end{lstlisting}
-The Container has an inc method, that looks up the counter based on the id and increments it. For this chapter I'm going to rely on creating a container per partition, but you can also go for another approaches. Another approach used in the Hazelcast code is that the container is dropped and the DistributedCounterService:
+The Container has an inc method, that looks up the counter based on the id and increments it. 
+
+For this chapter I rely on Container class per partition, but you have complete freedom how to go about it. A different approach used in the Hazelcast code is that the Container is dropped and the DistributedCounterService you just have a map of counters:
 \begin{lstlisting}[language=java]
 final ConcurrentMap<String, AtomicLong> counters = 
-   new ConcurrentHashMap<String, AtomicLong>();
+   new ConcurrentHashMap<String, Integer>();
 \end{lstlisting}
-The id of the counter can be used as key and an AtomicLong as value. The only thing you need to take care of is that if operations for a specific partition are executed, you only select the values for that specific partition which could be as simple as: 
+The id of the counter can be used as key and an Integer as value. The only thing you need to take care of is that if operations for a specific partition are executed, you only select the values for that specific partition. This can be as simple as: 
 \begin{lstlisting}[language=java]
-for(Map.Entry<String,AtomicLong> entry: counters.entrySet()){
+for(Map.Entry<String,Integer> entry: counters.entrySet()){
    String id = entry.getKey();
    int partitinId = nodeEngine.getPartitionService().getPartitionId(id); 
    if(partitionid == requiredPartitionId){
@@ -236,8 +256,9 @@ for(Map.Entry<String,AtomicLong> entry: counters.entrySet()){
    }
 }
 \end{lstlisting}
+Its a personal taste which solution is preferred. Personally I like the container approach since there will not be any mutable shared state between partitions. It also makes operations on partitions simpler since you don't need to filter out data that doesn't belong to a certain partition.
 
-The next step is to create a container for every partition. The number of partitions is static, so will not change. Also we are creating container for all partitions, we don't care of the container actually is used or not because every member will only host a subset of partitions. When partitions are migrated from one member to another, the container will already be there.
+The next step is to create a containers. The number of partitions is static, so will not change so we are going to create a container per partition and store it in an array. The array will have the same length as the number of partitions. In practice each member will only host a subset of the partitions so since we create a container per partition up front, it could be that a container isn't used. But since its size is small, it isn't very important and also makes the examples a bit simpler.
 \begin{lstlisting}[language=java]
 public class DistributedCounterService 
        implements ManagedService, 
@@ -253,7 +274,7 @@ public class DistributedCounterService
    }
 }
 \end{lstlisting}
-As you can see the partitions are created in the init method. Of course we need to connect the IncOperation.run method to the Container.inc method:
+As you can see the partitions are created in the init method. The last step is connecting the IncOperation.run method to the Container.inc method:
 \begin{lstlisting}[language=java]
 class IncOperation extends AbstractOperation 
                    implements KeyBasedOperation{  
@@ -261,8 +282,7 @@ class IncOperation extends AbstractOperation
       DistributedCounterService s = getService();
       Container c = s.containers[getPartitionId()];
       returnValue = c.inc(objectId, amount);
-   }
-  
+   }  
 }
 \end{lstlisting}
 The container can easily be retrieved using the partitionId since the range or partitionId's is 0 to partitionCount (exclusive) so it can be used as an index on the container array. Once the container has been retrieved the inc operation can be called on it and the result can be stored in the 'returnValue' field of the IncOperation. This value will automatically be returned to the client.

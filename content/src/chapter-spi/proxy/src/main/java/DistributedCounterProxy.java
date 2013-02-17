@@ -30,8 +30,17 @@ public class DistributedCounterProxy implements DistributedCounter {
             final Future<Integer> future = builder.build().invoke();
             System.out.println("future.class:" + future.getClass());
             return future.get();
-        } catch (InterruptedException | ExecutionException e) {
-            System.out.println("ExecutionException or InterruptedException is thrown");
+        } catch (ExecutionException e) {
+            final Throwable cause = e.getCause();
+            if (cause instanceof RuntimeException) {
+                throw (RuntimeException) cause;
+            } else if (cause instanceof Error) {
+                throw (Error) cause;
+            } else {
+                throw new RuntimeException(cause);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             throw new RuntimeException(e);
         }
     }

@@ -27,7 +27,17 @@ public class DistributedCounterProxy implements DistributedCounter {
                 .createInvocationBuilder("DistributedCounterService", operation, partitionId);
         try {
             return (Integer) builder.build().invoke().get();
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (ExecutionException e) {
+            final Throwable cause = e.getCause();
+            if (cause instanceof RuntimeException) {
+                throw (RuntimeException) cause;
+            } else if (cause instanceof Error) {
+                throw (Error) cause;
+            } else {
+                throw new RuntimeException(cause);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             throw new RuntimeException(e);
         }
     }

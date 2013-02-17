@@ -35,7 +35,7 @@ class IncOperation extends AbstractOperation implements KeyBasedOperation {
     public void run() throws Exception {
         System.out.println("Executing " + objectId + ".inc() on: " + getNodeEngine().getThisAddress());
         returnValue = 0;
-        throw new IllegalStateException();
+        throw new IndexOutOfBoundsException();
     }
 
     @Override
