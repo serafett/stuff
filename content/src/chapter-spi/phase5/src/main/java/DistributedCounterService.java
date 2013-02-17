@@ -1,22 +1,20 @@
 import com.hazelcast.core.DistributedObject;
-import com.hazelcast.spi.ManagedService;
-import com.hazelcast.spi.NodeEngine;
-import com.hazelcast.spi.RemoteService;
+import com.hazelcast.partition.MigrationEndpoint;
+import com.hazelcast.partition.MigrationType;
+import com.hazelcast.spi.*;
 
+import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
-public class DistributedCounterService implements ManagedService, RemoteService {
+public class DistributedCounterService implements ManagedService, RemoteService, MigrationAwareService {
     private NodeEngine nodeEngine;
-    DistributedMapContainer[] containers;
+    Container[] containers;
 
     public void init(NodeEngine nodeEngine, Properties properties) {
         this.nodeEngine = nodeEngine;
-        containers = new DistributedMapContainer[nodeEngine.getPartitionService().getPartitionCount()];
+        containers = new Container[nodeEngine.getPartitionService().getPartitionCount()];
         for (int k = 0; k < containers.length; k++)
-            containers[k] = new DistributedMapContainer();
+            containers[k] = new Container();
     }
 
     public void shutdown() {
@@ -30,18 +28,38 @@ public class DistributedCounterService implements ManagedService, RemoteService 
         return "DistributedCounterService";
     }
 
-    public class DistributedMapContainer {
-        private ConcurrentMap<String, AtomicInteger> maps = new ConcurrentHashMap<>();
+    @Override
+    public void beforeMigration(MigrationServiceEvent e) {
+        //no-op
+    }
 
-        public int inc(String id, int amount) {
-            AtomicInteger integer = maps.get(id);
-            if (integer == null) {
-                integer = new AtomicInteger();
-                AtomicInteger found = maps.putIfAbsent(id, integer);
-                integer = found == null ? integer : found;
-            }
-            return integer.addAndGet(amount);
+    @Override
+    public Operation prepareMigrationOperation(MigrationServiceEvent e) {
+        if (e.getReplicaIndex() > 1)  return null;
+
+        Container container = containers[e.getPartitionId()];
+        Map<String, Integer> migrationData = container.toMigrationData();
+        if (migrationData.isEmpty()) return null;
+        return new MigrationOperation(migrationData);
+    }
+
+    @Override
+    public void commitMigration(MigrationServiceEvent e) {
+        if (e.getMigrationEndpoint() == MigrationEndpoint.SOURCE
+                && e.getMigrationType() == MigrationType.MOVE) {
+            containers[e.getPartitionId()].clear();
         }
+    }
+
+    @Override
+    public void rollbackMigration(MigrationServiceEvent e) {
+        if (e.getMigrationEndpoint() == MigrationEndpoint.DESTINATION)
+            containers[e.getPartitionId()].clear();
+    }
+
+    @Override
+    public int getMaxBackupCount() {
+        return 1;
     }
 
     public DistributedObject createDistributedObjectForClient(Object objectId) {

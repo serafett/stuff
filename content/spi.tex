@@ -148,7 +148,7 @@ public class DistributedCounterProxy
 \end{lstlisting}
 todo: the operations always need to have a no arg constructor for deserialization purposes. You can also see that the right hazelcast partition to send the inc operation to is based on the object id. Of course you are free to route on any other field, or not route at all [todo: confirm that without the routing id, it will be a random machine]. Also a future is used as a handle to the operation completion. Currently I don't use any timeout, but you are free to add timouts. Instead of returning the value, you could expose the Future in the api, e.g. Future<Integer> inc(). In the example I do no deal correctly with the ExecutionException, it is best to get the cause and throw that. There is one thing you need to watch out for in that case, the stacktrace of that exception will represent the callstack of the thread executing the remote operation, not the callstack on the client side. An easy way to fix that is to prepend  the client side stacktrace in the stacktrace (the stacktrace is just an array of StackTraceElements)
 
-Of course we also want to run the EchoService; the following example shows how it is run:
+Of course we also want to run the code; the following example shows how it is run:
 \begin{lstlisting}[language=java]
 public class Member {
    public static void main(String[] args) {
@@ -182,7 +182,40 @@ Finished
 We can see that our counters are being stored in different members (check the different port numbers). We can also see that the increment doesn't do any real logic yet since the value remains 0.
 
 \section{Phase 3}
-In this section we are going to make use of real DistributedCounter; so some kind of data-structure that will hold an integer value (an AtomicInteger) and can be incremented. The first thing we do is for every partition we have, we are going to create a Container. And this contains will contain all AtomicIntegers for that given partition:
+In this section we are going to make use of real DistributedCounter; so some kind of data-structure that will hold an integer value (an AtomicInteger) and can be incremented. The first thing we do is for every partition we have, we are going to create a Container which will contain all counters for a given partition:
+\begin{lstlisting}[language=java]
+class Container{
+   final ConcurrentMap<String,AtomicInteger> counterMap 
+      = new ConcurrentHashMap<>();
+
+   int inc(String id,  int amount) {
+      AtomicInteger counter = counterMap.get(id);
+      if(counter == null){
+         counter = new AtomicInteger();
+         AtomicInteger tmp = counterMap.putIfAbsent(id, counter);
+         counter = tmp == null ? counter : tmp;
+      }
+      return counter.addAndGet(amount);
+   }
+}
+\end{lstlisting}
+The Container has an inc method, that looks up the counter based on the id and increments it. For this chapter I'm going to rely on creating a container per partition, but you can also go for another approaches. Another approach used in the Hazelcast code is that the container is dropped and the DistributedCounterService:
+\begin{lstlisting}[language=java]
+final ConcurrentMap<String, AtomicLong> counters = 
+   new ConcurrentHashMap<String, AtomicLong>();
+\end{lstlisting}
+The id of the counter can be used as key and an AtomicLong as value. The only thing you need to take care of is that if operations for a specific partition are executed, you only select the values for that specific partition which could be as simple as: 
+\begin{lstlisting}[language=java]
+for(Map.Entry<String,AtomicLong> entry: counters.entrySet()){
+   String id = entry.getKey();
+   int partitinId = nodeEngine.getPartitionService().getPartitionId(id); 
+   if(partitionid == requiredPartitionId){
+      ...do operation	
+   }
+}
+\end{lstlisting}
+
+The next step is to create a container for every partition. The number of partitions is static, so will not change. Also we are creating container for all partitions, we don't care of the container actually is used or not because every member will only host a subset of partitions. When partitions are migrated from one member to another, the container will already be there.
 \begin{lstlisting}[language=java]
 public class DistributedCounterService 
       implements ManagedService, RemoteService {
@@ -190,38 +223,25 @@ public class DistributedCounterService
    DistributedMapContainer[] containers;
    public void init(NodeEngine e, Properties p) {
       this.nodeEngine = e;
-      this count = nodeEngine.getPartitionService().getPartitionCount();
+      this count = e.getPartitionService().getPartitionCount();
       containers = new Container[count];
       for(int k=0;k<containers.length;k++) 
          containers[k]=new Container();
    }
-   public class Container{
-      private final ConcurrentMap<String,AtomicInteger> counterMap 
-         = new ConcurrentHashMap<>();
-   
-      public int inc(String id,  int amount) {
-         AtomicInteger counter = counterMap.get(id);
-         if(counter == null){
-            counter = new AtomicInteger();
-            AtomicInteger found = counterMap.putIfAbsent(id, counter);
-            counter = found == null ? counter : found;
-         }
-         return counter.addAndGet(amount);
-      }
-   }
 }
 \end{lstlisting}
-As you can see the partitions are created in the init method. The Container also has an inc method, that looks up the AtomicInteger based on the id and increments it. Of course we need to connect the IncOperation.run method to the Container.inc method:
+As you can see the partitions are created in the init method. Of course we need to connect the IncOperation.run method to the Container.inc method:
 \begin{lstlisting}[language=java]
 class IncOperation extends AbstractOperation {
    public void run() throws Exception {
-      DistributedCounterService service = getService();
-      System.out.println("Executing "+objectId+
-         ".inc() on: "+getNodeEngine().getThisAddress());
-      returnValue = service.containers[getPartitionId()].inc(objectId, amount);
-   }
+        DistributedCounterService s = getService();
+        Container c = s.containers[getPartitionId()];
+        returnValue = c.inc(objectId, amount);
+    }
 }
 \end{lstlisting}
+The container can easily be retrieved using the partitionId since the range or partitionId's is 0 to partitionCount (exclusive) so it can be used as an index on the container array. Once the container has been retrieved the inc operation can be called on it and the result can be stored in the 'returnValue' field of the IncOperation. This value will automatically be returned to the client.
+
 When we run the code, we'll see:
 \begin{lstlisting}
 1
@@ -231,6 +251,98 @@ This means that we now have a basic distributed counter up and running!
 
 \section{Phase 4}
 In our previous phase we managed to create real distributed counters. The problem is that if a node goes down, there will not be any backups because the values are not replicated to another machine. This means that the DistributedCounters are not highly available. In this phase we are going to add replication.
+
+\begin{lstlisting}[language=java]
+public class MigrationOperation extends AbstractOperation {
+   Map<String, Integer> migrationData;
+   ...
+   public void run() throws Exception {
+      DistributedCounterService service = getService();
+      Container container = service.containers[getPartitionId()];
+      container.applyMigrationData(migrationData);
+   }
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=java]
+class Container {
+   final ConcurrentMap<String, AtomicInteger> counterMap 
+     = new ConcurrentHashMap<>();
+   void clear() {
+      counterMap.clear();
+   }
+   void applyMigrationData(Map<String, Integer> migrationData) {
+      for (Map.Entry<String, Integer> entry : migrationData.entrySet()) {
+          counterMap.put(entry.getKey(), new AtomicInteger(entry.getValue()));
+      }
+   }
+   Map<String, Integer> toMigrationData() {
+      Map<String, Integer> migrationData = new HashMap<>();
+      for (Map.Entry<String, AtomicInteger> entry : counterMap.entrySet()) {
+          String name = entry.getKey();
+          int count = entry.getValue().get();
+          migrationData.put(name, count);
+      }
+      return migrationData;
+   }
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=java]
+public class DistributedCounterService implements 
+   ManagedService, RemoteService, MigrationAwareService {
+   private NodeEngine nodeEngine;
+   Container[] containers;
+   public void beforeMigration(MigrationServiceEvent e) {
+   } 
+   public Operation prepareMigrationOperation(MigrationServiceEvent e) {
+      if (e.getReplicaIndex() > 1)  return null;
+
+      Container container = containers[e.getPartitionId()];
+      Map<String, Integer> migrationData = container.toMigrationData();
+      if (migrationData.isEmpty()) return null;
+      return new MigrationOperation(migrationData);
+   }
+   public void commitMigration(MigrationServiceEvent e) {
+      if (e.getMigrationEndpoint() == MigrationEndpoint.SOURCE && 
+          e.getMigrationType() == MigrationType.MOVE) {
+         containers[migrationServiceEvent.getPartitionId()].clear();
+      }
+    }
+    public void rollbackMigration(MigrationServiceEvent e) {
+       if (e.getMigrationEndpoint() == MigrationEndpoint.DESTINATION)
+          containers[migrationServiceEvent.getPartitionId()].clear();
+    }
+    public int getMaxBackupCount() {
+        return 1;
+    }
+}
+\end{lstlisting}
+
+beforeMigration:
+we don't need to do anything
+
+prepare migration operation:
+// [mehmet: migrate only master and first backup data, since DistributedCounterService supports only 1 backup.]
+
+commitMigration
+//is this method called on both the primary and backup? [mehmet: yes]
+    // [mehmet:
+    // if this node is source side of migration (means partition is migrating FROM this node) 
+    // and migration type is MOVE (means partition is migrated completely not copied to a backup node)
+    // then remove partition data from this node.
+    //
+    // If this node is destination or migration type is copy then nothing to do.
+    // ]
+
+rollbackMigration
+//is this method called on both the primary and backup? [mehmet: yes]
+  // [mehmet: if this node is destination side of migration (means partition is migrating TO this node) 
+    // then remove partition data from this node.
+    // 
+    // If this node is source then nothing to do.
+    // ]
+
 
 \section{Phase 4}
 Migration
