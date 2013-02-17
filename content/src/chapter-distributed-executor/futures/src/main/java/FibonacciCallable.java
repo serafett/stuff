@@ -1,13 +1,17 @@
 import java.io.Serializable;
 import java.util.concurrent.Callable;
+
 public class FibonacciCallable implements Callable<Long>, Serializable {
     private final int input;
+
     public FibonacciCallable(int input) {
         this.input = input;
     }
+
     public Long call() {
         return calculate(input);
     }
+
     private long calculate(int n) {
         if (Thread.currentThread().isInterrupted()) {
             System.out.println("FibonacciCallable is interrupted");

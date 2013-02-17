@@ -4,7 +4,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 
-public class TheQueueStore implements QueueStore<Integer>{
+public class TheQueueStore implements QueueStore<Integer> {
 
     @Override
     public void delete(Long key) {

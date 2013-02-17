@@ -1,8 +1,8 @@
-import com.hazelcast.core.*;
-import com.hazelcast.executor.RunnableAdapter;
-import com.hazelcast.partition.PartitionService;
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.core.IExecutorService;
+import com.hazelcast.core.Member;
 
-import java.util.concurrent.*;
 public class MasterMember {
     public static void main(String[] args) {
         HazelcastInstance hz = Hazelcast.newHazelcastInstance();

@@ -6,7 +6,7 @@
         <join>
             <multicast enabled="true"/>
         </join>
-         <symmetric-encryption enabled="true">
+        <symmetric-encryption enabled="true">
             <algorithm>PBEWithMD5AndDES</algorithm>
             <salt>somesalt</salt>
             <password>somepass</password>

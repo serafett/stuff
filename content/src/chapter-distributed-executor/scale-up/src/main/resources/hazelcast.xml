@@ -2,7 +2,7 @@
                                http://www.hazelcast.com/schema/config/hazelcast-config-3.0.xsd"
            xmlns="http://www.hazelcast.com/schema/config"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-     <executor-service name="executor">
+    <executor-service name="executor">
         <pool-size>5</pool-size>
     </executor-service>
 </hazelcast>

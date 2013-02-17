@@ -35,7 +35,7 @@ public class DistributedCounterService implements ManagedService, RemoteService,
 
     @Override
     public Operation prepareMigrationOperation(MigrationServiceEvent e) {
-        if (e.getReplicaIndex() > 1)  return null;
+        if (e.getReplicaIndex() > 1) return null;
 
         Container container = containers[e.getPartitionId()];
         Map<String, Integer> migrationData = container.toMigrationData();

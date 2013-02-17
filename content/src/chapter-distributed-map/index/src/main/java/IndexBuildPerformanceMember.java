@@ -21,7 +21,7 @@ public class IndexBuildPerformanceMember {
                 count++;
             }
             personMap.clear();
-            System.out.println("At "+l);
+            System.out.println("At " + l);
         }
 
         long durationMs = System.currentTimeMillis() - startMs;

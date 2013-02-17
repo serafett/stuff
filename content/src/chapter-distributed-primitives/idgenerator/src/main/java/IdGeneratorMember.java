@@ -1,4 +1,7 @@
-import com.hazelcast.core.*;
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.core.IdGenerator;
+
 public class IdGeneratorMember {
     public static void main(String[] args) throws InterruptedException {
         HazelcastInstance hazelcast = Hazelcast.newHazelcastInstance();

@@ -4,6 +4,12 @@ One of the most exiting new features of Hazelcast 3 is the new SPI module (see t
 
 In this chapter we are going to build a distributed counter, so a counter that stored somewhere in the datagrid. The full sources can be found ...
 
+\begin{lstlisting}[language=java]
+public interface DistributedCounter{
+    int inc(int amount);
+}
+\end{lstlisting}
+
 \section{Getting started}
 In this section we are going to show you a very basic service that will be started when Hazelcast starts and will be shutdown when Hazelcast is shutdown. In itself not extremely interesting, but it is needed for the the more advanced sections.
 
@@ -47,18 +53,16 @@ DistributedCounterService.init
 So the DistributedCounterService is started as part of the startup of the HazelcastInstance, it is done eagerly.. not lazily.
 
 \section{Proxy}
-This example shows invoke operations on potentially a machine. The basis will be an Echo Service, that accepts a routing id and a message that needs to be echoed.
+In the previous section we created a DistributedCounterService that gets started when Hazelcast starts, but apart from that it doesn't do anything yet. In this section we are going connect the DistributedCounter interface to the DistributedCounterService and we are going to do a remote call on member hosting the actual counter data/logic and we'll return the result.
 
-So lets start with the Echoer interface; it extends the 'DistributedObject' which provides name?/id/destroy
+The first thing we are going to do is to let the DistributedCounter implement the DistributedObject interface to indicate that it is a distributed object. Also some methods will be exposed like getName,getId and destroy:
 \begin{lstlisting}[language=java]
-import com.hazelcast.core.DistributedObject;
 public interface DistributedCounter extends DistributedObject {
     int inc(int amount);
 }
 \end{lstlisting}
-The echo method takes 2 parameters: the routingId and the msg. The routingId is used to find the correct partition. 
 
-The next step is the EchoService. Apart from implementing the 'ManagedService' interface, it now also implements the 'RemoteService' interface. Through this interface a client will be able to get a handle of an Echoer instance.
+The next step is fixing the DistributedCounterService. Apart from implementing the 'ManagedService' interface, it now also implements the 'RemoteService' interface. Through this interface a client will be able to get a handle of an DistributedCounter proxies. 
 \begin{lstlisting}[language=java]
 public class DistributedCounterService 
    implements ManagedService, RemoteService {
@@ -80,46 +84,7 @@ public class DistributedCounterService
 [todo: destroyDistributedObject]
 [todo: createDistributedObjectForClient]
 
-The DistributedCounter has a single method: inc. This method needs to be invoked on another machine, this can be done using the Hazelcast Operation, part of the new SPI. There are 4 types of operations:
-\begin{enumerate}
-\item Basic operations are executed always immediately, they don't require any lock and they don't wait any other operation. These operations hi
-\item PartitionAwareOperation: will be executed on a specific partition by returning the partition id. Once they are executed, the partition read-lock will be acquired and will prevent PartitionLevelOperations from executing on that partition. If a PartitionLevelOperation acquired the writelock before the PartitionAwareOperation acquired the readlock, a retry exception is returned to the caller so the operation can be redirected to the new partition owner. [todo: on the caller side we need to deal with a retry exception, or is this already dealt with]
-\item KeyBasedOperations extends PartitionAwareOperation and can specify key locks that prevent other KeyBasedOperations for the same key to execute on that operations [todo: is this a readlock or writelock]
-\item PartitionLevelOperation are the counter part of the PartitionAwareOperation since they acquire the writelock on the Partition so that no other PartitionAware and PartitionLevelOperations can be executed on that partition for the duration of that writelock. If the read or write-lock on the partition already is acquired, the call blocks until lock is released. [todo: timeout?]
-\end{enumerate}
-[todo:In the case of the IncMethod, do we need a PartitionAwareOperation or do we want a KeyBasedOperation? Since we probably don't want to deal with concurrency, the KeyBasedOperation could handle the problems.]
-
-The operation. It is instance of PartitionAwareOperation since we want to prevent the partition from moving
-\begin{lstlisting}[language=java]
-class IncOperation extends PartitionAwareOperation {
-   private String objectId;
-   private int amount,returnValue;
-   public IncOperation(){}
-   public IncOperation(String objectId, int amount) {
-      this.amount = amount;
-      this.objectId = objectId;}
-   protected void writeInternal(ObjectDataOutput out) 
-         throws IOException {
-      super.writeInternal(out);
-      out.writeUTF(objectId);
-      out.writeInt(amount);}
-   protected void readInternal(ObjectDataInput in) 
-        throws IOException {
-      super.readInternal(in);
-      objectId = in.readUTF();
-      amount = in.readInt();}
-   public void run() throws Exception {
-      System.out.println("Executing "+objectId+".inc() on: "+
-         getNodeEngine().getThisAddress());            
-      returnValue = 0;}
-   public boolean returnsResponse() {return true;}
-   public Object getResponse() {return returnValue;}}
-   public void destroy() {}
-}	
-\end{lstlisting}
-Because the IncOperation needs to be serialized, the writeInternal and readInternal methods needs to be overwritten so that the objectId will be send over the line.
-
-Executing the operation
+As you can see the createDistributedObject returns a DistributedCounterProxy. This proxy is a local representation to (potentially) remote managed data/logic.  
 \begin{lstlisting}[language=java]
 public class DistributedCounterProxy 
       implements DistributedCounter {
@@ -127,7 +92,8 @@ public class DistributedCounterProxy
    private final String objectId;
    public DistributedCounterProxy(String objectId, NodeEngine e) {
       this.nodeEngine = e;
-      this.objectId = objectId;}
+      this.objectId = objectId;
+   }
    public Object getId() {return objectId;}
    public String getName() {return null;}
    public int inc(int amount) {
@@ -146,7 +112,57 @@ public class DistributedCounterProxy
    }
 }
 \end{lstlisting}
-todo: the operations always need to have a no arg constructor for deserialization purposes. You can also see that the right hazelcast partition to send the inc operation to is based on the object id. Of course you are free to route on any other field, or not route at all [todo: confirm that without the routing id, it will be a random machine]. Also a future is used as a handle to the operation completion. Currently I don't use any timeout, but you are free to add timouts. Instead of returning the value, you could expose the Future in the api, e.g. Future<Integer> inc(). In the example I do no deal correctly with the ExecutionException, it is best to get the cause and throw that. There is one thing you need to watch out for in that case, the stacktrace of that exception will represent the callstack of the thread executing the remote operation, not the callstack on the client side. An easy way to fix that is to prepend  the client side stacktrace in the stacktrace (the stacktrace is just an array of StackTraceElements)
+The inc method of DistributedCounterProxy needs to be invoked on another machine, this can be done using the Hazelcast Operation, part of the new SPI. 
+
+You can also see that the right hazelcast partition to send the inc operation to is based on the object id. Of course you are free to route on any other field, or not route at all [todo: confirm that without the routing id, it will be a random machine]. Also a future is used as a handle to the operation completion. Currently I don't use any timeout, but you are free to add timouts. Instead of returning the value, you could expose the Future in the api, e.g. Future<Integer> inc(). In the example I do no deal correctly with the ExecutionException, it is best to get the cause and throw that. There is one thing you need to watch out for in that case, the stacktrace of that exception will represent the callstack of the thread executing the remote operation, not the callstack on the client side. An easy way to fix that is to prepend  the client side stacktrace in the stacktrace (the stacktrace is just an array of StackTraceElements)
+
+There are 4 types of operations:
+\begin{enumerate}
+\item Basic operations are executed always immediately, they don't require any lock and they don't wait any other operation. These operations hi
+\item PartitionAwareOperation: will be executed on a specific partition by returning the partition id. Once they are executed, the partition read-lock will be acquired and will prevent PartitionLevelOperations from executing on that partition. If a PartitionLevelOperation acquired the writelock before the PartitionAwareOperation acquired the readlock, a retry exception is returned to the caller so the operation can be redirected to the new partition owner. [todo: on the caller side we need to deal with a retry exception, or is this already dealt with]
+\item KeyBasedOperations extends PartitionAwareOperation and can specify key locks that prevent other KeyBasedOperations for the same key to execute on that operations [todo: is this a readlock or writelock]
+\item PartitionLevelOperation are the counter part of the PartitionAwareOperation since they acquire the writelock on the Partition so that no other PartitionAware and PartitionLevelOperations can be executed on that partition for the duration of that writelock. If the read or write-lock on the partition already is acquired, the call blocks until lock is released. [todo: timeout?]
+\end{enumerate}
+In our example the IncOperation is going to make use of the KeyBasedOperation to prevent dealing with concurrency control; Hazelcast will lock the correct partition and key. 
+
+\begin{lstlisting}[language=java]
+class IncOperation extends PartitionAwareOperation {
+   private String objectId;
+   private int amount,returnValue;
+   public IncOperation(){}
+   public IncOperation(String objectId, int amount) {
+      this.amount = amount;
+      this.objectId = objectId;}
+   public boolean returnsResponse() {return true;}
+   public Object getResponse() {return returnValue;}}
+   public void destroy() {}
+   protected void writeInternal(ObjectDataOutput out) 
+         throws IOException {
+      super.writeInternal(out);
+      out.writeUTF(objectId);
+      out.writeInt(amount);
+   }
+   protected void readInternal(ObjectDataInput in) 
+        throws IOException {
+      super.readInternal(in);
+      objectId = in.readUTF();
+      amount = in.readInt();
+   }
+   public void run() throws Exception {
+      System.out.println("Executing "+objectId+".inc() on: "+
+         getNodeEngine().getThisAddress());            
+      returnValue = 0;
+   }
+   public int getKeyHash() {
+      return ("DistributedCounterService" + objectId).hashCode();
+   }
+}	
+\end{lstlisting}
+Because the IncOperation needs to be serialized, the writeInternal and readInternal methods needs to be overwritten so that the objectId will be send over the line.
+
+Also another change has been made to the IncOperation; it is now implementing the KeyBasedOperation. With the KeyBasedOperation, Hazelcast will automatically lock the partition and it will automatically lock the key so that other KeyOperations for the same key are [todo: blocked or rejected? timeout??] The correct key is found using the 'getKeyHash'. Hazelcast internally used an array of locks where the correct lock is found based on that hash. 
+
+todo: the operations always need to have a no arg constructor for deserialization purposes. 
 
 Of course we also want to run the code; the following example shows how it is run:
 \begin{lstlisting}[language=java]
@@ -239,14 +255,10 @@ class IncOperation extends AbstractOperation
       Container c = s.containers[getPartitionId()];
       returnValue = c.inc(objectId, amount);
    }
-   public int getKeyHash() {
-      return ("DistributedCounterService" + objectId).hashCode();
-   }
+  
 }
 \end{lstlisting}
 The container can easily be retrieved using the partitionId since the range or partitionId's is 0 to partitionCount (exclusive) so it can be used as an index on the container array. Once the container has been retrieved the inc operation can be called on it and the result can be stored in the 'returnValue' field of the IncOperation. This value will automatically be returned to the client.
-
-Also another change has been made to the IncOperation; it is now implementing the KeyBasedOperation. With the KeyBasedOperation, Hazelcast will automatically lock the partition and it will automatically lock the key so that other KeyOperations for the same key are [todo: blocked or rejected? timeout??] The correct key is found using the 'getKeyHash'. Hazelcast internally used an array of locks where the correct lock is found based on that hash. 
 
 When we run the code, we'll see:
 \begin{lstlisting}
@@ -289,14 +301,16 @@ public class MigrationOperation extends AbstractOperation {
    public MigrationOperation(Map<String, Integer> migrationData) {
        this.migrationData = migrationData;
    }
-   protected void writeInternal(ObjectDataOutput out) throws IOException {
+   protected void writeInternal(ObjectDataOutput out) 
+         throws IOException {
       out.writeInt(migrationData.size());
       for (Map.Entry<String, Integer> entry : migrationData.entrySet()) {
          out.writeUTF(entry.getKey());
          out.writeInt(entry.getValue());
       }
    }
-   protected void readInternal(ObjectDataInput in) throws IOException {
+   protected void readInternal(ObjectDataInput in) 
+         throws IOException {
       int size = in.readInt();
       migrationData = new HashMap<>();
       for (int i = 0; i < size; i++)
@@ -392,19 +406,22 @@ public class IncBackupOperation
       this.amount = amount;
       this.objectId = objectId;
    }
-   protected void writeInternal(ObjectDataOutput out) throws IOException {
+   protected void writeInternal(ObjectDataOutput out) 
+         throws IOException {
       super.writeInternal(out);
       out.writeUTF(objectId);
       out.writeInt(amount);
    }
-   protected void readInternal(ObjectDataInput in) throws IOException {
+   protected void readInternal(ObjectDataInput in) 
+         throws IOException {
       super.readInternal(in);
       objectId = in.readUTF();
       amount = in.readInt();
    }
    public void run() throws Exception {
       DistributedCounterService service = getService();
-      System.out.println("Executing backup " + objectId + ".inc() on: " + getNodeEngine().getThisAddress());
+      System.out.println("Executing backup " + objectId + 
+         ".inc() on: " + getNodeEngine().getThisAddress());
       Container c = service.containers[getPartitionId()];
       c.inc(objectId, amount);
    }

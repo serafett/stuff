@@ -4,7 +4,7 @@
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 
     <map name="articles">
-         <near-cache>
+        <near-cache>
             <max-size>5000</max-size>
             <time-to-live-seconds>60</time-to-live-seconds>
             <eviction-policy>NONE</eviction-policy>

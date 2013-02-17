@@ -15,12 +15,12 @@ public class WriteMember {
         //System.out.println("Putting finished!");
 
         ISet x = hz.getSet("x");
-        x.add(new Foo(10,0));
-        x.add(new Foo(20,0));
+        x.add(new Foo(10, 0));
+        x.add(new Foo(20, 0));
 
         System.out.println("---------");
-        Foo foo = new Foo(20,1);
-        System.out.println("map.contains: "+x.contains(foo));
+        Foo foo = new Foo(20, 1);
+        System.out.println("map.contains: " + x.contains(foo));
     }
 
     private static class Foo implements Serializable {

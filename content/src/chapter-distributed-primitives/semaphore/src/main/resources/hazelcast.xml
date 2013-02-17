@@ -11,6 +11,6 @@
 
     <semaphore name="semaphore">
         <initial-permits>3</initial-permits>
-     </semaphore>
+    </semaphore>
 
 </hazelcast>

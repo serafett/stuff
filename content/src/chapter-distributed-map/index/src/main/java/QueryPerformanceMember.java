@@ -11,17 +11,17 @@ public class QueryPerformanceMember {
     public final static int SEARCH_COUNT = 10000;
 
     private static final String[] names = new String[]{"Jacob", "Sophia", "Mason", "Isabella",
-            "William", "Emma","Jayden", "Olivia", "Noah", "Ava", "Michael", "Emily",
-            "Ethan", "Abigail",  "Alexander", "Madison","Aiden", "Mia","Daniel", "Chloe"};
+            "William", "Emma", "Jayden", "Olivia", "Noah", "Ava", "Michael", "Emily",
+            "Ethan", "Abigail", "Alexander", "Madison", "Aiden", "Mia", "Daniel", "Chloe"};
 
     public static void main(String[] args) {
         HazelcastInstance hz = Hazelcast.newHazelcastInstance();
         boolean indexEnabled = true;
 
         IMap<String, Person> personMap;
-        if(indexEnabled){
+        if (indexEnabled) {
             personMap = hz.getMap("persons");
-        } else{
+        } else {
             personMap = hz.getMap("persons_");
         }
 
@@ -29,25 +29,25 @@ public class QueryPerformanceMember {
         Random random = new Random();
         for (int k = 0; k < MAP_SIZE; k++) {
             String name = names[random.nextInt(names.length)];
-            personMap.put(""+k, new Person(name));
+            personMap.put("" + k, new Person(name));
         }
         System.out.println("Generating testdata completed");
 
         System.out.println("Running benchmark");
         long startMs = System.currentTimeMillis();
-        for(int k=0;k< SEARCH_COUNT;k++){
-           Predicate predicate = Predicates.equal("name",names[random.nextInt(names.length)]);
-           personMap.values(predicate);
+        for (int k = 0; k < SEARCH_COUNT; k++) {
+            Predicate predicate = Predicates.equal("name", names[random.nextInt(names.length)]);
+            personMap.values(predicate);
         }
         System.out.println("Running benchmark complete");
 
-        long durationMs = System.currentTimeMillis()-startMs;
-        double performance = (SEARCH_COUNT*1000d)/durationMs;
-        System.out.println("Index enabled: "+indexEnabled);
-        System.out.println("Distributed searches: "+(hz.getCluster().getMembers().size()>1));
-        System.out.println("Total map size: "+personMap.size());
-        System.out.println("Total searches: "+SEARCH_COUNT);
-        System.out.println("Total duration: "+durationMs+" ms");
-        System.out.println("Performance: "+performance+" searches per second");
+        long durationMs = System.currentTimeMillis() - startMs;
+        double performance = (SEARCH_COUNT * 1000d) / durationMs;
+        System.out.println("Index enabled: " + indexEnabled);
+        System.out.println("Distributed searches: " + (hz.getCluster().getMembers().size() > 1));
+        System.out.println("Total map size: " + personMap.size());
+        System.out.println("Total searches: " + SEARCH_COUNT);
+        System.out.println("Total duration: " + durationMs + " ms");
+        System.out.println("Performance: " + performance + " searches per second");
     }
 }

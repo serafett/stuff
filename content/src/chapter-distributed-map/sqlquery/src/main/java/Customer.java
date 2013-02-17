@@ -7,7 +7,7 @@ public class Customer implements Serializable {
     public boolean active;
     public int age;
 
-    public Customer(String name, boolean active, int age ) {
+    public Customer(String name, boolean active, int age) {
         this.active = active;
         this.age = age;
         this.name = name;
