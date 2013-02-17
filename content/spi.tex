@@ -4,7 +4,7 @@ One of the most exiting new features of Hazelcast 3 is the new SPI module (see t
 
 In this chapter we are going to build a distributed counter, so a counter that stored somewhere in the datagrid. The full sources can be found ...
 
-\section{Phase 1}
+\section{Getting started}
 In this section we are going to show you a very basic service that will be started when Hazelcast starts and will be shutdown when Hazelcast is shutdown. In itself not extremely interesting, but it is needed for the the more advanced sections.
 
 \begin{lstlisting}[language=java]
@@ -46,7 +46,7 @@ DistributedCounterService.init
 \end{lstlisting}
 So the DistributedCounterService is started as part of the startup of the HazelcastInstance, it is done eagerly.. not lazily.
 
-\section{Phase 2}
+\section{Proxy}
 This example shows invoke operations on potentially a machine. The basis will be an Echo Service, that accepts a routing id and a message that needs to be echoed.
 
 So lets start with the Echoer interface; it extends the 'DistributedObject' which provides name?/id/destroy
@@ -181,7 +181,7 @@ Finished
 \end{lstlisting}
 We can see that our counters are being stored in different members (check the different port numbers). We can also see that the increment doesn't do any real logic yet since the value remains 0.
 
-\section{Phase 3}
+\section{Container}
 In this section we are going to make use of real DistributedCounter; so some kind of data-structure that will hold an integer value and can be incremented. The first thing we do is for every partition we have, we are going to create a Container which will contain all counters for a given partition:
 \begin{lstlisting}[language=java]
 class Container {
@@ -219,7 +219,6 @@ The next step is to create a container for every partition. The number of partit
 public class DistributedCounterService 
        implements ManagedService, 
                   RemoteService {
-
    private NodeEngine nodeEngine;
    DistributedMapContainer[] containers;
    public void init(NodeEngine e, Properties p) {
@@ -234,8 +233,7 @@ public class DistributedCounterService
 As you can see the partitions are created in the init method. Of course we need to connect the IncOperation.run method to the Container.inc method:
 \begin{lstlisting}[language=java]
 class IncOperation extends AbstractOperation 
-                   implements KeyBasedOperation{
-   
+                   implements KeyBasedOperation{  
    public void run() throws Exception {
       DistributedCounterService s = getService();
       Container c = s.containers[getPartitionId()];
@@ -257,7 +255,7 @@ When we run the code, we'll see:
 \end{lstlisting}
 This means that we now have a basic distributed counter up and running!
 
-\section{Phase 4}
+\section{Partition migration}
 In our previous phase we managed to create real distributed counters. The problem is that if a node goes down, there will not be any backups because the values are not replicated to another machine. This means that the DistributedCounters are not highly available. In this phase we are going to add replication.
 
 The first thing we are going to do is to add 3 operations to the Container:
@@ -316,8 +314,9 @@ The Hazelcast infrastructure will prevent that any PartitionAware or PartitionLe
 
 And the last part is connecting all the pieces. This is done by adding an additional MigrationAwareService interface on the DistributedCounterService which will signal Hazelcast that our service able to participate in partition migration:
 \begin{lstlisting}[language=java]
-public class DistributedCounterService implements 
-        ManagedService, RemoteService, MigrationAwareService {
+public class DistributedCounterService 
+        implements ManagedService, RemoteService, 
+                   MigrationAwareService {
    private NodeEngine nodeEngine;
    Container[] containers;
    public void beforeMigration(MigrationServiceEvent e) {
@@ -348,39 +347,23 @@ public class DistributedCounterService implements
    }
 }
 \end{lstlisting}
+By implementing the MigrationAwareService some additional methods are exposed:
+\begin{enumerate}
+\item beforeMigration: this is called before we any migration is done. It is useful if you need to .. In our case we do nothing.
+\item prepareMigrationOperation: method will return all the data of the partition that is going to be moved.
+[mehmet: migrate only master and first backup data, since DistributedCounterService supports only 1 backup.]
+\item commitMigration: commits the data. In this case committing means that we are going to clear the container for the partition of the old owner. Even though we don't have any complex resources like threads, database connections etc, clearing the container is advisable to prevent memory issues.is this method called on both the primary and backup? [mehmet: yes] if this node is source side of migration (means partition is migrating FROM this node) and migration type is MOVE (means partition is migrated completely not copied to a backup node) then remove partition data from this node. If this node is destination or migration type is copy then nothing to do.is this method called on both the primary and backup? [mehmet: yes][mehmet: if this node is destination side of migration (means partition is migrating TO this node) then remove partition data from this node.If this node is source then nothing to do.
+\item rollbackMigration: 
+\end{enumerate}
 
 todo: tell about max backup count. You could use the service properties to configure this.
 
-beforeMigration:
-we don't need to do anything
-
-prepare migration operation:
-// [mehmet: migrate only master and first backup data, since DistributedCounterService supports only 1 backup.]
-
-commitMigration
-//is this method called on both the primary and backup? [mehmet: yes]
-    // [mehmet:
-    // if this node is source side of migration (means partition is migrating FROM this node) 
-    // and migration type is MOVE (means partition is migrated completely not copied to a backup node)
-    // then remove partition data from this node.
-    //
-    // If this node is destination or migration type is copy then nothing to do.
-    // ]
-
-rollbackMigration
-//is this method called on both the primary and backup? [mehmet: yes]
-  // [mehmet: if this node is destination side of migration (means partition is migrating TO this node) 
-    // then remove partition data from this node.
-    // 
-    // If this node is source then nothing to do.
-    // ]
-
-
-\section{Phase 5}
+\section{Backups}
 In this last phase we are going to deal with backups; so make sure that when a member fails that the data is available on another node. This is done by for every operation that makes a chance, to have a backup operation executed as well. Since the IncOperation always makes a change, it will always have a backup operation. To signal Hazelcast that an operation needs a backup, the operation needs to implement the BackupAwareOperation:
 \begin{lstlisting}[language=java]
 class IncOperation extends AbstractOperation 
-   implements KeyBasedOperation,BackupAwareOperation {
+      implements KeyBasedOperation, 
+                 BackupAwareOperation {
    public int getAsyncBackupCount() {
       return 0;
    }
@@ -427,7 +410,7 @@ public class IncBackupOperation
    }
 }
 \end{lstlisting}
-
+Hazelcast will also make sure that a new IncOperation for that particular key will not be executing before the (synchronous) backup operation has completed.
 
 \section{What is next}
-In this chapter we have created step by step a distributed datastructures on top of Hazelcast. And although Hazelcast provides a whole collection of very usable distributed datastructures, the addition of the SPI changes Hazlcast from being a simple datagrid to a datagrid infrastructure where your imagination is the only limit. In distributed applications there will always be the need to create special datastructures that are very useful for very particular usecases and with the SPI you can now build these datastructures yourself.
+In this chapter we have created step by step a distributed data-structures on top of Hazelcast. And although Hazelcast provides a whole collection of very usable distributed data-structures, the addition of the SPI changes Hazlcast from being a simple datagrid to a datagrid infrastructure where your imagination is the only limit. In distributed applications there will always be the need to create special data-structures that are very useful for very particular usecases and with the SPI you can now build these data-structures yourself.

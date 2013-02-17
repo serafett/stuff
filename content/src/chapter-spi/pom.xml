@@ -18,10 +18,10 @@
     </parent>
 
     <modules>
-        <module>phase1</module>
-        <module>phase2</module>
-        <module>phase3</module>
-        <module>phase4</module>
-        <module>phase5</module>
+        <module>getting-started</module>
+        <module>proxy</module>
+        <module>container</module>
+        <module>partition-migration</module>
+        <module>backups</module>
     </modules>
 </project>

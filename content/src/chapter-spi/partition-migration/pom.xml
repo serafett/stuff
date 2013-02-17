@@ -3,11 +3,11 @@
     <modelVersion>4.0.0</modelVersion>
     <packaging>jar</packaging>
 
-    <artifactId>phase1</artifactId>
-    <name>Chapter SPI: Phase 1</name>
+    <artifactId>partition-migration</artifactId>
+    <name>Chapter SPI: Partition Migration</name>
     <groupId>book.hazelcast.spi</groupId>
     <description>
-        Contains the code for the first phase of the SPI chapter.
+        The code example for the Partition Migration
     </description>
 
     <parent>
