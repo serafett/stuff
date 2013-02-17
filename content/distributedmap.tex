@@ -4,9 +4,11 @@ In this chapter, you'll learn how to use one of the most versatile data structur
 Internally Hazelcast divides the map in partitions, by default 271 and can be changed with the 'hazelcast.map.partition.count' property, and distributes the partitions evenly among the members in the cluster. The partition is determined based on the key; each key belongs to a single partition. 
 
 Scaling up is simple; just add more members and they will take their share of the load. The oldest member decides which partitions need to be moved to the new members and chooses partitions that contain the least amount of data to reduce network traffic. Hazelcast doesn't do any runtime rebalancing of partitions e.g. based on partition size or usage. 
+[Talip: reader might misunderstand that 'partitions are not rebalanced.' Try to explicitly say that Hazelcast rebalance the ownership of the partitions so that eventually each member can own the equal number of partitions but Hazelcast doesn't do rebalancing based on the partition size or usage.]
 
-Scaling down also is simple; just shutdown the HazelcastInstances to release their share of the load. The partitions will automatically be reassigned to other members. Of course a hard kill of the JVM is possible, but then you run a risk of loosing something if you have not configured the backup mechanism correctly; see [reference to backup section]
+Scaling down also is simple; just shutdown the HazelcastInstances to release their share of the load. The partitions will automatically be reassigned to remaining members. Of course a hard kill of the JVM is possible, but then you run a risk of loosing something if you have not configured the backup mechanism correctly; see [reference to backup section]
 
+[Talip: don't say 'commercial' as we might change the business model. Just say 'Elastic Memory' feature ...]
 The commercial offering of Hazelcast includes Elastic Memory where the map entries are not stored in the Java Heap to drastically reduce gc times. On Youtube there is demo: http://www.youtube.com/watch?v=TOhbhKqJpvw where 4 Terabyte of data from 1 billion entries is stored on 100 Amazon EC2 instances, supporting to 1.3 million of operations/second.
 
 \section{Reading/Writing}
@@ -157,6 +159,7 @@ To implement the Person search using the criteria API, it could be as simple as 
 \end{lstlisting}
 First we need to get the name of the Person. This is done by the 'get' expression. Then we need to create an equal predicate that has as input the expression that gets the name and the other input is the name we are looking for. After we have created the predicate, we apply it to the personMap by calling the 'IMap.values(Predicate)' method which takes care of sending it to all members in the cluster, evaluating it, and merging the result. The Predicate is not limited to values only. It can also apply be applied to the keySet, the entrySet and the localKeySet of the IMap. 
 
+[Talip: as of 3.0, we no longer use or support Expression.. we always work with attributed-names. we made it for simplicity and easy support for other languages.]
 \subsubsection*{Get expression}
 In the previous example we already saw the get expression in action where it gets the name of the person object. When it is evaluated, it first tries to lookup an accessor method, so in case of 'name', the accessor methods it will try are 'isName()' and 'getName()'. If one found, it is called and the evaluation has completed. Of course an accessor method doesn't need to return a field, it could also be a synthetic accessor where some value is determined on the fly. If no accessor is found, a field with the given name is looked up. If that exists, it is returned and otherwise a RuntimeException is thrown. Hazelcast doesn't care about the accessibility of a field or an accessor method, so you are not forced to make them public.
 
@@ -279,7 +282,7 @@ age not in (60, 70)
 \section{Indices}
 To speed up queries, just like in databases, the Hazelcast map supports indices. Using an index prevents from iterating over all values (in database terms this is called a full table scan), but directly jump to the interesting ones. There are 2 types of indexes:
 \begin{enumerate}
-\item Ordered: e.g. a numeric field where you want to do searches like bigger than.
+\item Ordered: e.g. a numeric field where you want to do range searches like bigger than.
 \item Unordered: e.g. a name field.
 \end{enumerate}
 In the previous chapter we talked a Person class which has a name, age etc. To speed up searching on these fields, we can place an unordered index on name and ordered index on age. 
@@ -295,7 +298,11 @@ The indices on the personMap can be configured like this:
     </indexes>
 </map>
 \end{lstlisting}
-The ordered attribute defaults to 'false'. It also is possible to call the 'IMap.addIndex(String name,boolean ordered)' method directly, but adding the index should be done before an item is placed in the map otherwise the index is ignored. Sometimes by design adding an index to a map may be impossible before any value is added. For example if a map has a MapLoader that loads entries during map creation. Another disadvantage of doing it in code is that it can become hard to figure out if a field has an index, because it could be spread over the code.
+
+The ordered attribute defaults to 'false'. 
+
+[Talip: as of 3.0, indexes CAN be added after an item is placed in the map :) so following paragraph is no longer correct. you can add/remove index anytime.]
+It also is possible to call the 'IMap.addIndex(String name,boolean ordered)' method directly, but adding the index should be done before an item is placed in the map otherwise the index is ignored. Sometimes by design adding an index to a map may be impossible before any value is added. For example if a map has a MapLoader that loads entries during map creation. Another disadvantage of doing it in code is that it can become hard to figure out if a field has an index, because it could be spread over the code.
 
 The performance impact of using one or more indices depends on a lot of factors; among them are the size of the map, the chance of finding the element with a full table scan etc. Also adding one or more indices make mutations to the map more expensive since the index needs to be updated as well. Therefor you need to test in a production like environment and a representative size/quality of the dataset, which configuration is best for you. In the source code you can 2 very rudimentary index benchmarks, one for updating and one for searching. 
 
@@ -399,6 +406,7 @@ By default the backup operations are synchronous; so you have the guarantee that
 \begin{lstlisting}[language=xml]
 <map name="persons"> 
     <async-backup-count>1<async-backup-count>
+    [talip: <backup-count>0</backup-count> // set it to 0, since the default is 1 ]
 </map> 
 \end{lstlisting}
 This property defaults to 0. 
@@ -411,6 +419,7 @@ By default Hazelcast provides sequential consistency, meaning that when a map en
     <read-backup-data>true</read-backup-data>
 </map>
 \end{lstlisting}
+[Talip: show reader how to configure 1 sync + 1 async map]
 In this example you can see a person map with a single asynchronous backup and where read backup data is enabled. This property defaults to false.
 
 \section{Persistence}
@@ -619,6 +628,7 @@ The near cache obeys the 'cache-value' property on the map.
 The Hazelcast map itself is thread-safe just like the ConcurrentHashMap or the Collections.synchronizedMap, but in some cased your thread safety requirements are bigger than what hazelcast provides out of the box. Luckily Hazelcast provides multiple concurrency control solutions;  it can either be pessimistic using locks or optimistic using compare and swap operations. Todo: what about transactions?
 
 Take a look at the following example; if run by multiple members in parallel the total amount would be 
+[Talip: refer and encourage the use of executeOnKey API]
 \begin{lstlisting}[language=java]
 public class RacyUpdateMember {
     public static void main(String[] args) throws Exception {
@@ -678,6 +688,7 @@ public class PessimisticUpdateMember {
 Another way to lock is to acquire some predictable Lock object from Hazelcast. You could give every value its own lock, but you could also create a stripe of locks. Although it potentially can increase contention, it will reduce space.
 
 todo: when a key is locked, it still is possible to do a read, but not to do a write.
+[Talip: again refer and encourage the use of executeOnKey API]
 
 \subsection{Optimistic Locking}
 TODO: Does optimistic rely on a lock or is truly using cas?
@@ -725,6 +736,7 @@ Aba problem; it can be that the following thing happens. And explain how it can 
 
 \subsection{Pessimistic vs Optimistic}
 TODO: When to choose one, when to choose the other. Normally optimistic performs better if there is not that much contention. What is the reason to do so in Hazelcast? Is it better performing?
+[Talip: again refer and encourage the use of executeOnKey API]
 
 \section{MultiMap}
 In some cases you need to store multiple values for a single key. You could use a normal collection as value and store the 'real' values in this collection. The problem with this approach is that the whole collection needs to be deserialized for an operation like add. This can cause a lot of overhead, cpu, memory, network usage. To solve this problem Hazelcast provides a MultiMap where multiple values can be stored for a single key. 
@@ -762,7 +774,7 @@ Removing items; you can remove items from the MultiMap. If the collection for a 
 The value collection is set based, so no duplicates and there is no ordering.Null value is not allowed (npe). But the MultiMap can also be configured to be list based: MultiMapConfig.setValueCollectionType(ValueCollectionType.LIST). 
 
 One thing worth knowing; if a value collection with K is stored on member1 because K is owned by that member1, and member2 does a map.get(K), then the whole collection will transported from member1 to member 2. So if that value collection is big, it could lead to performance problems. A solution would be to send the whole operation to member1, so send the logic to the data instead of the data to the logic.
-
+[Talip: emphasis the importance of executeOnKey API. mention it is great for atomic update on the key without having to explicitly lock the key]
 \section{Execute on Key}
 [todo]
 EntryProcessor

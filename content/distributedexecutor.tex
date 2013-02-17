@@ -166,6 +166,7 @@ echo/192.168.1.100:5702
 As you can see, the EchoTasks are executed on the correct member.
 
 \subsection{Executing on key owner}
+[Talip: again refer and encourage the use of IMap.executeOnKey API]
 When an operation is executed in a distributed system, this operation often needs to access distributed resources. If these resources are hosted on other different machine then where the task is running, scalability and performance suffer due to remoting overhead. Luckily this problem can be solved by improving locality of reference.
 
 In Hazelcast this can be done by placing the resources for a task in some partition and by sending the task to the member that owns that partition. When you start designing a distributed system, perhaps the most fundamental step is designing the partitioning schema.
@@ -297,7 +298,7 @@ public class FibonacciCallable
 }
 \end{lstlisting}
 If you look closely, you can see there is a check 'Thread.currentThread().isInterrupted()' that is run frequently while calculating. When the thread is interrupted, the Interrupted flag is set and the calculation will be aborted. In our case we are going to throw an exception.
-
+[Talip: AFAIK as of 3.0, future.cancel() is not supported. Check with Mehmet.]
 The next step is submitting the task and using a Future to synchronize on results:
 \begin{lstlisting}[language=java]
 public class MasterMember {

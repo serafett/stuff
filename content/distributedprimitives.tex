@@ -31,6 +31,8 @@ If you run multiple instances of this member, then the total count should be equ
 
 If the IAtomicLong becomes a contention point in your system, there are a few ways of dealing with it, depending on your requirements. One of the options it to create a stripe (essentially an array) of IAtomicLong instances to reduce pressure. Another options is to keep changes local and only publish them to the IAtomicLong once and a while. There are a few downsides here; you could loose information if a member goes down and is that the newest value is not always immediately visible to the outside world. If you want to generate unique id's, you can have a look at the IdGenerator.
 
+[Talip: I would put IdGenerator section right after IAtomicLong as there are related and similar.]
+
 Hazelcast only provides support for the long, but you can always simulate other types:
 \begin{enumerate}
 \item boolean: 0 for true and 1 for false.
