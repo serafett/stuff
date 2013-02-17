@@ -35,7 +35,6 @@ class IncOperation extends AbstractOperation implements KeyBasedOperation, Backu
         DistributedCounterService service = getService();
         System.out.println("Executing " + objectId + ".inc() on: " + getNodeEngine().getThisAddress());
         Container c = service.containers[getPartitionId()];
-        Thread.sleep(1000000000);
         returnValue = c.inc(objectId, amount);
     }
 

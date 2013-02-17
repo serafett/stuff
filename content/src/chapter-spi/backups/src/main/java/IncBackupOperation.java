@@ -31,7 +31,7 @@ public class IncBackupOperation extends AbstractOperation implements BackupOpera
 
     public void run() throws Exception {
         DistributedCounterService service = getService();
-        System.out.println("Executing backup" + objectId + ".inc() on: " + getNodeEngine().getThisAddress());
+        System.out.println("Executing backup " + objectId + ".inc() on: " + getNodeEngine().getThisAddress());
         Container c = service.containers[getPartitionId()];
         c.inc(objectId, amount);
     }

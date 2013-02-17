@@ -128,11 +128,9 @@ If you take a closer look at the inc method, the first thing we do is to create 
 
 The last part of the logic is actually invoking the operation and waiting for its result. This is done using a Future which gives us the ability to synchronize on completion of that remote executed operation and to get the results. In our case we do a simple get since we don't care about a timeout, but for real system it often is better to use a timeout since most operations should complete in a certain amount of time. If they don't complete, it could be a sign of problems and waiting indefinitely could lead to stalling systems without any form of error logging.
 
-Checked exceptions; could be put in the interface.
+If the execution of the operation fails with an exception, a ExecutionException is thrown. This exception needs to be caught and the cause of the exception is the remote thrown exception. If the cause is a RuntimeException or Error, we can just rethrow it. If it is a checked exception, then there are a few option. We can of course wrap the exception in a RuntimeException, but you could also make the checked exception part of the signature of the method you are trying to expose. 
 
-Interrupted exception; can be put in the interface to indicate blocking operation. 
-
-It can happen that a 
+Another exception that can be thrown while waiting for the Future to complete is the InterrupedException: caused by the calling thread to be interrupted while waiting. One way to deal with this exception is just to propagate it to indicate a calling thread that the call is a blocking call. Unfortunately this is not always an option or desirable. Another solution is to restore the interrupt state and to throw a (Runtime)Exception to indicate failure. 
 
 There is one thing you need to watch out for in that case, the stacktrace of that exception will represent the callstack of the thread executing the remote operation, not the callstack of the thread executing the DistributedCounterProxy.inc method. An easy way to fix that is to prepend the client side stacktrace to the stacktrace (the stacktrace is just an array of StackTraceElements)
 
@@ -183,8 +181,8 @@ class IncOperation
    }
 }	
 \end{lstlisting}
-Hazelcast will determine the key to lock with the getKeyHash method. Internally Hazelcast uses a similar approach as being used in the ConcurrentHashMap where a stripe of locks is used and the keyhash is used as a basis for the index. So the same keyhash will make sure the same key is locked. Of course it can happen that you get unexpected collisions due to a bad keyhashing method or just by the nature of this approach. 
-[todo: can the size of the lockstripe be influenced]
+Hazelcast will determine the key to lock with the getKeyHash method. Internally Hazelcast uses a similar approach as being used in the ConcurrentHashMap where a stripe of locks is used and the keyhash is used as a basis for the index. So the same keyhash will make sure the same key is locked. Of course it can happen that you get unexpected collisions due to a bad keyhashing method or just by the nature of this approach.  Currently it isn't possible to change the size of the lockstripe, but it is quite big: 100000 elements.
+
 [todo: what about timeouts?]
 
 Another thing worth mentioning is that because the IncOperation needs to be serialized, the writeInternal and readInternal methods needs to be overwritten so that the objectId and amount are serialized and will be available when this operation runs. For deserialization it also is needed that the operation always needs to have a no arg constructor.
@@ -272,6 +270,7 @@ public class DistributedCounterService
       for(int k=0;k<containers.length;k++) 
          containers[k]=new Container();
    }
+   ...
 }
 \end{lstlisting}
 As you can see the partitions are created in the init method. The last step is connecting the IncOperation.run method to the Container.inc method:
@@ -282,7 +281,8 @@ class IncOperation extends AbstractOperation
       DistributedCounterService s = getService();
       Container c = s.containers[getPartitionId()];
       returnValue = c.inc(objectId, amount);
-   }  
+   }
+   ...  
 }
 \end{lstlisting}
 The container can easily be retrieved using the partitionId since the range or partitionId's is 0 to partitionCount (exclusive) so it can be used as an index on the container array. Once the container has been retrieved the inc operation can be called on it and the result can be stored in the 'returnValue' field of the IncOperation. This value will automatically be returned to the client.
@@ -300,8 +300,9 @@ In our previous phase we managed to create real distributed counters. The proble
 The first thing we are going to do is to add 3 operations to the Container:
 \begin{lstlisting}[language=java]
 class Container {
-   final ConcurrentMap<String, Integer> counterMap 
-     = new ConcurrentHashMap<>();
+   final ConcurrentMap<String, Integer> counterMap = 
+       new ConcurrentHashMap<>();
+   
    void clear() {
       counterMap.clear();
    }
@@ -386,6 +387,7 @@ public class DistributedCounterService
    public int getMaxBackupCount() {
       return 1;
    }
+   ...
 }
 \end{lstlisting}
 By implementing the MigrationAwareService some additional methods are exposed:
@@ -417,6 +419,7 @@ class IncOperation extends AbstractOperation
    public Operation getBackupOperation() {
       return new IncBackupOperation(objectId, amount);
    }
+   ...
 }
 \end{lstlisting}
 As you can see some additional methods need to be implemented. The getAsyncBackupCount and getSyncBackupCount signals how many asynchronous and synchronous backups there need to be. In our case we only want a single synchronous backup and no asynchronous backups. The shouldBackup method tells Hazelcast that our Operation needs a backup. If course we could do some optimizations in case of amount = 0. The last method is the getBackupOperation which returns the backup operation of the IncOperation; in this case the IncBackupOperation:
@@ -455,6 +458,30 @@ public class IncBackupOperation
 }
 \end{lstlisting}
 Hazelcast will also make sure that a new IncOperation for that particular key will not be executing before the (synchronous) backup operation has completed.
+
+Of course we also want to see the backup functionality in action.
+\begin{lstlisting}[language=java]
+public class Member {
+   public static void main(String[] args) throws Exception {
+      HazelcastInstance[] instances = new HazelcastInstance[2];
+      for (int k = 0; k < instances.length; k++) {
+         HazelcastInstance instance = Hazelcast.newHazelcastInstance();
+         instances[k] = instance;
+      }
+
+      DistributedCounter counter = instances[0].getDistributedObject(
+         "DistributedCounterService", "counter" + 0);
+      counter.inc(1);
+   }
+}
+\end{lstlisting}
+When we run this Member we'll get the following output:
+\begin{lstlisting}
+Executing counter0.inc() on: Address[192.168.1.103]:5702
+Executing backup counter0.inc() on: Address[192.168.1.103]:5701
+Finished
+\end{lstlisting}
+As you can see, not only the IncOperation has executed, also the backup operation is executed. You can also see that the operations have been executed on different cluster members to guarantee high availability. One of the experiments you could do it to modify the test code so you have a cluster of members in different JVM's and see what happens with the counters when you kill one or more JVM's. 
 
 \section{What is next}
 In this chapter we have created step by step a distributed data-structures on top of Hazelcast. And although Hazelcast provides a whole collection of very usable distributed data-structures, the addition of the SPI changes Hazlcast from being a simple datagrid to a datagrid infrastructure where your imagination is the only limit. In distributed applications there will always be the need to create special data-structures that are very useful for very particular usecases and with the SPI you can now build these data-structures yourself.
