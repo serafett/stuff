@@ -33,14 +33,14 @@ class IncOperation extends AbstractOperation implements KeyBasedOperation {
 
     @Override
     public void run() throws Exception {
-        DistributedCounterService service = getService();
+        CounterService service = getService();
         Container container = service.containers[getPartitionId()];
         returnValue = container.inc(objectId, amount);
     }
 
     @Override
     public int getKeyHash() {
-        return ("DistributedCounterService" + objectId).hashCode();
+        return ("CounterService" + objectId).hashCode();
     }
 
     @Override

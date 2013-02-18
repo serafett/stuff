@@ -6,14 +6,14 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-public class MigrationOperation extends AbstractOperation {
+public class CounterMigrationOperation extends AbstractOperation {
 
     Map<String, Integer> migrationData;
 
-    public MigrationOperation() {
+    public CounterMigrationOperation() {
     }
 
-    public MigrationOperation(Map<String, Integer> migrationData) {
+    public CounterMigrationOperation(Map<String, Integer> migrationData) {
         this.migrationData = migrationData;
     }
 
@@ -36,7 +36,7 @@ public class MigrationOperation extends AbstractOperation {
 
     @Override
     public void run() throws Exception {
-        DistributedCounterService service = getService();
+        CounterService service = getService();
         Container container = service.containers[getPartitionId()];
         container.applyMigrationData(migrationData);
     }

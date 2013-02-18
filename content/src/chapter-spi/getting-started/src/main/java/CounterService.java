@@ -3,17 +3,17 @@ import com.hazelcast.spi.NodeEngine;
 
 import java.util.Properties;
 
-public class DistributedCounterService implements ManagedService {
+public class CounterService implements ManagedService {
     private NodeEngine nodeEngine;
 
     @Override
     public void init(NodeEngine nodeEngine, Properties properties) {
-        System.out.println("DistributedCounterService.init");
+        System.out.println("CounterService.init");
         this.nodeEngine = nodeEngine;
     }
 
     @Override
     public void shutdown() {
-        System.out.println("DistributedCounterService.shutdown");
+        System.out.println("CounterService.shutdown");
     }
 }

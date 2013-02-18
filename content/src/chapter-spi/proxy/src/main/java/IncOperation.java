@@ -35,12 +35,11 @@ class IncOperation extends AbstractOperation implements KeyBasedOperation {
     public void run() throws Exception {
         System.out.println("Executing " + objectId + ".inc() on: " + getNodeEngine().getThisAddress());
         returnValue = 0;
-        throw new IndexOutOfBoundsException();
     }
 
     @Override
     public int getKeyHash() {
-        return ("DistributedCounterService" + objectId).hashCode();
+        return ("CounterService" + objectId).hashCode();
     }
 
     @Override

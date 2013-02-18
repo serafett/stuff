@@ -7,9 +7,9 @@ public class Member {
         for (int k = 0; k < instances.length; k++)
             instances[k] = Hazelcast.newHazelcastInstance();
 
-        DistributedCounter[] counters = new DistributedCounter[4];
+        Counter[] counters = new Counter[4];
         for (int k = 0; k < counters.length; k++) {
-            DistributedCounter counter = instances[0].getDistributedObject("DistributedCounterService", "counter" + k);
+            Counter counter = instances[0].getDistributedObject("CounterService", "counter" + k);
             counters[k] = counter;
             System.out.println(counter.inc(1));
         }

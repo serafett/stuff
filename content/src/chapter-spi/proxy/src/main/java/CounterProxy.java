@@ -4,11 +4,11 @@ import com.hazelcast.spi.NodeEngine;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
-public class DistributedCounterProxy implements DistributedCounter {
+public class CounterProxy implements Counter {
     private final NodeEngine nodeEngine;
     private final String objectId;
 
-    public DistributedCounterProxy(String objectId, NodeEngine nodeEngine) {
+    public CounterProxy(String objectId, NodeEngine nodeEngine) {
         this.nodeEngine = nodeEngine;
         this.objectId = objectId;
     }
@@ -28,10 +28,9 @@ public class DistributedCounterProxy implements DistributedCounter {
         IncOperation operation = new IncOperation(objectId, amount);
         int partitionId = nodeEngine.getPartitionService().getPartitionId(objectId);
         InvocationBuilder builder = nodeEngine.getOperationService()
-                .createInvocationBuilder("DistributedCounterService", operation, partitionId);
+                .createInvocationBuilder("CounterService", operation, partitionId);
         try {
             final Future<Integer> future = builder.build().invoke();
-            System.out.println("future.class:" + future.getClass());
             return future.get();
         } catch (ExecutionException e) {
             final Throwable cause = e.getCause();

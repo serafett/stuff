@@ -1,5 +1,5 @@
 import com.hazelcast.core.DistributedObject;
 
-public interface DistributedCounter extends DistributedObject {
+public interface Counter extends DistributedObject {
     int inc(int amount);
 }

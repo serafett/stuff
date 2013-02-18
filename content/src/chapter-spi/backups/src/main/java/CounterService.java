@@ -6,7 +6,7 @@ import com.hazelcast.spi.*;
 import java.util.Map;
 import java.util.Properties;
 
-public class DistributedCounterService implements ManagedService, RemoteService, MigrationAwareService {
+public class CounterService implements ManagedService, RemoteService, MigrationAwareService {
     private NodeEngine nodeEngine;
     Container[] containers;
 
@@ -24,12 +24,12 @@ public class DistributedCounterService implements ManagedService, RemoteService,
 
     @Override
     public DistributedObject createDistributedObject(Object objectId) {
-        return new DistributedCounterProxy(String.valueOf(objectId), nodeEngine);
+        return new CounterProxy(String.valueOf(objectId), nodeEngine);
     }
 
     @Override
     public String getServiceName() {
-        return "DistributedCounterService";
+        return "CounterService";
     }
 
     @Override
@@ -44,24 +44,21 @@ public class DistributedCounterService implements ManagedService, RemoteService,
         Container container = containers[e.getPartitionId()];
         Map<String, Integer> migrationData = container.toMigrationData();
         if (migrationData.isEmpty()) return null;
-        return new MigrationOperation(migrationData);
+        return new CounterMigrationOperation(migrationData);
     }
 
     @Override
     public void commitMigration(MigrationServiceEvent e) {
         if (e.getMigrationEndpoint() == MigrationEndpoint.SOURCE
                 && e.getMigrationType() == MigrationType.MOVE) {
-            Container c = containers[e.getPartitionId()];
-            c.clear();
+            containers[e.getPartitionId()].clear();
         }
     }
 
     @Override
     public void rollbackMigration(MigrationServiceEvent e) {
-        if (e.getMigrationEndpoint() == MigrationEndpoint.DESTINATION) {
-            Container c = containers[e.getPartitionId()];
-            c.clear();
-        }
+        if (e.getMigrationEndpoint() == MigrationEndpoint.DESTINATION)
+            containers[e.getPartitionId()].clear();
     }
 
     @Override

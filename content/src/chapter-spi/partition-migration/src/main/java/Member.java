@@ -9,9 +9,9 @@ public class Member {
             instances[k] = instance;
         }
 
-        DistributedCounter[] counters = new DistributedCounter[20];
+        Counter[] counters = new Counter[20];
         for (int k = 0; k < counters.length; k++) {
-            DistributedCounter counter = instances[0].getDistributedObject("DistributedCounterService", "counter" + k);
+            Counter counter = instances[0].getDistributedObject("CounterService", "counter" + k);
             counters[k] = counter;
             System.out.println(counter.inc(1));
         }
@@ -28,7 +28,7 @@ public class Member {
         Thread.sleep(10000);
 
         for (int k = 0; k < counters.length; k++) {
-            DistributedCounter counter = instances[0].getDistributedObject("DistributedCounterService", "counter" + k);
+            Counter counter = instances[0].getDistributedObject("CounterService", "counter" + k);
             counters[k] = counter;
             System.out.println(counter.inc(1));
         }

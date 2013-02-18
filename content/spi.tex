@@ -4,41 +4,41 @@ One of the most exiting new features of Hazelcast 3 is the new SPI module (see t
 
 In this chapter we are going to build a distributed counter:
 \begin{lstlisting}[language=java]
-public interface DistributedCounter{
+public interface Counter{
     int inc(int amount);
 }
 \end{lstlisting}
 This counter will be stored in Hazelcast and the same counter can be called by different members. It will also be scalable; so the capacity for the number of counters scales with the number of members in the cluster. And it will be highly available, so if a member hosting that counter fails, a backup will already be available on a different member and the system will continue as if nothing happened. We are going to do this step by step; in each section a new piece of functionality is going to be added.
 
 \section{Getting started}
-In this section we are going to show you a very basic DistributedCounterService which lifecycle is going to be managed by Hazelcast. In itself not extremely interesting, but it is the first part that needs to be in placed for the DistributedCounter functionality.
+In this section we are going to show you a very basic CounterService which lifecycle is going to be managed by Hazelcast. In itself not extremely interesting, but it is the first part that needs to be in placed for the Counter functionality.
 
-The DistributedCounterService needs to implement the ManagedService
+The CounterService needs to implement the ManagedService
 \begin{lstlisting}[language=java]
-public class DistributedCounterService implements ManagedService {
+public class CounterService implements ManagedService {
    private NodeEngine nodeEngine;
    public void init(NodeEngine e, Properties p) {
-      System.out.println("DistributedCounterService.init");
+      System.out.println("CounterService.init");
       this.nodeEngine = e;
    }
    public void shutdown() {
-      System.out.println("DistributedCounterService.shutdown");
+      System.out.println("CounterService.shutdown");
    }
 }
 \end{lstlisting}
-As you can see 2 methods are added: the init and the shutdown. These methods will be called by Hazelcast when the HazelcastInstance is initialized and is shutdown. The init method also received the NodeEngine, which provides access to the internals, like the PartitionService, of Hazelcast. The next step is to enable the DistributedCounterService; in our case we are going to make use of the hazelcast.xml:
+As you can see 2 methods are added: the init and the shutdown. These methods will be called by Hazelcast when the HazelcastInstance is initialized and is shutdown. The init method also received the NodeEngine, which provides access to the internals, like the PartitionService, of Hazelcast. The next step is to enable the CounterService; in our case we are going to make use of the hazelcast.xml:
 \begin{lstlisting}[language=xml]
 <network>
    <join><multicast enabled="true"/> </join>
 </network>
 <services>
    <service enabled="true">
-      <name>DistributedCounterService</name>
-      <class-name>DistributedCounterService</class-name>
+      <name>CounterService</name>
+      <class-name>CounterService</class-name>
    </service>
 </services>
 \end{lstlisting}
-If you need to set additional properties on the Service, a '<properties>' section can be added to the service. These properties will be injected in the DistributedCounterService.init method. We also enabled multicast discovery since we'll rely on that later.
+If you need to set additional properties on the Service, a '<properties>' section can be added to the service. These properties will be injected in the CounterService.init method. We also enabled multicast discovery since we'll rely on that later.
 
 Of course we want to see this in action:
 \begin{lstlisting}[language=java]
@@ -50,31 +50,31 @@ public class Member {
 \end{lstlisting}
 If we start it we'll see the following output:
 \begin{lstlisting}
-DistributedCounterService.init
+CounterService.init
 \end{lstlisting}
-So the DistributedCounterService is eagerly started as part of the startup of the HazelcastInstance.
+So the CounterService is eagerly started as part of the startup of the HazelcastInstance.
 
 \section{Proxy}
-In the previous section we created a DistributedCounterService that gets started when Hazelcast starts, but apart from that it doesn't do anything yet. In this section we are going connect the DistributedCounter interface to the DistributedCounterService and we are going to do a remote call on member hosting the actual counter data/logic and we'll return the result.
+In the previous section we created a CounterService that gets started when Hazelcast starts, but apart from that it doesn't do anything yet. In this section we are going connect the Counter interface to the CounterService and we are going to do a remote call on member hosting the actual counter data/logic and we'll return the result.
 
-The first thing we are going to do is to let the DistributedCounter implement the DistributedObject interface to indicate that it is a distributed object. Also some methods will be exposed like getName,getId and destroy:
+The first thing we are going to do is to let the Counter implement the DistributedObject interface to indicate that it is a distributed object. Also some methods will be exposed like getName,getId and destroy:
 \begin{lstlisting}[language=java]
-public interface DistributedCounter extends DistributedObject {
+public interface Counter extends DistributedObject {
     int inc(int amount);
 }
 \end{lstlisting}
 
-The next step is fixing the DistributedCounterService. Apart from implementing the 'ManagedService' interface, it now also implements the 'RemoteService' interface. Through this interface a client will be able to get a handle of an DistributedCounter proxies. 
+The next step is fixing the CounterService. Apart from implementing the 'ManagedService' interface, it now also implements the 'RemoteService' interface. Through this interface a client will be able to get a handle of an Counter proxies. 
 \begin{lstlisting}[language=java]
-public class DistributedCounterService 
+public class CounterService 
    implements ManagedService, RemoteService {
    ...  
    public DistributedObject createDistributedObject(Object objectId) {
       String id = String.valueOf(objectId)
-      return new DistributedCounterProxy(id,nodeEngine);
+      return new CounterProxy(id,nodeEngine);
    }
    public String getServiceName() {
-      return "DistributedCounterService";
+      return "CounterService";
    }
    public DistributedObject createDistributedObjectForClient(Object objectId) {
       return null;
@@ -83,16 +83,16 @@ public class DistributedCounterService
    }
 }
 \end{lstlisting}
-[todo: destroyDistributedObject]
-[todo: createDistributedObjectForClient]
+[todo: destroyDistributedObject] [mehmet: destroy is implemented for proxies extending AbstractDistributedObject]
+[todo: createDistributedObjectForClient] [mehmet: after my poc for binary client impl, we can change or remove this method!]
 
-As you can see the createDistributedObject returns a DistributedCounterProxy. This proxy is a local representation to (potentially) remote managed data/logic.  
+As you can see the createDistributedObject returns a CounterProxy. This proxy is a local representation to (potentially) remote managed data/logic.  
 \begin{lstlisting}[language=java]
-public class DistributedCounterProxy 
-      implements DistributedCounter {
+public class CounterProxy 
+      implements Counter {
    private final NodeEngine nodeEngine;
    private final String objectId;
-   public DistributedCounterProxy(String objectId, NodeEngine e) {
+   public CounterProxy(String objectId, NodeEngine e) {
       this.nodeEngine = e;
       this.objectId = objectId;
    }
@@ -103,7 +103,7 @@ public class DistributedCounterProxy
       int partitionId = nodeEngine.getPartitionService()
          .getPartitionId(objectId);
       InvocationBuilder builder = nodeEngine.getOperationService()
-         .createInvocationBuilder("DistributedCounterService", 
+         .createInvocationBuilder("CounterService", 
             operation, partitionId);
       Invocation invocation = builder.build();
       try {
@@ -125,30 +125,30 @@ public class DistributedCounterProxy
    }
 }
 \end{lstlisting}
-The DistributedCounterProxy doesn't contain counter state; it is just a local representative of remote data/functionality. Therefor the DistributedCounterProxy.inc method needs to be invoked on the machine for hosting the partition that contains the real counter. This can be done using the Hazelcast SPI which takes care of sending operations to the correct machine, acquire locks if needed, execute the operation, and returning the results.
+The CounterProxy doesn't contain counter state; it is just a local representative of remote data/functionality. Therefor the CounterProxy.inc method needs to be invoked on the machine for hosting the partition that contains the real counter. This can be done using the Hazelcast SPI which takes care of sending operations to the correct machine, acquire locks if needed, execute the operation, and returning the results.
 
-If you take a closer look at the inc method, the first thing we do is to create the IncOperation with the given objectId and the amount. The next step is to get the partitionId; this is done based on the objectId so that all operations for a given objectId will always result in the same partitionId. Then we create an Invocation based on the operation and the partitionId. This is where the connection is made between the operation and the partition. 
+If you take a closer look at the inc method, the first thing we do is to create the IncOperation with the given objectId and the amount. The next step is to get the partitionId; this is done based on the objectId so that all operations for a given objectId will always result in the same partitionId. Then we create an Invocation based on the operation and the partitionId using the InvocationBuilder. This is where the connection is made between the operation and the partition. 
 
 The last part of the logic is actually invoking the Invocation and waiting for its result. This is done using a Future which gives us the ability to synchronize on completion of that remote executed operation and to get the results. In our case we do a simple get since we don't care about a timeout, but for real system it often is better to use a timeout since most operations should complete in a certain amount of time. If they don't complete, it could be a sign of problems and waiting indefinitely could lead to stalling systems without any form of error logging.
 
-If the execution of the operation fails with an exception, a ExecutionException is thrown. This exception needs to be caught and the cause of the exception is the remote thrown exception. If the cause is a RuntimeException or Error, we can just rethrow it. If it is a checked exception, then there are a few option. We can of course wrap the exception in a RuntimeException, but you could also make the checked exception part of the signature of the method you are trying to expose. 
+If the execution of the operation fails with an exception, a ExecutionException is thrown. This exception needs to be caught and the cause of the exception is the remote thrown exception. If the cause is a RuntimeException or Error, we can just rethrow it. If it is a checked exception, then there are a few option. We can of course wrap the exception in a RuntimeException, but you could also make the checked exception part of the signature of the method you are trying to expose. A nifty improvement for debugging is that the stacktrace of the cause of the ExecutionException is enhanced so that it includes client and serverside stacktrace. This way you can see on both sides which method caused problems.
 
 Another exception that can be thrown while waiting for the Future to complete is the InterruptedException: caused by the calling thread to be interrupted while waiting. One way to deal with this exception is just to propagate it to indicate a calling thread that the call is a blocking call. Unfortunately this is not always an option or desirable. Another solution is to restore the interrupt state and to throw a (Runtime)Exception to indicate failure. 
 
-There is one thing you need to watch out for in that case, the stacktrace of that exception will represent the callstack of the thread executing the remote operation, not the callstack of the thread executing the DistributedCounterProxy.inc method. An easy way to fix that is to prepend the client side stacktrace to the stacktrace (the stacktrace is just an array of StackTraceElements)
-
-todo; can the operation be interrupted if the future.cancel is called?
-todo; will hazelcast take care of resending an operation to the correct machine when the partition-lock is exclusive?
+todo; can the operation be interrupted if the future.cancel is called? [mehmet: nop, cancellation is not supported]
+todo; will hazelcast take care of resending an operation to the correct machine when the partitionlock is exclusive? [mehmet: InvocationBuilder has tryCount (default 100) and tryPauseMillis (default 500ms) attributes. Hazelcast will try to resend to the correct owner until invocationCount reaches to defined tryCount.] 
 
 There are 4 types of operations:
 \begin{enumerate}
 \item Basic operations are executed always immediately, they don't require any lock and they don't wait any other operation.
-\item PartitionAwareOperation: will be executed on a specific partition. Before they are executed, the partition read-lock will be acquired preventing MigrationOperation from executing on that partition. If a MigrationOperation acquired the write-lock before the PartitionAwareOperation acquired the read-lock, a retry exception is returned to the caller so the operation can be redirected to the new partition owner. [todo: on the caller side we need to deal with a retry exception, or is this already dealt with?]
-\item KeyBasedOperations extends PartitionAwareOperation and can specify key locks that prevent other KeyBasedOperations for the same key to execute on that key. The lock that is acquired for the key is an exclusive lock, so concurrent executions of  KeyBasedOperations for the same key is not possible. If this causes a performance/scalability problems, instead of relying on the exclusive locking are more fine grained custom approach can be applied. For example, if we want to introduce a DistributedCounter.get, we could store the counter value in a wrapper object as a volatile field so that only a volatile read is needed.
-\item MigrationOperation are the counter part of the PartitionAwareOperation since they acquire the write-lock on the partition so that no other PartitionAware, KeyBasedOperations and MigrationOperation can be executed on that partition for the duration of that write-lock. If the read or write-lock on the partition already is acquired, the call blocks until lock is released. [todo: timeout?]
+\item PartitionAwareOperation: will be executed on a specific partition. Before they are executed, the partition read-lock will be acquired preventing MigrationOperation from executing on that partition. If a MigrationOperation acquired the write-lock before the PartitionAwareOperation acquired the read-lock, a retry exception is returned to the caller so the operation can be redirected to the new partition owner. This exception will be handled by Hazelcast, but you can influence this behavior. You can change the number of retries (defaults to 100) and the retry 
+
+. [todo: on the caller side we need to deal with a retry exception, or is this already dealt with?] [mehmet: retry exceptions are dealt by Hazelcast by default, also operations can decide which action to take on each error, see; Operation.onException(Throwable throwable)]
+\item KeyBasedOperations extends PartitionAwareOperation and can specify key locks that prevent other KeyBasedOperations for the same key to execute on that key. The lock that is acquired for the key is an exclusive lock, so concurrent executions of  KeyBasedOperations for the same key is not possible. If this causes a performance/scalability problems, instead of relying on the exclusive locking are more fine grained custom approach can be applied. For example, if we want to introduce a Counter.get, we could store the counter value in a wrapper object as a volatile field so that only a volatile read is needed.
+\item MigrationOperation are the counter part of the PartitionAwareOperation since they acquire the write-lock on the partition so that no other PartitionAware, KeyBasedOperations and MigrationOperation can be executed on that partition for the duration of that write-lock. If the read or write-lock on the partition already is acquired, the call blocks until lock is released. [todo: timeout?] MigrationOperations should only be used by Hazelcast internally.
 \end{enumerate}
 
-In our example the IncOperation is going to make use of the KeyBasedOperation to prevent dealing with concurrency control:
+In our example the IncOperation is going to make use of the KeyBasedOperation to prevent dealing with concurrency control ourselves:
 \begin{lstlisting}[language=java]
 class IncOperation 
       extends PartitionAwareOperation, 
@@ -180,7 +180,7 @@ class IncOperation
       returnValue = 0;
    }
    public int getKeyHash() {
-      return ("DistributedCounterService" + objectId).hashCode();
+      return ("CounterService" + objectId).hashCode();
    }
 }	
 \end{lstlisting}
@@ -197,10 +197,10 @@ public class Member {
       HazelcastInstance[] instances = new HazelcastInstance[2];
       for (int k = 0; k < instances.length; k++) 
          instances[k] = Hazelcast.newHazelcastInstance();
-      DistributedCounter[] counters = new DistributedCounter[4];
+      Counter[] counters = new Counter[4];
       for (int k = 0; k < counters.length; k++) {
-         DistributedCounter counter = (DistributedCounter) instances[0]
-            .getDistributedObject("DistributedCounterService", "counter" + k);
+         Counter counter = (Counter) instances[0]
+            .getDistributedObject("CounterService", "counter" + k);
          counters[k] = counter;
          System.out.println(counter.inc(1));
       }
@@ -208,7 +208,7 @@ public class Member {
    }
 }
 \end{lstlisting}
-In this example we start some Hazelcast instances and then we create  some DistributedCounters which are incremented. When this we run this member, we'll get output like this:
+In this example we start some Hazelcast instances and then we create  some Counters which are incremented. When this we run this member, we'll get output like this:
 \begin{lstlisting}
 Executing counter0.inc() on: Address[192.168.1.101]:5702
 0
@@ -241,7 +241,7 @@ class Container {
 \end{lstlisting}
 The Container has an inc method, that looks up the counter based on the id and increments it. 
 
-For this chapter I rely on Container instance per partition, but you have complete freedom how to go about it. A different approach used in the Hazelcast is that the Container is dropped and the DistributedCounterService has a map of counters:
+For this chapter I rely on Container instance per partition, but you have complete freedom how to go about it. A different approach used in the Hazelcast is that the Container is dropped and the CounterService has a map of counters:
 \begin{lstlisting}[language=java]
 final ConcurrentMap<String, Integer> counters = 
    new ConcurrentHashMap<String, Integer>();
@@ -260,7 +260,7 @@ Its a personal taste which solution is preferred. Personally I like the containe
 
 The next step is to create container per partition which will be stored in an array since the number of partitions is static. In practice each member will only host a subset of the partitions so since we create a container per partition up front, it could be that a container isn't used. But since its size in small, it isn't very important and also makes the examples a bit simpler.
 \begin{lstlisting}[language=java]
-public class DistributedCounterService 
+public class CounterService 
        implements ManagedService, 
                   RemoteService {
    private NodeEngine nodeEngine;
@@ -280,7 +280,7 @@ As you can see the partitions are created in the init method. The last step is c
 class IncOperation extends AbstractOperation 
                    implements KeyBasedOperation{  
    public void run() throws Exception {
-      DistributedCounterService s = getService();
+      CounterService s = getService();
       Container c = s.containers[getPartitionId()];
       returnValue = c.inc(objectId, amount);
    }
@@ -322,14 +322,15 @@ class Container {
 \item clear: is going to be called for 2 reasons: when the partition migration has succeeded and the old partition owner can get rid of all the data in the partition. And also when the partition migration operation fails and given the 'new' partition owner needs to roll back its changes.
 \end{enumerate}
 
-The next step is to create a MigrationOperation that will be responsible for carrying the migrationData from one machine to anther and to call the 'applyMigrationData' on the correct partition of the new partition owner.
+The next step is to create a CounterMigrationOperation that will be responsible for carrying the migrationData from one machine to anther and to call the 'applyMigrationData' on the correct partition of the new partition owner.
 \begin{lstlisting}[language=java]
-public class MigrationOperation extends AbstractOperation {
+public class CounterMigrationOperation 
+       extends AbstractOperation {
    Map<String, Integer> migrationData;
-   public MigrationOperation() {
+   public CounterMigrationOperation() {
    }
-   public MigrationOperation(Map<String, Integer> migrationData) {
-       this.migrationData = migrationData;
+   public CounterMigrationOperation(Map<String, Integer> d) {
+       this.migrationData = d;
    }
    protected void writeInternal(ObjectDataOutput out) 
          throws IOException {
@@ -347,17 +348,17 @@ public class MigrationOperation extends AbstractOperation {
          migrationData.put(in.readUTF(), in.readInt());
    }
    public void run() throws Exception {
-      DistributedCounterService service = getService();
+      CounterService service = getService();
       Container container = service.containers[getPartitionId()];
       container.applyMigrationData(migrationData);
    }
 }
 \end{lstlisting}
-The Hazelcast infrastructure will prevent that any PartitionAwareOperation or KeyBasedOperation are going to be executed during the execution of the MigrationOperation. So we don't need to be worried that for example the 'old' counters are going to be incremented and their changes will be lost when the new partition takes over.
+The Hazelcast infrastructure will prevent that any PartitionAwareOperation or KeyBasedOperation are going to be executed during the execution of the MigrationOperation. So we don't need to be worried that for example the 'old' counters are going to be incremented and their changes will be lost when the new partition takes over. The CounterMigrationOperation should not extend MigrationOperation, but should extend AbstractOperation. The reason is that before the CounterMigrationOperation is executed, the write-lock on the partition already is acquired since we don't want any counter updates from happening while the migration data is build up. If it would happen, it could be that we miss updates. 
 
-The last part is connecting all the pieces. This is done by adding an additional MigrationAwareService interface on the DistributedCounterService which will signal Hazelcast that our service is able to participate in partition migration:
+The last part is connecting all the pieces. This is done by adding an additional MigrationAwareService interface on the CounterService which will signal Hazelcast that our service is able to participate in partition migration:
 \begin{lstlisting}[language=java]
-public class DistributedCounterService 
+public class CounterService 
         implements ManagedService, RemoteService, 
                    MigrationAwareService {
    private NodeEngine nodeEngine;
@@ -370,7 +371,7 @@ public class DistributedCounterService
       Container container = containers[e.getPartitionId()];
       Map<String, Integer> migrationData = container.toMigrationData();
       if (migrationData.isEmpty()) return null;
-      return new MigrationOperation(migrationData);
+      return new CounterMigrationOperation(migrationData);
    }
    public void commitMigration(MigrationServiceEvent e) {
       if (e.getMigrationEndpoint() == MigrationEndpoint.SOURCE && 
@@ -395,7 +396,7 @@ By implementing the MigrationAwareService some additional methods are exposed:
 \begin{enumerate}
 \item beforeMigration: this is called before we any migration is done. It is useful if you need to .. In our case we do nothing.
 \item prepareMigrationOperation: method will return all the data of the partition that is going to be moved.
-[mehmet: migrate only master and first backup data, since DistributedCounterService supports only 1 backup.]
+[mehmet: migrate only master and first backup data, since CounterService supports only 1 backup.]
 \item commitMigration: commits the data. In this case committing means that we are going to clear the container for the partition of the old owner. Even though we don't have any complex resources like threads, database connections etc, clearing the container is advisable to prevent memory issues.is this method called on both the primary and backup? [mehmet: yes] if this node is source side of migration (means partition is migrating FROM this node) and migration type is MOVE (means partition is migrated completely not copied to a backup node) then remove partition data from this node. If this node is destination or migration type is copy then nothing to do.is this method called on both the primary and backup? [mehmet: yes][mehmet: if this node is destination side of migration (means partition is migrating TO this node) then remove partition data from this node.If this node is source then nothing to do.
 \item rollbackMigration: 
 \end{enumerate}
@@ -403,7 +404,7 @@ By implementing the MigrationAwareService some additional methods are exposed:
 todo: tell about max backup count. You could use the service properties to configure this.
 
 \section{Backups}
-In this last phase we are going to deal with backups; so make sure that when a member fails that the data is available on another node. This is done by for every operation that makes a chance, to have a backup operation executed as well. Since the IncOperation always makes a change, it will always have a backup operation. To signal Hazelcast that an operation needs a backup, the operation needs to implement the BackupAwareOperation:
+In this last phase we are going to deal with backups; so make sure that when a member fails that the data is available on another node. This is done by for every operation that makes a change, to have a backup operation executed as well. Since the IncOperation always makes a change, it will always have a backup operation. To signal Hazelcast that an operation needs a backup, the operation needs to implement the BackupAwareOperation:
 \begin{lstlisting}[language=java]
 class IncOperation extends AbstractOperation 
       implements KeyBasedOperation, 
@@ -450,7 +451,7 @@ public class IncBackupOperation
       amount = in.readInt();
    }
    public void run() throws Exception {
-      DistributedCounterService service = getService();
+      CounterService service = getService();
       System.out.println("Executing backup " + objectId + 
          ".inc() on: " + getNodeEngine().getThisAddress());
       Container c = service.containers[getPartitionId()];
@@ -468,8 +469,8 @@ public class Member {
       for (int k = 0; k < instances.length; k++) 
          instances[k] = Hazelcast.newHazelcastInstance();
 
-      DistributedCounter counter = instances[0].getDistributedObject(
-         "DistributedCounterService", "counter" + 0);
+      Counter counter = instances[0].getDistributedObject(
+         "CounterService", "counter" + 0);
       counter.inc(1);
    }
 }

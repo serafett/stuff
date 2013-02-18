@@ -35,7 +35,7 @@ class IncOperation extends AbstractOperation implements KeyBasedOperation, Backu
 
     @Override
     public void run() throws Exception {
-        DistributedCounterService service = getService();
+        CounterService service = getService();
         System.out.println("Executing " + objectId + ".inc() on: " + getNodeEngine().getThisAddress());
         Container c = service.containers[getPartitionId()];
         returnValue = c.inc(objectId, amount);
@@ -43,7 +43,7 @@ class IncOperation extends AbstractOperation implements KeyBasedOperation, Backu
 
     @Override
     public int getKeyHash() {
-        return ("DistributedCounterService" + objectId).hashCode();
+        return ("CounterService" + objectId).hashCode();
     }
 
     @Override
