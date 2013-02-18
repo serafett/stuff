@@ -81,8 +81,8 @@ public class DistributedCounterService
    }
 }
 \end{lstlisting}
-[todo: destroyDistributedObject]
-[todo: createDistributedObjectForClient]
+[todo: destroyDistributedObject] [mehmet: destroy is implemented for proxies extending AbstractDistributedObject]
+[todo: createDistributedObjectForClient] [mehmet: after my poc for binary client impl, we can change or remove this method!]
 
 As you can see the createDistributedObject returns a DistributedCounterProxy. This proxy is a local representation to (potentially) remote managed data/logic.  
 \begin{lstlisting}[language=java]
@@ -134,13 +134,13 @@ Another exception that can be thrown while waiting for the Future to complete is
 
 There is one thing you need to watch out for in that case, the stacktrace of that exception will represent the callstack of the thread executing the remote operation, not the callstack of the thread executing the DistributedCounterProxy.inc method. An easy way to fix that is to prepend the client side stacktrace to the stacktrace (the stacktrace is just an array of StackTraceElements)
 
-todo; can the operation be interrupted if the future.cancel is called?
-todo; will hazelcast take care of resending an operation to the correct machine when the partitionlock is exclusive?
+todo; can the operation be interrupted if the future.cancel is called? [mehmet: nop, cancellation is not supported]
+todo; will hazelcast take care of resending an operation to the correct machine when the partitionlock is exclusive? [mehmet: InvocationBuilder has tryCount (default 100) and tryPauseMillis (default 500ms) attributes. Hazelcast will try to resend to the correct owner until invocationCount reaches to defined tryCount.] 
 
 There are 4 types of operations:
 \begin{enumerate}
 \item Basic operations are executed always immediately, they don't require any lock and they don't wait any other operation. These operations hi
-\item PartitionAwareOperation: will be executed on a specific partition by returning the partition id. Once they are executed, the partition read-lock will be acquired and will prevent PartitionLevelOperations from executing on that partition. If a PartitionLevelOperation acquired the writelock before the PartitionAwareOperation acquired the readlock, a retry exception is returned to the caller so the operation can be redirected to the new partition owner. [todo: on the caller side we need to deal with a retry exception, or is this already dealt with]
+\item PartitionAwareOperation: will be executed on a specific partition by returning the partition id. Once they are executed, the partition read-lock will be acquired and will prevent PartitionLevelOperations from executing on that partition. If a PartitionLevelOperation acquired the writelock before the PartitionAwareOperation acquired the readlock, a retry exception is returned to the caller so the operation can be redirected to the new partition owner. [todo: on the caller side we need to deal with a retry exception, or is this already dealt with] [mehmet: retry exceptions are dealt by Hazelcast by default, also operations can decide which action to take on each error, see; Operation.onException(Throwable throwable)]
 \item KeyBasedOperations extends PartitionAwareOperation and can specify key locks that prevent other KeyBasedOperations for the same key to execute on that operations. The lock that is acquired for the key is an exclusive lock, so concurrent execution of  KeyBasedOperations for the same key is not possible and this can cause a performance/scalability issue. If that is the case it is better to only make use of the PartitionAwareOperation and rely custom concurrency control.
 \item PartitionLevelOperation are the counter part of the PartitionAwareOperation since they acquire the writelock on the Partition so that no other PartitionAware and PartitionLevelOperations can be executed on that partition for the duration of that writelock. If the read or write-lock on the partition already is acquired, the call blocks until lock is released. [todo: timeout?]
 \end{enumerate}
@@ -241,7 +241,7 @@ The Container has an inc method, that looks up the counter based on the id and i
 
 For this chapter I rely on Container class per partition, but you have complete freedom how to go about it. A different approach used in the Hazelcast code is that the Container is dropped and the DistributedCounterService you just have a map of counters:
 \begin{lstlisting}[language=java]
-final ConcurrentMap<String, AtomicLong> counters = 
+final ConcurrentMap<String, Integer> counters = 
    new ConcurrentHashMap<String, Integer>();
 \end{lstlisting}
 The id of the counter can be used as key and an Integer as value. The only thing you need to take care of is that if operations for a specific partition are executed, you only select the values for that specific partition. This can be as simple as: 
@@ -402,7 +402,7 @@ By implementing the MigrationAwareService some additional methods are exposed:
 todo: tell about max backup count. You could use the service properties to configure this.
 
 \section{Backups}
-In this last phase we are going to deal with backups; so make sure that when a member fails that the data is available on another node. This is done by for every operation that makes a chance, to have a backup operation executed as well. Since the IncOperation always makes a change, it will always have a backup operation. To signal Hazelcast that an operation needs a backup, the operation needs to implement the BackupAwareOperation:
+In this last phase we are going to deal with backups; so make sure that when a member fails that the data is available on another node. This is done by for every operation that makes a change, to have a backup operation executed as well. Since the IncOperation always makes a change, it will always have a backup operation. To signal Hazelcast that an operation needs a backup, the operation needs to implement the BackupAwareOperation:
 \begin{lstlisting}[language=java]
 class IncOperation extends AbstractOperation 
       implements KeyBasedOperation, 
