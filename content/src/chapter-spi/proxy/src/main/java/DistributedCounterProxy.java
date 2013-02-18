@@ -13,14 +13,17 @@ public class DistributedCounterProxy implements DistributedCounter {
         this.objectId = objectId;
     }
 
+    @Override
     public Object getId() {
         return objectId;
     }
 
+    @Override
     public String getName() {
-        return null;
+        return objectId;
     }
 
+    @Override
     public int inc(int amount) {
         IncOperation operation = new IncOperation(objectId, amount);
         int partitionId = nodeEngine.getPartitionService().getPartitionId(objectId);
@@ -45,6 +48,7 @@ public class DistributedCounterProxy implements DistributedCounter {
         }
     }
 
+    @Override
     public void destroy() {
     }
 }

@@ -1,7 +1,9 @@
+import com.hazelcast.spi.Invocation;
 import com.hazelcast.spi.InvocationBuilder;
 import com.hazelcast.spi.NodeEngine;
 
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 public class DistributedCounterProxy implements DistributedCounter {
     private final NodeEngine nodeEngine;
@@ -12,21 +14,26 @@ public class DistributedCounterProxy implements DistributedCounter {
         this.objectId = objectId;
     }
 
+    @Override
     public Object getId() {
         return objectId;
     }
 
+    @Override
     public String getName() {
-        return null;
+        return objectId;
     }
 
+    @Override
     public int inc(int amount) {
         IncOperation operation = new IncOperation(objectId, amount);
         int partitionId = nodeEngine.getPartitionService().getPartitionId(objectId);
         InvocationBuilder builder = nodeEngine.getOperationService()
                 .createInvocationBuilder("DistributedCounterService", operation, partitionId);
+        Invocation invocation = builder.build();
         try {
-            return (Integer) builder.build().invoke().get();
+            Future<Integer> future = invocation.invoke();
+            return future.get();
         } catch (ExecutionException e) {
             final Throwable cause = e.getCause();
             if (cause instanceof RuntimeException) {
@@ -42,6 +49,7 @@ public class DistributedCounterProxy implements DistributedCounter {
         }
     }
 
+    @Override
     public void destroy() {
     }
 }

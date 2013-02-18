@@ -17,6 +17,7 @@ public class MigrationOperation extends AbstractOperation {
         this.migrationData = migrationData;
     }
 
+    @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         out.writeInt(migrationData.size());
         for (Map.Entry<String, Integer> entry : migrationData.entrySet()) {
@@ -25,6 +26,7 @@ public class MigrationOperation extends AbstractOperation {
         }
     }
 
+    @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         int size = in.readInt();
         migrationData = new HashMap<>();
@@ -32,6 +34,7 @@ public class MigrationOperation extends AbstractOperation {
             migrationData.put(in.readUTF(), in.readInt());
     }
 
+    @Override
     public void run() throws Exception {
         DistributedCounterService service = getService();
         Container container = service.containers[getPartitionId()];

@@ -167,9 +167,9 @@ As you can see, the EchoTasks are executed on the correct member.
 
 \subsection{Executing on key owner}
 [Talip: again refer and encourage the use of IMap.executeOnKey API]
-When an operation is executed in a distributed system, this operation often needs to access distributed resources. If these resources are hosted on other different machine then where the task is running, scalability and performance suffer due to remoting overhead. Luckily this problem can be solved by improving locality of reference.
+When an operation is executed in a distributed system, this operation often needs to access distributed resources. If these resources are hosted on a different member then where the task is running, scalability and performance suffer due to remoting overhead. Luckily this problem can be solved by improving locality of reference.
 
-In Hazelcast this can be done by placing the resources for a task in some partition and by sending the task to the member that owns that partition. When you start designing a distributed system, perhaps the most fundamental step is designing the partitioning schema.
+In Hazelcast this can be done by placing the resources for a task in some partition and sending the task to the member that owns that partition. When you start designing a distributed system, perhaps the most fundamental step is designing the partitioning scheme.
 
 As an example we are going to create a distributed system where there is some dummy data in a map and for every key in that map we are going to execute a verify task. This task will verify if it has been executed on the same member as where that partition for that key is residing:
 \begin{lstlisting}[language=java]

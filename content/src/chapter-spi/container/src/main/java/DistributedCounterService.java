@@ -9,6 +9,7 @@ public class DistributedCounterService implements ManagedService, RemoteService 
     private NodeEngine nodeEngine;
     Container[] containers;
 
+    @Override
     public void init(NodeEngine nodeEngine, Properties properties) {
         this.nodeEngine = nodeEngine;
         containers = new Container[nodeEngine.getPartitionService().getPartitionCount()];
@@ -16,22 +17,27 @@ public class DistributedCounterService implements ManagedService, RemoteService 
             containers[k] = new Container();
     }
 
+    @Override
     public void shutdown() {
     }
 
+    @Override
     public DistributedObject createDistributedObject(Object objectId) {
         String id = String.valueOf(objectId);
         return new DistributedCounterProxy(id, nodeEngine);
     }
 
+    @Override
     public String getServiceName() {
         return "DistributedCounterService";
     }
 
+    @Override
     public DistributedObject createDistributedObjectForClient(Object objectId) {
         return null;
     }
 
+    @Override
     public void destroyDistributedObject(Object objectId) {
     }
 }

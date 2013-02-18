@@ -235,8 +235,7 @@ ItemListeners are useful if you need to react upon changes in collections. But r
 
 \emph{Not Durable:} In Hazelcast 2 the IQueue/IList/ISet were build on top of the Hazelcast distributed map and by accessing that map you could influence the collections their behavior including storage. This isn't possible anymore in Hazelcast 3. The IQueue now has its own QueueStore mechanism, but the List/Set have not. Perhaps this will be added in a later release.
 
-\emph{Replication:} The replication for IList and ISet can't be configured and will automatically have 1 synchronous backup and 1 asynchronous backups. Perhaps in the future this is going to be configurable.
-[Talip: I think set and list will have 1 sync backup only.. so no async backup. check with Ali]
+\emph{Replication:} The replication for IList and ISet can't be configured and will automatically have 1 synchronous backup and 0 asynchronous backups. Perhaps in the future this is going to be configurable.
 
 
 \emph{Destruction:} IQueue/ISet/IList instances immediately are 'destroyed' when they are empty and will not take up space. Listeners will remain registered, unless that collection is destroyed explicitly. Once an item is added to implicit destroyed collection, the collection will automatically be recreated.

@@ -8,8 +8,7 @@ Scaling up is simple; just add more members and they will take their share of th
 
 Scaling down also is simple; just shutdown the HazelcastInstances to release their share of the load. The partitions will automatically be reassigned to remaining members. Of course a hard kill of the JVM is possible, but then you run a risk of loosing something if you have not configured the backup mechanism correctly; see [reference to backup section]
 
-[Talip: don't say 'commercial' as we might change the business model. Just say 'Elastic Memory' feature ...]
-The commercial offering of Hazelcast includes Elastic Memory where the map entries are not stored in the Java Heap to drastically reduce gc times. On Youtube there is demo: http://www.youtube.com/watch?v=TOhbhKqJpvw where 4 Terabyte of data from 1 billion entries is stored on 100 Amazon EC2 instances, supporting to 1.3 million of operations/second.
+The offering of Hazelcast includes Elastic Memory where the map entries are not stored in the Java Heap. This is done to drastically reduce gc times. On Youtube there is demo: http://www.youtube.com/watch?v=TOhbhKqJpvw where 4 Terabyte of data from 1 billion entries is stored on 100 Amazon EC2 instances, supporting to 1.3 million of operations/second.
 
 \section{Reading/Writing}
 The Hazelcast Map implements the ConcurrentMap/Map interface, so reading/writing key/values is very simple since you can use familiar methods like get/put etc. 

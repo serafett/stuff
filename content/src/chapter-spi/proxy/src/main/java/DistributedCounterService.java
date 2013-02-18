@@ -8,25 +8,31 @@ import java.util.Properties;
 public class DistributedCounterService implements ManagedService, RemoteService {
     private NodeEngine nodeEngine;
 
+    @Override
     public void init(NodeEngine nodeEngine, Properties properties) {
         this.nodeEngine = nodeEngine;
     }
 
+    @Override
     public void shutdown() {
     }
 
+    @Override
     public DistributedObject createDistributedObject(Object objectId) {
         return new DistributedCounterProxy(String.valueOf(objectId), nodeEngine);
     }
 
+    @Override
     public String getServiceName() {
         return "DistributedCounterProxy";
     }
 
+    @Override
     public DistributedObject createDistributedObjectForClient(Object objectId) {
         return null;
     }
 
+    @Override
     public void destroyDistributedObject(Object objectId) {
     }
 }
