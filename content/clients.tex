@@ -44,13 +44,14 @@ In the client example, we did a minimal configuration of the ClientConfig and re
 \item reconnect attempt limit: the number of reconnection attempts the client makes when a connection fails. Defaults to 1.
 \item reconnect timeout: [todo]. Defaults to 5000 ms.
 \item update automatic:[TODO] Defaults to true.
-\item socketInterceptor
+\item socketInterceptor:
 \item listeners: EventListener
+\item router: see LoadBalancing for more information. Defaults to RoundRobinRouter.
 \end{enumerate}
 [todo: the client is still in progress, so properties might change]
 
 \section{LoadBalancing}.
-When a client connects to the cluster, it will have access to the full list of members and it will be kept in sync, even if the ClientConfig only had a subsection of members. If an operation needs to be send to a specific member, it will directly send it to that member. If a operation can be executed on any member, Hazelcast does automatic load balancing over all members in the cluster. The clients are thread-safe, and therefor can be called concurrently, so you don't need to pool them.
+When a client connects to the cluster, it will have access to the full list of members and it will be kept in sync, even if the ClientConfig only has a subset of members. If an operation needs to be send to a specific member, it will directly be send to that member. If a operation can be executed on any member, Hazelcast does automatic load balancing over all members in the cluster. 
 
 One of the very new cool features of Hazelcast 3.0 is that the load balancing mechanism is pulled out into an interface:
 \begin{lstlisting}[language=java]
@@ -59,9 +60,12 @@ public interface Router {
    Member next();
 }
 \end{lstlisting}
-This means that if you have specific load balancing requirements, e.g. load balance on cpu load, memory load, queue sizes etc, these requirements can be met by creating a custom Router implementation. I'm sure that in the next releases of Hazelcast some of these implementations will be provided out of the box. Router instances should not be shared between clients; every client should gets its own instance and the router can be configured from the ClientConfig.
-
-[todo: what is the default routing policy?]
+This means that if you have specific load balancing requirements, e.g. load balance on cpu load, memory load, queue sizes etc, these requirements can be met by creating a custom Router implementation. I'm sure that in the next releases of Hazelcast some of these implementations will be provided out of the box. If you are going to implement a custom router, you can listen to member changes using:
+\begin{lstlisting}[language=java]
+Cluster cluster = hz.getCluster();
+cluster.addMembershipListener(thelistener);
+\end{lstlisting}
+Router instances should not be shared between clients; every client should gets its own instance and the router can be configured from the ClientConfig. The clients are thread-safe, and therefor can be called concurrently, so you don't need to pool them.
 
 \section{Sharing classes}
 In some cases you need to share classes between the client and the server. Of course you can give all the classes from the server to the client, but in some cases this is undesirable; perhaps it would increase tight coupling, security/copyrights issues, increased client size etc. If you don't want to share all the classes of the server with the client, create a separate project (in Maven terms this could be a module) and share this project between client and server. I normally call this project the api project since it clearly defines the API of the system. 
@@ -78,4 +82,4 @@ One disadvantage of the lite member is that because they are seen as member in t
 Another disadvantage is that although a lite member doesn't host any partitions, it will run tasks from the Hazelcast executors. Personally I always found this undesirable since you don't want to have a client run server tasks.
 
 \section{What is next}
-In this short chapter we explained a few different ways to connect to a Hazelcast cluster using a client. But there are more client solutions available: like the C\# client (Hazelcast Enterprise Edition), the Memcache Client and the Rest Client. For more information check the Client chapter of the Hazelcast reference manual.
+In this short chapter we explained a few different ways to connect to a Hazelcast cluster using a client. But there are more client solutions available: like the C\# client, C++ client, Memcache Client and the Rest Client. For more information check the Client chapter of the Hazelcast reference manual.

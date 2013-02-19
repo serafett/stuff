@@ -277,7 +277,7 @@ In this example we execute a task on all members, but if you only want to execut
 \emph{Not possible to send Runnable to every partition:} there is no direct support to send a runnable to every partition. If this is an issue, the SPI could be a solution since Operations can be routed to specific partitions. So you could build such an executor on top of the SPI.
 
 \section{Futures}
-The  Executor interface only exposes a single 'void execute(Runnable)' method that can be called to have a Runnable asynchronously executed. But in some cases you need to synchronize on results, e.g. when using a Callable or just want to wait till a runnable completes. And in some cases you want to cancel a task, e.g. when it runs too long. This can be done making use of the java.util.concurrent.Future in combination with one of the submit methods of the IExecutorService.
+The  Executor interface only exposes a single 'void execute(Runnable)' method that can be called to have a Runnable asynchronously executed. But in some cases you need to synchronize on results, e.g. when using a Callable or just want to wait till a task completes. This can be done making use of the java.util.concurrent.Future in combination with one of the submit methods of the IExecutorService.
 
 To demonstrate the future, we are going to calculate a Fibonacci number by wrapping the calculation in a callable and synchronizing on the result:
 \begin{lstlisting}[language=java]
@@ -288,17 +288,11 @@ public class FibonacciCallable
       this.input = input;}
    public Long call() {return calculate(input);}
    private long calculate(int n) {
-      if (Thread.currentThread().isInterrupted()) {
-         System.out.println("FibonacciCallable is interrupted");
-         throw new RuntimeException("Fibonacci is interrupted");
-      }
       if (n <= 1) return n;
       else return calculate(n - 1) + calculate(n - 2);
    }
 }
 \end{lstlisting}
-If you look closely, you can see there is a check 'Thread.currentThread().isInterrupted()' that is run frequently while calculating. When the thread is interrupted, the Interrupted flag is set and the calculation will be aborted. In our case we are going to throw an exception.
-[Talip: AFAIK as of 3.0, future.cancel() is not supported. Check with Mehmet.]
 The next step is submitting the task and using a Future to synchronize on results:
 \begin{lstlisting}[language=java]
 public class MasterMember {
@@ -312,8 +306,7 @@ public class MasterMember {
          long result = future.get(10, TimeUnit.SECONDS);
          System.out.println("Result: "+result);
       } catch (TimeoutException ex) {
-         System.out.println("A timeout happened, the future is cancelled");
-         future.cancel(true);
+         System.out.println("A timeout happened");
       }
    }
 }
@@ -324,12 +317,7 @@ When we run this application with 5 as argument, the output will be:
 \begin{lstlisting}
 Result: 5
 \end{lstlisting}
-But when you run this application with 500 as argument, it will probably take more than 10 seconds to complete and therefor the future.get will timeout. The output will be:
-\begin{lstlisting}
-A timeout happened, the future is cancelled
-FibonacciCallable is interrupted
-\end{lstlisting}
-This is because the future.get operation will timeout. If it doesn't on your machine, it could be that your machine is very quick and you need to use a smaller timeout. When the timeout happens, a TimeoutException is thrown and we cancel the future by calling 'future.cancel(true)'. This cancel operation on the future is send back to thread on a executing the callable and the interrupted status of that thread will be set. It is up to the task to check the interrupted status of the thread periodically to be able to be responsive to interrupts.
+when you run this application with 500 as argument, it will probably take more than 10 seconds to complete and therefor the future.get will timeout. When the timeout happens, a TimeoutException is thrown. If it doesn't on your machine, it could be that your machine is very quick and you need to use a smaller timeout. Unlike Hazelcast 2.x it unfortunately it isn't possible in Hazelcast 3.0 to cancel a future. One possible solution is to let the task periodically check if certain key in a distributed map exist. A task can then be cancelled by writing some value for that key. You need to take care of removing keys to prevent this map from growing; this could be done using the time to live setting.
 
 \section{Execution Callback}
 With a future it is possible to synchronize on task completion. In some cases you want to synchronize on the completion of the task before executing some logic, in the same thread that submitted the task. But in other cases you want this post completion logic to be executed asynchronously, so that the submitting thread doesn't need to block. Hazelcast provides a solution for this using the ExecutionCallback.
@@ -341,7 +329,7 @@ public class MasterMember {
       HazelcastInstance hz = Hazelcast.newHazelcastInstance();
       IExecutorService executor = hz.getExecutorService("exec");
       ExecutionCallback<Long> callback = 
-         new ExecutionCallback<Long>() {
+           new ExecutionCallback<Long>() {
          public void onFailure(Throwable t) {
             t.printStackTrace();}
          public void onResponse(Long response) {
@@ -363,15 +351,15 @@ As you can see, the thread that submitted the tasks to be executed, was not bloc
 
 \section{Good to know}
 
-\emph{Workqueue has no high availability:} Each member will create one or more local ThreadPoolExecutors with ordinary workqueues that do the real work. When a task is submitted, it will be put on the workqueue of that ThreadPoolExecutor and will not be backed up by Hazelcast. If something would happen with that member, all unprocessed work will be lost. A project that might be interesting to investigate is: https://github.com/jclawson/hazelcast-work.
+\emph{Work-queue has no high availability:} Each member will create one or more local ThreadPoolExecutors with ordinary work-queues that do the real work. When a task is submitted, it will be put on the work-queue of that ThreadPoolExecutor and will not be backed up by Hazelcast. If something would happen with that member, all unprocessed work will be lost. A project that might be interesting to investigate is: https://github.com/jclawson/hazelcast-work.
 
-\emph{Workqueue is not partitioned:} Each member specific executor will have its own private workqueue, once an item is placed on that queue, it will not be taken by a different member. So it could be that one member has a lot of unprocessed work, and another is idle.
+\emph{Work-queue is not partitioned:} Each member specific executor will have its own private work-queue, once an item is placed on that queue, it will not be taken by a different member. So it could be that one member has a lot of unprocessed work, and another is idle.
 
-\emph{Workqueue has no capacity control:} With the normal ThreadPoolExecutor you can limit the amount of unprocessed work on the work queue and you also can control what happens with a surplus of work. With the Hazelcast distributed Executor there is no control. So it could be that one member is swamped with unprocessed work and this can lead to an java.lang.OutOfMemoryError. 
+\emph{Work-queue by default has unbound capacity:} This can lead to OutOfMemoryErrors because the number of queued tasks can get too large. This can be solved by setting the <queue-capacity> property on the executor-service.
 
-\emph{No Load Balancing:} is currently available for tasks that can run on any member. In the future there probably is going to be a customizable load balancer interface where for example load balancing could be done on the number of unprocessed tasks, cpu load, memory load etc. If loadbalancing is needed, it could be done by creating a IExecutorService proxy that wraps the one returned by Hazelcast. Using the members from the ClusterService or  member information from SPI:MembershipAwareService, it could route route 'free' tasks to a specific member based on load.
+\emph{No Load Balancing:} is currently available for tasks that can run on any member. In the future there probably is going to be a customizable load balancer interface where for example load balancing could be done on the number of unprocessed tasks, cpu load, memory load etc. If load-balancing is needed, it could be done by creating a IExecutorService proxy that wraps the one returned by Hazelcast. Using the members from the ClusterService or  member information from SPI:MembershipAwareService, it could route route 'free' tasks to a specific member based on load.
 
-\emph{Destroying Executors}: you need to be careful when shutting down an IExecutorService because it will shutdown all corresponding executor in every member and subsequent calls to proxy will result in a RejectedExecutionException. When the executor is destroyed and later a HazelcastInstance.getExecutorService is done with the id of the destroyed executor a new executor will be created as if the old one never existed.
+\emph{Destroying Executors:} you need to be careful when shutting down an IExecutorService because it will shutdown all corresponding executor in every member and subsequent calls to proxy will result in a RejectedExecutionException. When the executor is destroyed and later a HazelcastInstance.getExecutorService is done with the id of the destroyed executor a new executor will be created as if the old one never existed.
 
 \emph{Executors doesn't log exceptions:} when a task fails with an exception (or an error), this exception will not be logged by Hazelcast. This is in line with the ThreadPoolExecutorService from Java and it can be really annoying when you are spending a lot of time on why something doesn't work. It can easily be fixed; either add a try/catch in your runnable and log the exception. Or wrap the runnable/callable in a proxy that does the logging; the last option will keep your code a bit cleaner. 
 

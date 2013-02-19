@@ -24,6 +24,8 @@ public class CounterService implements ManagedService {
    public void shutdown() {
       System.out.println("CounterService.shutdown");
    }
+   public void reset() {
+   }
 }
 \end{lstlisting}
 As you can see 2 methods are added: the init and the shutdown. These methods will be called by Hazelcast when the HazelcastInstance is initialized and is shutdown. The init method also received the NodeEngine, which provides access to the internals, like the PartitionService, of Hazelcast. The next step is to enable the CounterService; in our case we are going to make use of the hazelcast.xml:
@@ -109,18 +111,8 @@ public class CounterProxy
       try {
          final Future<Integer> future = invocation.invoke();
          return future.get();
-      } catch (ExecutionException e) {
-         final Throwable cause = e.getCause();
-         if (cause instanceof RuntimeException) {
-            throw (RuntimeException) cause;
-         } else if (cause instanceof Error) {
-            throw (Error) cause;
-         } else {
-            throw new RuntimeException(cause);
-         }
-      } catch (InterruptedException e) {
-         Thread.currentThread().interrupt();
-         throw new RuntimeException(e);
+      } catch(Exception e){
+         throw ExceptionUtil.rethrow(e);
       }
    }
 }
@@ -131,9 +123,21 @@ If you take a closer look at the inc method, the first thing we do is to create 
 
 The last part of the logic is actually invoking the Invocation and waiting for its result. This is done using a Future which gives us the ability to synchronize on completion of that remote executed operation and to get the results. In our case we do a simple get since we don't care about a timeout, but for real system it often is better to use a timeout since most operations should complete in a certain amount of time. If they don't complete, it could be a sign of problems and waiting indefinitely could lead to stalling systems without any form of error logging.
 
-If the execution of the operation fails with an exception, a ExecutionException is thrown. This exception needs to be caught and the cause of the exception is the remote thrown exception. If the cause is a RuntimeException or Error, we can just rethrow it. If it is a checked exception, then there are a few option. We can of course wrap the exception in a RuntimeException, but you could also make the checked exception part of the signature of the method you are trying to expose. A nifty improvement for debugging is that the stacktrace of the cause of the ExecutionException is enhanced so that it includes client and serverside stacktrace. This way you can see on both sides which method caused problems.
+If the execution of the operation fails with an exception, an ExecutionException is thrown and needs to be dealt with. Luckily Hazelcast provides a utility function for that: ExceptionUtil.rethrow(Throwable). If you want to keep the checked exception, you need to deal with exception handling yourself and the ExceptionUtil  is not of much use. 
+A nifty improvement for debugging is that that if remote exception is  stacktrace of the cause of the Exception is enhanced so that it includes client and serverside stacktrace. This way you can see on both sides which method caused problems.
 
-Another exception that can be thrown while waiting for the Future to complete is the InterruptedException: caused by the calling thread to be interrupted while waiting. One way to deal with this exception is just to propagate it to indicate a calling thread that the call is a blocking call. Unfortunately this is not always an option or desirable. Another solution is to restore the interrupt state and to throw a (Runtime)Exception to indicate failure. 
+If the exception is an InterruptedException, you can do 2 things. Either propagate the InterruptedException since it is a good practice for blocking methods. In this case you first need to do something like this:
+\begin{lstlisting}[language=java]
+  try {
+     final Future<Integer> future = invocation.invoke();
+     return future.get();
+  } catch(InterruptedException e){
+     throw e;
+  } catch(Exception e){
+     throw ExceptionUtil.rethrow(e);
+  }
+\end{lstlisting}
+In our case we don't care about the InterruptedException and therefor we catch all exceptions and let it be handled by the ExceptionUtil and it will be wrapped in a HazelcastException and the interrupt status will be set.
 
 Currently it isn't possible to abort an Operation by calling the future.cancel. Perhaps this will be added in a later release.
 
@@ -480,6 +484,19 @@ Executing backup counter0.inc() on: Address[192.168.1.103]:5701
 Finished
 \end{lstlisting}
 As you can see, not only the IncOperation has executed, also the backup operation is executed. You can also see that the operations have been executed on different cluster members to guarantee high availability. One of the experiments you could do it to modify the test code so you have a cluster of members in different JVM's and see what happens with the counters when you kill one or more JVM's. 
+
+\section{Wait notify}
+In this section we are going to make of the wait/notify system. We are going to add an await method to the counter; in this await method a thread can wait until the value of a counter is equal or bigger than the supplied one.
+
+\begin{lstlisting}[language=java]
+public interface Counter extends DistributedObject {
+   int inc(int amount);
+   void await(int value)throws InterruptedException;
+}
+\end{lstlisting}
+
+
+todo: timeout; interrupted exception
 
 \section{What is next}
 In this chapter we have created step by step a distributed data-structures on top of Hazelcast. And although Hazelcast provides a whole collection of very usable distributed data-structures, the addition of the SPI changes Hazlcast from being a simple datagrid to a datagrid infrastructure where your imagination is the only limit. In distributed applications there will always be the need to create special data-structures that are very useful for very particular usecases and with the SPI you can now build these data-structures yourself.

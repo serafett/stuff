@@ -152,12 +152,9 @@ public void readPortable(PortableReader reader)
    this.address = reader.readPortable("address");
 }
 \end{lstlisting}
-If the object is not a Portable, primitive, array or String then there is no direct support for serialization. Of course, you could transform the object using Java serialization to a byte array, but this would mean that the platform independence is lost. A better solution  is to create some form of String representation, potentially using XML, so that platform compatibility is maintained.
+If the field is of type Portable and null, the  PortableWriter.writePortable(String fieldName, Portable portable) method will complain about the null. This is because with a null value, the type of the field is not known and this causes problems with the platform independent nature of Portable. In that case the PortableWriter.writePortable(String fieldName, int classId, Portable portable) method can be called where an explicit class id needs to be passed. 
 
-If the object is of type String, the writeUTF/readUTF work fine. 
-
-[todo: what about object wrappers? I guess that there are some serializers registered for these types and the readPortable method can be used]
-[todo: dealing with null, currently a NPE is thrown]
+If the object is not a Portable, primitive, array or String then there is no direct support for serialization. Of course, you could transform the object using Java serialization to a byte array, but this would mean that the platform independence is lost. A better solution is to create some form of String representation, potentially using XML, so that platform compatibility is maintained. The methods readUTF/writeUTF can perfectly deal with null Strings so passing null object references is no problem.
 
 \subsection*{Serialize DistributedObject}
 Serialization of the DistributedObject is not provided out of the box, so you can't put for example an ISemaphore on an IQueue on one machine, and take it from another. But there are solutions to this problem.
@@ -239,7 +236,7 @@ There can only be a single global serializer and for this global serializer the 
 \section{HazelcastInstanceAware}
 In some cases when an object is deserialized, it needs access to the HazelcastInstance so that DistributedObjects can be accessed. This can be done by implementing HazelcastInstanceAware, e.g.:
 \begin{lstlisting}[language=java]
-public class Person implements Serializable,HazelcastInstanceAware {
+public class Person implements Serializable, HazelcastInstanceAware {
    private static final long serialVersionUID = 1L;
    private String name;
    private transient  HazelcastInstance hz;
@@ -257,7 +254,13 @@ public class Person implements Serializable,HazelcastInstanceAware {
 \end{lstlisting}
 After this person is deserialized, Hazelcast will check if the object implements HazelcastInstanceAware and will call the setHazelcastInstance method. The hz field needs be transient since it should not be serialized. 
 
-Obtaining other dependencies than a HazelcastInstances can be a bit more complicated. Often the only way out is to rely on some form of singleton. But luckily Hazelcast 3 provides a new solution using the HazelcastInstance.getUserContext() method which returns a ConcurrentMap. In this Map dependencies can be placed based on some name, so that they can be retrieved later when you only have a reference to the HazelcastInstance. This makes it a lot easier to do a lookup for a dependency without relying on statics/singletons. This user context is a pure local data-structure so it will not be published to other members.
+Obtaining other dependencies than a HazelcastInstances can be a bit more complicated. Often the only way out is to rely on some form of singleton. But luckily Hazelcast 3 provides a new solution using the user context which can be retrieved using: HazelcastInstance.getUserContext. This method returns a ConcurrentMap where dependencies can be placed using some name as key. This makes it a lot easier to do a lookup for a dependency without relying on statics/singletons. The user context can be configured using the Config:
+\begin{lstlisting}[language=java]
+Config config = null;
+config.getUserContext().put("transactionManager", transactionManager);
+HazelcastInstance hz = Hazelcast.newHazelcastInstance(config);
+\end{lstlisting}
+This user context is a pure local data-structure so it will not be published to other members.
 
 \section{Good to know}
 

@@ -13,10 +13,6 @@ public class FibonacciCallable implements Callable<Long>, Serializable {
     }
 
     private long calculate(int n) {
-        if (Thread.currentThread().isInterrupted()) {
-            System.out.println("FibonacciCallable is interrupted");
-            throw new RuntimeException("Fibonacci is interrupted");
-        }
         if (n <= 1) return n;
         else return calculate(n - 1) + calculate(n - 2);
     }

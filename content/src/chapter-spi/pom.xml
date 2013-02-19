@@ -23,5 +23,6 @@
         <module>container</module>
         <module>partition-migration</module>
         <module>backups</module>
+        <module>notification</module>
     </modules>
 </project>

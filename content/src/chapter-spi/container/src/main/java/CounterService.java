@@ -40,4 +40,8 @@ public class CounterService implements ManagedService, RemoteService {
     @Override
     public void destroyDistributedObject(Object objectId) {
     }
+
+    @Override
+    public void reset() {
+    }
 }

@@ -16,7 +16,7 @@ public class MasterMember {
             long result = future.get(10, TimeUnit.SECONDS);
             System.out.println("Result: " + result);
         } catch (TimeoutException ex) {
-            System.out.println("A timeout happened, the future is cancelled");
+            System.out.println("A timeout happened");
             future.cancel(true);
         }
     }
