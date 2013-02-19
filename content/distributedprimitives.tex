@@ -39,7 +39,7 @@ Hazelcast only provides support for the long, but you can always simulate other 
 There is no support for an atomic reference, but if you need it you can build it on top of the IMap. The name of the reference could be the key and the value could be the reference value. The IMap implements the ConcurrentMap interface, so you can lift on atomic operations like replace(K key, V oldValue, V newValue). 
 
 \section{IdGenerator}
-In the beginning of this chapter we introduced the IAtomicLong and one of the things it can be used for is to generated unique id's within a cluster. Although it will work, it probably isn't the most scalable solution since all member will content on incrementing the value. If you are only interested in unique id's you can have a look at the com.hazelcast.core.IdGenerator.
+In previous section the IAtomicLong was introduced and one of the things it can be used for is to generated unique id's within a cluster. Although it will work, it probably isn't the most scalable solution since all member will content on incrementing the value. If you are only interested in unique id's you can have a look at the com.hazelcast.core.IdGenerator.
 
 The way the IdGenerator works is that each member claims a segment of 1 million id's to generate. This is done behind the scenes by using an IAtomicLong and claiming a segment is done by incrementing that IAtomicLong by a million. After claiming the segment, the IdGenerator can increment a local counter. Once all id's in the segment are used, it needs to claim a new segment. The consequence of this approach is that only 1 in a million times you need to do network traffic; so 999.999 out of 1.000.000 the id generation can be done in memory and is extremely fast. Another consequence is that this approach scales a lot better than an IAtomicLong because there is a lot less contention: 1 out of 1.000.000 instead of 1 out of 1.
 
@@ -72,7 +72,7 @@ A lock is a synchronization primitive that makes it possible that only a single 
 
 Hazelcast provides a distributed lock implementation and makes it possible to create a critical section within a cluster of JVM's; so only a single thread from one of the JVM's in the cluster is allowed to acquire that lock. Other threads that want to acquire the lock, no matter if they are on the same JVM's or not, will not be able to acquire it and depending on the locking method they called, they either block or fail. The com.hazelcast.core.ILock extends the java.util.concurrent.locks.Lock interface, so using the lock is quite simple.
 
-To show you how a race problem can be solved with a Hazelcast lock:
+The following example shows how a lock can be used to solve a race problem:
 \begin{lstlisting}[language=java]
 public class RaceFreeMember {
    public static void main(String[] args) throws Exception {

@@ -135,18 +135,16 @@ If the execution of the operation fails with an exception, a ExecutionException 
 
 Another exception that can be thrown while waiting for the Future to complete is the InterruptedException: caused by the calling thread to be interrupted while waiting. One way to deal with this exception is just to propagate it to indicate a calling thread that the call is a blocking call. Unfortunately this is not always an option or desirable. Another solution is to restore the interrupt state and to throw a (Runtime)Exception to indicate failure. 
 
-todo; can the operation be interrupted if the future.cancel is called? [mehmet: nop, cancellation is not supported]
-todo; will hazelcast take care of resending an operation to the correct machine when the partitionlock is exclusive? [mehmet: InvocationBuilder has tryCount (default 100) and tryPauseMillis (default 500ms) attributes. Hazelcast will try to resend to the correct owner until invocationCount reaches to defined tryCount.] 
+Currently it isn't possible to abort an Operation by calling the future.cancel. Perhaps this will be added in a later release.
 
 There are 4 types of operations:
 \begin{enumerate}
 \item Basic operations are executed always immediately, they don't require any lock and they don't wait any other operation.
-\item PartitionAwareOperation: will be executed on a specific partition. Before they are executed, the partition read-lock will be acquired preventing MigrationOperation from executing on that partition. If a MigrationOperation acquired the write-lock before the PartitionAwareOperation acquired the read-lock, a retry exception is returned to the caller so the operation can be redirected to the new partition owner. This exception will be handled by Hazelcast, but you can influence this behavior. You can change the number of retries (defaults to 100) and the retry 
-
-. [todo: on the caller side we need to deal with a retry exception, or is this already dealt with?] [mehmet: retry exceptions are dealt by Hazelcast by default, also operations can decide which action to take on each error, see; Operation.onException(Throwable throwable)]
+\item PartitionAwareOperation: will be executed on a specific partition. Before they are executed, the partition read-lock will be acquired preventing MigrationOperation from executing on that partition. If a MigrationOperation acquired the write-lock before the PartitionAwareOperation acquired the read-lock, a retry exception is returned to the caller so the operation can be redirected to the new partition owner. This exception will be handled by Hazelcast, but you can influence its behavior. By configuring the InvocationBuilder you can change the number of try counts (defaults to 100), the pause between retries (defaults to 500ms), But you can also Operations can deal with exceptions by overriding the Operation.onException(Throwable throwable) method.
 \item KeyBasedOperations extends PartitionAwareOperation and can specify key locks that prevent other KeyBasedOperations for the same key to execute on that key. The lock that is acquired for the key is an exclusive lock, so concurrent executions of  KeyBasedOperations for the same key is not possible. If this causes a performance/scalability problems, instead of relying on the exclusive locking are more fine grained custom approach can be applied. For example, if we want to introduce a Counter.get, we could store the counter value in a wrapper object as a volatile field so that only a volatile read is needed.
 \item MigrationOperation are the counter part of the PartitionAwareOperation since they acquire the write-lock on the partition so that no other PartitionAware, KeyBasedOperations and MigrationOperation can be executed on that partition for the duration of that write-lock. If the read or write-lock on the partition already is acquired, the call blocks until lock is released. [todo: timeout?] MigrationOperations should only be used by Hazelcast internally.
 \end{enumerate}
+
 
 In our example the IncOperation is going to make use of the KeyBasedOperation to prevent dealing with concurrency control ourselves:
 \begin{lstlisting}[language=java]

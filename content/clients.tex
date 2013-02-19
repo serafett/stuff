@@ -30,11 +30,7 @@ The client HazelcastInstance is created based on the com.hazelcast.client.Client
 
 First start the full member and then start the client, and we can see that "Hello!" is printed by the full member. We'll also see that the client never appears as member in the member listing.	
  
-\emph{Failover} for the client can be realized by explicitly configuring multiple member addresses in the ClientConfig to increase the chance that one of these members will be up and running. Once the client has connected to the cluster, it will keep up to date with all the member addresses of the cluster and not just the provided members.
-
-\emph{LoadBalancing}. If the client sees that a request needs to be send to a particular member or partition, it will try have the request executed directly at that member, otherwise the client will do a round robin over the full list of the cluster members, not just the list of the provided members in the ClientConfig. This is a big difference compared to Hazelcast 2.x where the request was always send to the same member, unless shuffle was enabled. Currently it isn't possible to inject some kind of load balancing strategy so you can load balance on memory usage, cpu load etc but perhaps this will be added in the future. The clients are thread-safe so you don't need to pool them.
-
-There can be hundreds, even thousands of clients connected to the cluster. But by default there are 40 threads on each member that will handle all the client request. This is configurable using the hazelcast.executor.client.thread.count property
+\emph{Failover} for the client can be realized by explicitly configuring multiple member addresses in the ClientConfig to increase the chance that one of these members will be up and running. Once the client has connected to the cluster, it will keep up to date with all the member addresses of the cluster, not just the provided members.
 
 \section{Configuration Options}
 In the client example, we did a minimal configuration of the ClientConfig and relied on defaults, but there is a lot that can be configured:
@@ -52,6 +48,20 @@ In the client example, we did a minimal configuration of the ClientConfig and re
 \item listeners: EventListener
 \end{enumerate}
 [todo: the client is still in progress, so properties might change]
+
+\section{LoadBalancing}.
+When a client connects to the cluster, it will have access to the full list of members and it will be kept in sync, even if the ClientConfig only had a subsection of members. If an operation needs to be send to a specific member, it will directly send it to that member. If a operation can be executed on any member, Hazelcast does automatic load balancing over all members in the cluster. The clients are thread-safe, and therefor can be called concurrently, so you don't need to pool them.
+
+One of the very new cool features of Hazelcast 3.0 is that the load balancing mechanism is pulled out into an interface:
+\begin{lstlisting}[language=java]
+public interface Router {
+   void init(HazelcastInstance hz);
+   Member next();
+}
+\end{lstlisting}
+This means that if you have specific load balancing requirements, e.g. load balance on cpu load, memory load, queue sizes etc, these requirements can be met by creating a custom Router implementation. I'm sure that in the next releases of Hazelcast some of these implementations will be provided out of the box. Router instances should not be shared between clients; every client should gets its own instance and the router can be configured from the ClientConfig.
+
+[todo: what is the default routing policy?]
 
 \section{Sharing classes}
 In some cases you need to share classes between the client and the server. Of course you can give all the classes from the server to the client, but in some cases this is undesirable; perhaps it would increase tight coupling, security/copyrights issues, increased client size etc. If you don't want to share all the classes of the server with the client, create a separate project (in Maven terms this could be a module) and share this project between client and server. I normally call this project the api project since it clearly defines the API of the system. 
