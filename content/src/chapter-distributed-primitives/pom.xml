@@ -19,9 +19,11 @@
 
     <modules>
         <module>atomiclong</module>
-        <module>lock</module>
-        <module>countdownlatch</module>
         <module>idgenerator</module>
+        <module>lock</module>
+        <module>condition</module>
+        <module>countdownlatch</module>
+        <module>cyclicbarrier</module>
         <module>semaphore</module>
     </modules>
 

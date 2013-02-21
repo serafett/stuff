@@ -28,7 +28,9 @@ public class CounterService implements ManagedService {
    }
 }
 \end{lstlisting}
-As you can see 2 methods are added: the init and the shutdown. These methods will be called by Hazelcast when the HazelcastInstance is initialized and is shutdown. The init method also received the NodeEngine, which provides access to the internals, like the PartitionService, of Hazelcast. The next step is to enable the CounterService; in our case we are going to make use of the hazelcast.xml:
+As you can see 2 methods are added: the init and the shutdown. These methods will be called by Hazelcast when the HazelcastInstance is initialized and is shutdown. The init method also received the NodeEngine, which provides access to the internals, like the PartitionService, of Hazelcast. The last method is the reset; this method will be called when members have run into the split-brain problem. This occurs when disconnected members that have created their own cluster are merged back into the main cluster. Services can also implement the SplitBrainHandleService to indicate that they can take part in the merge process. For the CounterService we are going to implement as a no-op.
+
+The next step is to enable the CounterService; in our case we are going to make use of the hazelcast.xml:
 \begin{lstlisting}[language=xml]
 <network>
    <join><multicast enabled="true"/> </join>
@@ -57,16 +59,16 @@ CounterService.init
 So the CounterService is eagerly started as part of the startup of the HazelcastInstance.
 
 \section{Proxy}
-In the previous section we created a CounterService that gets started when Hazelcast starts, but apart from that it doesn't do anything yet. In this section we are going connect the Counter interface to the CounterService and we are going to do a remote call on member hosting the actual counter data/logic and we'll return the result.
+In the previous section we created a CounterService that gets started when Hazelcast starts, but apart from that it doesn't do anything yet. In this section we are going connect the Counter interface to the CounterService and we are going to do a remote call on the member hosting the eventual counter data/logic and we'll return a dummy result.
 
-The first thing we are going to do is to let the Counter implement the DistributedObject interface to indicate that it is a distributed object. Also some methods will be exposed like getName,getId and destroy:
+The first thing we are going to do is to let the Counter implement the DistributedObject interface to indicate that it is a distributed object. Some additional methods will be exposed like getName, getId and destroy:
 \begin{lstlisting}[language=java]
 public interface Counter extends DistributedObject {
     int inc(int amount);
 }
 \end{lstlisting}
 
-The next step is fixing the CounterService. Apart from implementing the 'ManagedService' interface, it now also implements the 'RemoteService' interface. Through this interface a client will be able to get a handle of an Counter proxies. 
+The next step is fixing the CounterService. Apart from implementing the 'ManagedService' interface, it now also implements the 'RemoteService' interface. Through this interface a client will be able to get a handle of an Counter proxy. 
 \begin{lstlisting}[language=java]
 public class CounterService 
    implements ManagedService, RemoteService {
@@ -88,15 +90,15 @@ public class CounterService
 [todo: destroyDistributedObject] [mehmet: destroy is implemented for proxies extending AbstractDistributedObject]
 [todo: createDistributedObjectForClient] [mehmet: after my poc for binary client impl, we can change or remove this method!]
 
-As you can see the createDistributedObject returns a CounterProxy. This proxy is a local representation to (potentially) remote managed data/logic.  
+As you can see the createDistributedObject returns a CounterProxy. This proxy is a local representation to a (potentially) remote managed data/logic.  
 \begin{lstlisting}[language=java]
 public class CounterProxy 
       implements Counter {
    private final NodeEngine nodeEngine;
    private final String objectId;
    public CounterProxy(String objectId, NodeEngine e) {
-      this.nodeEngine = e;
-      this.objectId = objectId;
+      this.objectId = objectId;      
+      this.nodeEngine = e;  
    }
    public Object getId() {return objectId;}
    public String getName() {return objectId;}
@@ -126,7 +128,7 @@ The last part of the logic is actually invoking the Invocation and waiting for i
 If the execution of the operation fails with an exception, an ExecutionException is thrown and needs to be dealt with. Luckily Hazelcast provides a utility function for that: ExceptionUtil.rethrow(Throwable). If you want to keep the checked exception, you need to deal with exception handling yourself and the ExceptionUtil  is not of much use. 
 A nifty improvement for debugging is that that if remote exception is  stacktrace of the cause of the Exception is enhanced so that it includes client and serverside stacktrace. This way you can see on both sides which method caused problems.
 
-If the exception is an InterruptedException, you can do 2 things. Either propagate the InterruptedException since it is a good practice for blocking methods. In this case you first need to do something like this:
+If the exception is an InterruptedException, you can do 2 things. Either propagate the InterruptedException since it is a good practice for blocking methods like done below, or just use the ExceptionUtil.rethrow for all exceptions. 
 \begin{lstlisting}[language=java]
   try {
      final Future<Integer> future = invocation.invoke();
@@ -139,7 +141,7 @@ If the exception is an InterruptedException, you can do 2 things. Either propaga
 \end{lstlisting}
 In our case we don't care about the InterruptedException and therefor we catch all exceptions and let it be handled by the ExceptionUtil and it will be wrapped in a HazelcastException and the interrupt status will be set.
 
-Currently it isn't possible to abort an Operation by calling the future.cancel. Perhaps this will be added in a later release.
+Currently it isn't possible to abort an Operation by calling the future.cancel. Perhaps this will be added in a later release. This is also the reason why Executor Futures are not working since the executor is build on top of the SPI.
 
 There are 4 types of operations:
 \begin{enumerate}
