@@ -7,55 +7,55 @@ Today, especially with the introduction of cloud computing, it becomes more and 
 \begin{enumerate}
 \item Scalable: just add and remove machines to match required capacity 
 \item Highly available: if one or more machines in a system fail, the system should continue as if nothing happened.
-\item Performant: the performance per machine should be good enough to make it cost efficient.
+\item Performant: [yusuf: High performing or Efficient:] the performance per machine should be good enough to make it cost efficient.
 \end{enumerate}
 
-Hazelcast is an Open Source clustering and highly scalable data distribution platform for the JVM and supports the :
+Hazelcast is an Open Source clustering and highly scalable data distribution platform for the JVM and supports the [yusuf: replace "and supports the" with ". It is"]:
 \begin{enumerate}
-\item Dynamically scalable: this is done by making certain Hazelcast data-structures partitioned like the Hazelcast Map so that partitions can be evenly be spread among the members. When members join or leave the cluster, Hazelcast will automatically repartition.
-\item Highly available; not losing data after a JVM's crash. This is done by automatically replicating partition data on other cluster members. In case of a member going down, the system will automatically failover by restoring the backup. Another important design feature of Hazelcast is that there is no master member that can form a single point of failure; each member has equal responsibilities.
-\item Lightning-fast; Each Hazelcast member can do thousands of operations/second.
+\item Dynamically scalable: this is done by making certain Hazelcast data-structures partitioned like the Hazelcast Map so that partitions can be evenly be spread among the members.  [yusuf: This is done by making certain Hazelcast data-structures - like Hazelcast Map - partitioned so that partitions can be spread evenly among the members.] When members join or leave the cluster, Hazelcast will automatically repartition.
+\item Highly available; [yusuf: Highly available:] not losing data after a JVM's crash [yusuf: It does not lose data after a JVM crash]. This is done by automatically replicating partition data on other cluster members. In case of a member going down, the system will automatically failover by restoring the backup. Another important design feature of Hazelcast is that there is no master member that can form a single point of failure; each member has equal responsibilities.
+\item Lightning-fast; [yusuf: Lightning-fast:] Each Hazelcast member can do thousands of operations/ [yusuf: per] second.
 \end{enumerate}
 Hazelcast will not automatically spawn additional JVM's to become members in the cluster when the load exceeds a certain upper threshold because this is very environment specific so it will not fit you in a once size fits all solution. For the same reason it will not shutdown JVM's when the load exceeds a certain lower threshold.
 
-One of the things I like most about Hazelcast is that it isn't very intrusive; as a developer/architect you are in control how much Hazelcast you get in your system. You are not forced to mutilate objects so they can be distributed, forced to use specific (application) servers or complex api's or the need to install software; just add the Hazelcast jar to your classpath and you are done.
+One of the things I like most about Hazelcast is that it isn't very intrusive; as a developer/architect you are in control how much Hazelcast you get in your system. You are not forced to mutilate objects so they can be distributed, forced to use specific (application) servers or complex api's or the need to install software; just add the Hazelcast jar [yusuf: file] to your classpath and you are done.
 
-This freedom combined with very well thought out API's, in a lot of cases you can just use interfaces like java.util.concurrent.Executor, java.util.concurrent.BlockingQueue or java.util.Map, makes Hazelcast really a joy to work with. And can help with implementing highly available, scalable and performant systems, written in little time and based on very simple and elegant code.
-
+This freedom combined with very well thought out API's, in a lot of cases you can just use interfaces like java.util.concurrent.Executor, java.util.concurrent.BlockingQueue or java.util.Map, makes Hazelcast really a joy to work with. And can help with implementing highly available, scalable and performant systems, written in little time and based on very simple and elegant code.[yusuf: This freedom combined with very well thought out API (in a lot of cases, you can just use interfaces like java.utl.concurrent.Executor, java.util.concurrent.BlockingQueue or java.util.Map) makes Hazelcast really a joy to work with. So it helps you with implementing highly available, scalable and high-performing systems written in little time and based on a very simple, elegant code base]
+ 
 \subsection*{Who should read this book}
 This books aims at developers/architects that build applications on top of the JVM and want to get a better understanding of how to write distributed applications using Hazelcast. It doesn't matter if you are using Java or any other the other JVM based languages like Scala, Groovy, Clojure. It is even possible to call Hazelcast from .NET or C++ using the new Hazelcast 3 Portable and client functionality.
 
-If you are a developer that has no prior experience with Hazelcast then you will learn the basics to get up and running. If you already have some experience, it might be that you learn some new tricks since the book contains a lot of information not (yet) part of the Hazelcast manual.
+If you are a developer that has no prior experience with Hazelcast [yusuf: ,] then you will learn the basics to get [yusuf: it] up and running. If you already have some experience, it might be that you learn some new tricks since the book contains a lot of information [yusuf: that is] not (yet) part of the Hazelcast manual.
  
-\subsection*{What's is in this book}
-This book shows you how to make use of Hazelcast by going through most important features. It also includes the newest Hazelcast 3 improvements; some a minor but can have a huge impact on a system. Others are very big like the SPI which makes it possible to write your own distributed data-structures if you are not happy with the ones provides by Hazelcast.
+\subsection*{What's is in this book} [yusuf: What is in this book?]
+This book shows you how to make use of Hazelcast by going through most important features. It also includes the newest Hazelcast 3 improvements; [yusuf: .] some a minor [yusuf: Some of these improvements are minor change] but can have a huge impact on a system. Others are very big like the SPI which makes it possible to write your own distributed data-structures if you are not happy with the ones provides [yusuf: provided] by Hazelcast.
 
-In 'Chapter 1: Learning the Basics' you will learn how to download and set up Hazelcast and to create a basic project. You will also learn about some of the general Hazelcast concepts.
+In 'Chapter 1: Learning the Basics' [yusuf; ,] you will learn how to download and set up Hazelcast and to create a basic project. You will also learn about some of the general Hazelcast concepts.
 
-In 'Chapter 2: Distributed Primitives' you will learn how to use basic concurrency primitives like Lock, IAtomicLong, ISemaphore, ICountDownLoad and IdGenerator and about their advanced settings.
+In 'Chapter 2: Distributed Primitives' [yusuf; ,] you will learn how to use basic concurrency primitives like Lock [yusuf: ILock], IAtomicLong, ISemaphore, ICountDownLoad [yusuf: ICountDownLatch] and IdGenerator and about their advanced settings.
 
-In 'Chapter 3: Distributed Collections' you will learn how to make use of distributed collections like the IQueue, IList and ISet.
+In 'Chapter 3: Distributed Collections' [yusuf; ,] you will learn how to make use of distributed collections like the IQueue, IList and ISet.
 
-In 'Chapter 4: Distributed Map' you will learn about the IMap functionality; since functionality is very extensive, there is a whole topic about dealing with its configuration options like high availability, scalability etc. But also storage or using Hazelcast as a cache.
+In 'Chapter 4: Distributed Map' [yusuf; ,] you will learn about the IMap functionality; [yusuf: .] since functionality is very extensive [yusuf: Since use of this Interface is very extensive], there is a whole topic about dealing with its configuration options like high availability, scalability etc. But also storage or using Hazelcast as a cache [yusuf: You will also learn how to use Hazelcast as a cache and persist its values].
 
-In 'Chapter 5: Distributed Executor' you will learn about executing tasks using the distributed Executor. Using the executor you turn Hazelcast into a computing grid. 
+In 'Chapter 5: Distributed Executor' [yusuf; ,] you will learn about executing tasks using the distributed Executor. Using [yusuf: By using] the executor you turn Hazelcast into a computing grid. 
 
-In 'Chapter 6: Distributed Topic' you will learn about creating a publish/subscribe solution using the Distributed Topic functionality.
+In 'Chapter 6: Distributed Topic' [yusuf; ,] you will learn about creating a publish/subscribe solution using the Distributed Topic functionality.
 
-In 'Chapter 7: Hazelcast clients' you will lean about connecting to a Hazelcast cluster as a client. This topic not only deals with creating a client but also with more complex features like loadbalancing and failover.
+In 'Chapter 7: Hazelcast clients' [yusuf; ,] you will lean [yusuf: learn] about connecting to a Hazelcast cluster as a client. This topic not only deals with creating a client but also with more complex features like loadbalancing and failover.
 
-In 'Chapter 8: Serialization' you will learn more about the different serialization technologies that are supported by Hazelcast. Not only Java Serializable and Externalizable will be explained, but also the native Hazelcast serialization techniques like DataSerializable and the new Portable functionality.
+In 'Chapter 8: Serialization' [yusuf; ,] you will learn more about the different serialization technologies that are supported by Hazelcast. Not only Java Serializable and Externalizable will be explained, but also the native Hazelcast serialization techniques like DataSerializable and the new Portable functionality [yusuf: will be studied].
 
-In 'Chapter 9: Transactions' you will learn about transactions so that transactional data-structures are not left in an inconsistent state.
+In 'Chapter 9: Transactions' [yusuf; ,] you will learn about transactions [yusuf: Hazelcast's transaction support] so that transactional data-structures are not left in an inconsistent state.
 
-After that in 'Chapter 10: Network Configuration' you will learn about network configuration. You will learn about different member discovery mechanism like multicast, Amazon EC2, security. 
+After that in 'Chapter 10: Network Configuration' [yusuf; ,] you will learn about [yusuf: Hazelcat's] network configuration. You will learn about different member discovery mechanism like multicast, Amazon EC2, security [yusuf: and security]. 
 
-Next in 'Chapter 11: SPI' you will lean about integrating in the Hazelcast SPI to make first class distributed services yourself. This functionality perhaps is the most important new feature of Hazelcast 3.0.
+Next in 'Chapter 11: SPI' [yusuf; ,] you will lean [yusuf: learn] about integrating in [yusuf: about using] the Hazelcast SPI to make first class distributed services yourself. This functionality perhaps is the most important new feature of Hazelcast 3.0.
 
-Finally in 'Chapter 12: Performance'  you will learn more about performance tuning.  Out of the box a lot data-structures like the map have all kinds of default settings that are perhaps good for certain issues (like high availability) but could be impacting performance. 
+Finally in 'Chapter 12: Performance' [yusuf; ,]  you will learn more about performance tuning.  Out of the box a lot data-structures like the map have all kinds of default settings that are perhaps good for certain issues [yusuf: situations (?)] (like high availability) but could be impacting [yusuf: your] performance. 
 
 \subsection*{What you need}
-In Order to use Hazelcast you'll need a computer that is able to run Java 5+. If you don't have Java installed on your machine, you probably want to install Java 7: 
+In Order to use Hazelcast you'll need a computer that is able to run Java 5+. If you don't have Java installed on your machine, you [yusuf: will] probably want to install Java 7: 
 http://www.oracle.com/technetwork/java/javase/downloads/index.html. 
 
 To build the code examples for this book, make sure that Maven 3 is installed. Which can be downloaded from the following website: http://maven.apache.org.
@@ -67,10 +67,10 @@ There is a website for this book that contains a link to an interactive discussi
 
 The Hazelcast website and various other useful sites can be found here:
 \begin{enumerate}
-\item website: http://hazelcast.com/
-\item documentation: http://hazelcast.com/docs.jsp
-\item usergroup: http://groups.google.com/group/hazelcast
-\item email address usergroup: hazelcast@googlegroups.com
+\item website [yusuf: Hazelcast Website]: http://hazelcast.com/
+\item documentation [yusuf: Hazelcast Documentation]: http://hazelcast.com/docs.jsp
+\item usergroup [yusuf: Usergroup]: http://groups.google.com/group/hazelcast
+\item email address usergroup [yusuf: Usergroup's email address]: hazelcast@googlegroups.com
 \item Hazelcast on Github: https://github.com/hazelcast/hazelcast/
 \end{enumerate}
-Building distributed systems on Hazelcast really is joy to do and I hope I can make you as enthusiastic about it as I am. So lets get started with building distributed applications you can be proud of.
+Building distributed systems on Hazelcast really is joy to do [yusuf: on Hazelcast is really a joy to do] and I hope I can make you as enthusiastic about it as I am. So lets get started with building distributed applications you can be proud of.
