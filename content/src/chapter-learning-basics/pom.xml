@@ -23,6 +23,7 @@
         <module>wildcard-configuration</module>
         <module>multiple-hazelcast-instances</module>
         <module>loading-instances</module>
+        <module>unique-names</module>
         <module>destroying-instances</module>
         <module>configure-logging</module>
     </modules>

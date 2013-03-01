@@ -23,7 +23,6 @@
         <module>lock</module>
         <module>condition</module>
         <module>countdownlatch</module>
-        <module>cyclicbarrier</module>
         <module>semaphore</module>
     </modules>
 

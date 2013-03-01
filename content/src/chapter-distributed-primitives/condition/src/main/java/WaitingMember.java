@@ -7,7 +7,7 @@ public class WaitingMember {
         ILock lock = hz.getLock("lock");
 
         System.out.println("Starting wait");
-        ICondition condition = lock.newCondition();
+        ICondition condition = lock.newCondition("condition");
 
         lock.lock();
         try {

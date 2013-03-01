@@ -77,4 +77,8 @@ public class CounterService implements ManagedService, RemoteService, MigrationA
     @Override
     public void destroyDistributedObject(Object objectId) {
     }
+
+    @Override
+    public void reset() {
+    }
 }

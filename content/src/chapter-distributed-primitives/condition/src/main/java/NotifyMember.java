@@ -5,7 +5,7 @@ public class NotifyMember {
         HazelcastInstance hz = Hazelcast.newHazelcastInstance();
         IAtomicLong counter = hz.getAtomicLong("counter");
         ILock lock = hz.getLock("lock");
-        ICondition condition = lock.newCondition();
+        ICondition condition = lock.newCondition("condition");
         lock.lock();
         try {
             counter.set(1);
