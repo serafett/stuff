@@ -5,11 +5,11 @@ public class NotifyMember {
         HazelcastInstance hz = Hazelcast.newHazelcastInstance();
         IAtomicLong counter = hz.getAtomicLong("counter");
         ILock lock = hz.getLock("lock");
-        ICondition condition = lock.newCondition("condition");
+        ICondition isOneCondition = lock.newCondition("isOne");
         lock.lock();
         try {
             counter.set(1);
-            condition.signalAll();
+            isOneCondition.signalAll();
         } finally {
             lock.unlock();
         }

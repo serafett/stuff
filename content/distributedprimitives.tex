@@ -110,57 +110,70 @@ A few things worth knowing about the Hazelcast lock and locking in general:
 \item Just like with the other Lock implementations, it should always be acquired outside of a try/finally block. Else it can happen that the lock acquire failed, but an unlock is still executed. 
 \item Keep locks as short as possible. If locks are kept too long, it can lead to performance problems or worse: deadlock.
 \item With locks it is easy to run into deadlocks if you don't know what you are doing; so make sure that you do. Having code you don't control running inside your locks is asking for problems. Make sure you understand exactly the scope of the lock. 
-\item To reduce the chance of a deadlock, the tryLock methods can be used that control the waiting period. The lock.lock() method will not block indefinitely, but will timeout with a OperationTimeoutException after 300 seconds.  
-\item Locks are automatically released when a member has acquired a lock and this member goes down. This prevents threads that are waiting for a lock to wait indefinitely and needed for failover to work in a distributed system. The downside however is that if a member goes down that acquired the lock and started making changes, that other members could start to see partial changes. In these cases either the system could do some self repair or else a transaction potentially can solve the problem.
-\item a lock must always be released by the same lock that acquired it, otherwise look at the ISemaphore.
-\item locks are fair, so locks will be granted in the order they are requested.
-\item there are no configuration options available for the lock
-\item you can ask the lock if it is locked using the ILock.isLocked method.
-\item a lock can be forced to unlock using the ILock.unlock method. This should be used with extreme care since it could stop a critical section from being locked. 
+\item To reduce the chance of a deadlock, the Lock.tryLock methods can be used to control the waiting period. The lock.lock() method will not block indefinitely, but will timeout with a OperationTimeoutException after 300 seconds.  
+\item Locks are automatically released when a member has acquired a lock and this member goes down. This prevents threads that are waiting for a lock to wait indefinitely and needed for failover to work in a distributed system. The downside however is that if a member goes down that acquired the lock and started making changes, other members could start to see partial changes. In these cases either the system could do some self repair or else a transaction might solve the problem.
+\item A lock must always be released by the same thread that acquired it, otherwise look at the ISemaphore.
+\item Locks are fair, so locks will be granted in the order they are requested.
+\item There are no configuration options available for the lock
+\item You can ask the lock if it is locked using the ILock.isLocked method.
+\item a lock can be forced to unlock using the ILock.forceUnlock() method. It should be used with extreme care since it could break a critical section. 
+\item The Hazelcast.getLock doesn't work on name of type String, but can be key of any type. This key will be serialized and the byte array content determines the actual lock to acquire. So if you are passing in an object as key, it isn't the monitor lock of that object that is being acquired.
 \end{enumerate}
 
-[todo: lock doesn't work on name, but can be any object.. important to realize that it isn't the monitor lock of that particular 'name' you are acquiring]
-
 \section{ICondition}
-One of the new features of Hazelcast 3 is support for the ICondition which extends the java.util.concurrent.locks.Condition. Each lock can have mulitple conditions (e.g. queue full, queue empty) There is 1 difference, with the normal Java version you can create condition and depends on its reference to identify which condition you are waiting for. With Hazelcast this isn't possible since different members can't share a object reference. That is why an id is needed to identify the condition.
+With a Condition it is possible to wait for certain conditions to happen, e.g. to wait for an item to be placed on a queue. Each lock can have mulitple conditions e.g. item available in queue and room available in queue. In Hazelcast 3 the ICondition, which extends the java.util.concurrent.locks.Condition, has been added.
 
+There is 1 difference, with the normal Java version, you can create a condition using the Lock.newCondition() method. Unfortunately this doesn't work in a distributed environment since Hazelcast has no way of knowing if Conditions created on different members are the same condition or not. That is why a condition needs to be created using the ICondition.newCondition(String name) method.
+
+In the following example we are going to create a member that waits for a counter to have a certain value. And another that will set the value. So lets get started with the waiting member:
 \begin{lstlisting}[language=java]
 public class WaitingMember {
    public static void main(String[] args) throws InterruptedException {
       HazelcastInstance hz = Hazelcast.newHazelcastInstance();
       IAtomicLong counter = hz.getAtomicLong("counter");
       ILock lock = hz.getLock("lock");
-      System.out.println("Starting wait");
-      ICondition condition = lock.newCondition("condition");
+      ICondition isOneCondition = lock.newCondition("one");
       lock.lock();
       try {
-         while (counter.get() != 1) {
-            condition.await();
+         while (counter.get() != 1) {}
+            System.out.println("Waiting");
+            isOneCondition.await();
          }
       } finally {
          lock.unlock();
       }
-      System.out.println("Wait finished");
+      System.out.println("Wait finished, counter: "+counter.get());
    }
 }
 \end{lstlisting}
+As you can see the lock is acquired first and then in a loop the condition is counter is checked. As long as the counter is not 1, the waiter will wait on the isOneCondition. Once the isOneCondition.await() method is called, Hazelcast will automatically release the lock so that a different thread can acquire it. Once the isOneCondition is signaled, Hazelcast will automatically reacquire the lock. This is exactly the same behavior as the JDK provides.
 
+If the WaitingMember is started, it will output:
+\begin{lstlisting}
+Waiting 
+\end{lstlisting}
+The next part will be the NotifyMember where the Lock is acquired, the value set to 1 and the isOneCondition will be signaled: 
 \begin{lstlisting}[language=java]
 public class NotifyMember {
    public static void main(String[] args) throws InterruptedException {
       HazelcastInstance hz = Hazelcast.newHazelcastInstance();
       IAtomicLong counter = hz.getAtomicLong("counter");
       ILock lock = hz.getLock("lock");
-      ICondition condition = lock.newCondition("condition");
+      ICondition isOneCondition = lock.newCondition("isOne");
       lock.lock();
       try {
          counter.set(1);
-         condition.signalAll();
+         isOneCondition.signalAll();
       } finally {
          lock.unlock();
       }
    }
 }
+\end{lstlisting}
+After the NotifyMember is started, the WaitingMember will display:
+\begin{lstlisting}
+Waiting 
+Wait finished, counter: 1
 \end{lstlisting}
 
 spurious wakeups. 

@@ -257,11 +257,12 @@ public class Person implements Serializable, HazelcastInstanceAware {
    }
 }
 \end{lstlisting}
-After this person is deserialized, Hazelcast will check if the object implements HazelcastInstanceAware and will call the setHazelcastInstance method. The hz field needs be transient since it should not be serialized. 
+After this person is deserialized, Hazelcast will check if the object implements HazelcastInstanceAware and will call the setHazelcastInstance method. The hz field needs be transient since it should not be serialized. This technique also works for Externalizable, DataSerializable and Portable.
 
 Obtaining other dependencies than a HazelcastInstances is a bit more complicated in Hazelcast 2.x. Often the only way out is to rely on some form of singleton. But luckily Hazelcast 3 provides a new solution using the user context which can be retrieved using: HazelcastInstance.getUserContext. This method returns a ConcurrentMap where dependencies can be placed using some String as key. This makes it a lot easier to do a lookup for a dependency without relying on statics/singletons. The user context can be configured using the Config:
 \begin{lstlisting}[language=java]
 Config config = new Config();
+FooBar foobar = new FooBar();
 config.getUserContext().put("foobar", foobar);
 HazelcastInstance hz = Hazelcast.newHazelcastInstance(config);
 \end{lstlisting}

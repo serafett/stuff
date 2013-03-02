@@ -5,20 +5,17 @@ public class WaitingMember {
         HazelcastInstance hz = Hazelcast.newHazelcastInstance();
         IAtomicLong counter = hz.getAtomicLong("counter");
         ILock lock = hz.getLock("lock");
-
-        System.out.println("Starting wait");
-        ICondition condition = lock.newCondition("condition");
+        ICondition isOneCondition = lock.newCondition("isOne");
 
         lock.lock();
         try {
-            System.out.println("Lock acquired");
             while (counter.get() != 1) {
-                condition.await();
-                System.out.println("Waiting ");
+                System.out.println("Waiting");
+                isOneCondition.await();
             }
         } finally {
             lock.unlock();
         }
-        System.out.println("Wait finished");
+        System.out.println("Wait finished, counter: "+counter.get());
     }
 }
