@@ -16,7 +16,7 @@ public class Person implements Serializable {
    }
 }
 \end{lstlisting}
-When this class is serialized, all non static non transient fields will automatically be serialized. Also make sure that a serialVersionUID is added since this prevents the JVM from calculating one on the fly which can lead to all kinds of class compatibility issues. In the examples they are not added to reduce space, but for production code there is no excuse.
+When this class is serialized, all non static non transient fields will automatically be serialized. Also make sure that a serialVersionUID is added since this prevents the JVM from calculating one on the fly which can lead to all kinds of class compatibility issues. In the examples they are not always added to reduce space, but for production code there is no excuse.
 
 \section{Externalizable}
 Another serialization technique supported by Hazelcast is the java.io.Externalizable which provides more control on how the fields are serialized/deserialized and can also help to improve performance compared to standard Java serialization. An example of the Externalizable in action:
@@ -36,7 +36,7 @@ public class Person implements Externalizable {
    }
 }
 \end{lstlisting}
-As you can see the writing and reading of fields is explicit. Unlike the Serializable, the serialVersionUID is not required.
+As you can see the writing and reading of fields is explicit and reading needs to be done in the same order as writing. Unlike the Serializable, the serialVersionUID is not required.
 
 \section{DataSerializable}
 Although Java serialization is very easy to use, it comes at a price:
@@ -61,10 +61,10 @@ public class Person implements DataSerializable {
    }
 }
 \end{lstlisting}
-As you can see it looks a lot like the Externalizable functionality since also an explicit serialization of the fields is done. 
+As you can see it looks a lot like the Externalizable functionality since also an explicit serialization of the fields is done. Just like the Externalizable, the reading fields needs to be done in the same order as they are written.
 
 \section{Portable}
-With the introduction of Hazelcast 3.0 a new serialization mechanism has been added: the Portable. To demonstrate how Portable mechanism works, lets create a Portable version of the Person class:
+With the introduction of Hazelcast 3.0 a new serialization mechanism is added: the Portable. To demonstrate how the Portable mechanism works, lets create a Portable version of the Person class:
 \begin{lstlisting}[language=java]
 public class Person implements Portable {
    private String name;
@@ -91,7 +91,7 @@ public class Person implements Portable {
    }
 }
 \end{lstlisting}
-As you can see, the write of the name include the field name, making it possible to read particular fields without being forced to read all.  Unlike the DataSerializable, the order in which fields are being read/written isn't important since reading/writing is based  on name. Also an no-arg constructor is needed so that it can be initialized from the PortableFactoryImpl, but if you place it in the same package you could give it a package friendly access modifier to reduce visibility. The last interesting method is the 'getClassId' which returns the identifier of that class; each Portable class needs to have a unique class id (a non zero value).
+As you can see, the write of the name include the field name, making it possible to read particular fields without being forced to read all. This is useful for querying and indexing because it reduces overhead because deserialization isn't needed. Unlike the DataSerializable, the order of reading and writing fields isn't important since it is based on name. Also an no-arg constructor is added so that it can be initialized from the PortableFactoryImpl, but if you place it in the same package you could give it a package friendly access modifier to reduce visibility. The last interesting method is the 'getClassId' which returns the identifier of that class; each Portable class needs to have a unique class id (a non zero value).
 
 The next step is the 'PortableFactory' which is responsible for creating a new Portable instance based on the class id. In our case the implementation is very simple since we only have a single Portable class:
 \begin{lstlisting}[language=java]
@@ -107,7 +107,9 @@ public class PortableFactoryImpl implements PortableFactory {
      }
 }
 \end{lstlisting}
-But in practice the switch case probably will be a lot bigger. If an unmatched classId is encountered, null should be returned which will lead to a HazelcastSerializationException. The cool thing about the PortableFactory is that object creation is pulled into userspace, so you control the initialization of the Portable instances. For example you could inject dependencies or you could even decide to move the construction of the Portable to a prototype bean in a Spring container. The last step is to connect the PortableFactory to the Hazelcast configuration:
+But in practice the switch case probably will be a lot bigger. If an unmatched classId is encountered, null should be returned which will lead to a HazelcastSerializationException. The cool thing about the PortableFactory is that object creation is pulled into user space, so you control the initialization of the Portable instances. For example you could inject dependencies or you could even decide to move the construction of the Portable from a prototype bean in a Spring container. 
+
+The last step is to connect the PortableFactory to the Hazelcast configuration:
 \begin{lstlisting}[language=xml]
 <serialization>
     <portable-factory-class>PortableFactoryImpl</portable-factory-class>
@@ -131,9 +133,9 @@ Serialize
 Deserialize
 Person(name=Peter)
 \end{lstlisting}
-As you can see the Person is serialized when it is stored in the map and it is deserialized when it is read. You might ask why Serialize is called twice. This is because for every Portable class that is serialized, for the first time, Hazelcast generates a new class that supports the serialization/deserialization process. 
+As you can see the Person is serialized when it is stored in the map and it is deserialized when it is read. You might ask why Serialize is called twice. This is because for every Portable class, the first time it is (de)serialized, Hazelcast generates a new class that supports the serialization/deserialization process. 
 
-The names of the fields are case sensitive and need to be valid java identifiers and therefor should not contains '.' or '-' for example. 
+The names of the fields are case sensitive and need to be valid java identifiers and therefor should not contain '.' or '-' for example. 
 
 \subsection{DataSerializable vs Portable}
 Portable supports versioning and is language/platform independent which makes it useful for client/cluster communication. Another advantage is that is very performant for map queries, since it avoids full serialization because data can be retrieved on the field level. Otherwise, if the serialization only is needed for intra cluster communication, then DataSerializable is still a good alternative.
@@ -162,6 +164,9 @@ Serialization of the DistributedObject is not provided out of the box, so you ca
 One solution is to pass the id of the DistributedObject, perhaps in combination with the type. When deserializing look up the object in the HazelcastInstance; e.g. in case of a IQueue you can call HazelcastInstance.getQueue(id) or the Hazelcast.getDistributedObject. Passing the type is useful if you don't know the type of the DistributedObject.
 
 If you are deserializing your own Portable Distributed Object object and it receives an id that needs to be looked up; the class can implement the HazelcastInstanceAware interface: [reference to HazelcastInstanceAware section]. To because the HazelcastInstance is set after deserialization, you need to store the id's first and you could do the actual retrieval of the DistributedObjects in the setHazelcastInstance method.
+
+\subsection{Serializing raw data}
+When using the Portable functionality, the fieldname is added so that the fields can be retrieved easily and that te field can be indexed and used within queries without needing to deserialize the object. But in some cases this can be a lot of overhead. If this is an issue, it is possible to write raw data using the PortableWriter.getRawDataOutput() method and can be read using the PortableReader.getRawDataInput() method. Reading an writing raw data should be the last reading and writing operations on the PortableReader and PortableWriter.
 
 \subsection*{Cycles}
 One thing to look out for, this also goes for the DataSerializable, are cycles between objects because it can lead to a stack overflow. Standard Java serialization protects against this, but since manual traversal is done in Portable objects, there is no out of the box protection. If this is an issue, you could store a map in a ThreadLocal that can be used to detect cycles and a special placeholder value could be serialized to end the cycle.
@@ -254,17 +259,25 @@ public class Person implements Serializable, HazelcastInstanceAware {
 \end{lstlisting}
 After this person is deserialized, Hazelcast will check if the object implements HazelcastInstanceAware and will call the setHazelcastInstance method. The hz field needs be transient since it should not be serialized. 
 
-Obtaining other dependencies than a HazelcastInstances can be a bit more complicated. Often the only way out is to rely on some form of singleton. But luckily Hazelcast 3 provides a new solution using the user context which can be retrieved using: HazelcastInstance.getUserContext. This method returns a ConcurrentMap where dependencies can be placed using some name as key. This makes it a lot easier to do a lookup for a dependency without relying on statics/singletons. The user context can be configured using the Config:
+Obtaining other dependencies than a HazelcastInstances is a bit more complicated in Hazelcast 2.x. Often the only way out is to rely on some form of singleton. But luckily Hazelcast 3 provides a new solution using the user context which can be retrieved using: HazelcastInstance.getUserContext. This method returns a ConcurrentMap where dependencies can be placed using some String as key. This makes it a lot easier to do a lookup for a dependency without relying on statics/singletons. The user context can be configured using the Config:
 \begin{lstlisting}[language=java]
-Config config = null;
-config.getUserContext().put("transactionManager", transactionManager);
+Config config = new Config();
+config.getUserContext().put("foobar", foobar);
 HazelcastInstance hz = Hazelcast.newHazelcastInstance(config);
+\end{lstlisting}
+And the dependency can be retrieved like this:
+\begin{lstlisting}[language=java]
+FooBar fooBar = hz.getUserContext().get("foobar");
 \end{lstlisting}
 This user context is a pure local data-structure so it will not be published to other members.
 
 \section{Good to know}
 
-\emph{Caution} Unlike the DataSerializable, the Portable functionality is allowed to call operations on Hazelcast that leads to new serialize/deserialize operations and doesn't run into StackOverflowErrors. [todo: is this still valid?]
+\emph{Nested operations:} DataSerializable and Portable instances are allowed to call operations on Hazelcast that leads to new serialize/deserialize operations and unlike Hazelcast 2.x it doesn't lead to StackOverflowErrors.
+
+\emph{No thread-safety provided:} Hazelcast will not provide synchronization on serialization infrastructure, e.g. classes implementing (Data)Serializable, Portable but also not on support structures like TypeSerializer or PortableFactory. In most cases this isn't an issue since either the instances will be used in isolation, or are immutable.
+
+\empth{Encryption for in memory storage:} In some cases, having raw data in memory, is a potential security risk. This problem can be solved by modifying the serialization behavior of the class so that it encrypts the data on writing and decrypts on reading. In some cases, e.g. storing a String in a map, the instance needs to be wrapped in a different type (e.g. EncryptedPortableString) to override the serialization mechanism.
 
 \section{What is next}
 In this chapter we have seen different forms of serialization; making serialization extremely flexible, especially with the Portable and the TypeSerializers. In most cases this will be more than sufficient. But if you ever run into a limitation you could, create a task in http://github.com/hazelcast/hazelcast and perhaps it will be added to the next Hazelcast release.
