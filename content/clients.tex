@@ -75,7 +75,7 @@ One advice; watch out with sharing domain objects between client and server beca
 \section{What happened to the lite member?}
 If you have been using Hazelcast 2.x you might remember the lite member. The lite member participates as a cluster member, but isn't responsible for hosting any partitions. 
 
-One advantage of a lite member compared to a native client was that the latter didn't know about routing requests to the correct members and therefor was less performant. But with Hazelcast 3.x this limitation is removed and therefor the lite member doesn't serve a purpose anymore.
+One advantage of a lite member compared to a native client, was that the latter didn't know about routing requests to the correct members and therefor was less performant. But with Hazelcast 3.x this limitation is removed and therefor the lite member doesn't serve a purpose anymore.
 
 One disadvantage of the lite member is that because they are seen as member in the cluster and therefor send heartbeats/pings to each other and check each others statuses continuously. So if the number of lite members compared to the number of real members, is high, and clients join/leave frequently, it can influence the health of the cluster. 
 

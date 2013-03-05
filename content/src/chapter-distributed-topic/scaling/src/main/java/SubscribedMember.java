@@ -4,7 +4,7 @@ import java.util.Date;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
-public class MultiThreadedSubscribedMember {
+public class SubscribedMember {
     public static void main(String[] args) {
         HazelcastInstance hz = Hazelcast.newHazelcastInstance();
         ITopic<Date> topic = hz.getTopic("topic");

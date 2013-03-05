@@ -18,7 +18,7 @@ class EchoService{
 \end{lstlisting}
 So while a worker thread is processing the task, the thread that submitted the task is free to work asynchronously. There is virtually no limit in what you can do in a task; complex database operations, intensive cpu or IO operations, render images etc. 
 
-The problem in a distributed system however is that the default implementation of the Executor, the ThreadPoolExecutor, is designed to run within a single JVM. In a distributed system you want that a task submitted in one JVM, can be processed in another. Luckily Hazelcast provides the IExecutorService, that extends the java.util.concurrent.ExecutorService, but is designed to be used in a distributed environment. The IExecutorService is a new feature of Hazelcast 3.x.
+The problem in a distributed system however is that the default implementation of the Executor, the ThreadPoolExecutor, is designed to run within a single JVM. In a distributed system you want that a task submitted in one JVM, can be processed in another. Luckily Hazelcast provides the IExecutorService, that extends the java.util.concurrent.ExecutorService, but is designed to be used in a distributed environment. The IExecutorService is a new in Hazelcast 3.x.
 
 Lets start with a very simple example of IExecutorService where a task is executed that does some waiting and echoes a message:
 \begin{lstlisting}[language=java]
@@ -362,6 +362,8 @@ As you can see, the thread that submitted the tasks to be executed, was not bloc
 \emph{Destroying Executors:} you need to be careful when shutting down an IExecutorService because it will shutdown all corresponding executor in every member and subsequent calls to proxy will result in a RejectedExecutionException. When the executor is destroyed and later a HazelcastInstance.getExecutorService is done with the id of the destroyed executor a new executor will be created as if the old one never existed.
 
 \emph{Executors doesn't log exceptions:} when a task fails with an exception (or an error), this exception will not be logged by Hazelcast. This is in line with the ThreadPoolExecutorService from Java and it can be really annoying when you are spending a lot of time on why something doesn't work. It can easily be fixed; either add a try/catch in your runnable and log the exception. Or wrap the runnable/callable in a proxy that does the logging; the last option will keep your code a bit cleaner. 
+
+\emph{HazelcastInstanceAware:} When a task is deserialized, in a lot of cases you need to get access to the HazelcastInstance. This can be done by letting the task implement HazelcastInstanceAware. For more information see [chapter Serialization:HazelcastInstanceAware]
 
 \section{What is next}
 In this chapter we explored the distributed execution of tasks using the Hazelcast ExecutorService.....

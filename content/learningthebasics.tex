@@ -9,7 +9,7 @@ Hazelcast can be downloaded from http://www.hazelcast.com/downloads.jsp and you 
 
 \includegraphics[scale=0.60]{hazelcast-editions.png}
 
-For the purpose of this book we'll use the community edition. If your project relies on Maven, there is no need to install Hazelcast at all, see [link to Hazelcast and Maven]. Otherwise make sure that the Hazelcast jar is added to the classpath. Apart from this jar, there is no need to install Hazelcast.  The lack of an installation process for Hazelcast is something I really like because it saves quite a lot of time, time that can be used to solve real problems instead of environmental ones.
+For the purpose of this book we'll use the community edition. If your project uses Maven, there is no need to install Hazelcast at all, see [link to Hazelcast and Maven]. Otherwise make sure that the Hazelcast jar is added to the classpath. Apart from this jar, there is no need to install Hazelcast.  The lack of an installation process for Hazelcast is something I really like because it saves quite a lot of time, time that can be used to solve real problems instead of environmental ones.
 
 \section{Hazelcast and Maven}
 Hazelcast is very easy to include in your Maven 3 project without needing to go through a complex installation process. Hazelcast can be found in the standard Maven repositories, so you do not need to add additional repositories to the pom. To include Hazelcast in your project, just add the following to your pom:
@@ -22,7 +22,7 @@ Hazelcast is very easy to include in your Maven 3 project without needing to go 
    </dependency>
 </dependencies>
 \end{lstlisting}
-That is it. Make sure that you check the Hazelcast website to make use of the most recent version. After this dependency is added, Maven will automatically downloaded the dependencies needed.
+That is it. Make sure that you check the Hazelcast website to make use of the most recent version. After this dependency is added, Maven will automatically download the dependencies needed.
 
 \section{Configuring Hazelcast}
 Hazelcast can be configured in different ways:
@@ -31,7 +31,7 @@ Hazelcast can be configured in different ways:
 \item XML configuration 
 \item Spring configuration
 \end{enumerate}
-The programmatic configuration is the most essential one, the other mechanisms are build on top of it. In this book we'll use the xml configuration file since that is the shortest. When you are running a Maven project; just add a resources directory under src/main/ and add a file 'hazelcast.xml'. The following shows an empty configuration:
+The programmatic configuration is the most essential one, the other mechanisms are build on top of it. In this book we'll use the xml configuration file since that is the shortest. When you are running a Maven project; just create a resources directory under src/main/ and create a file 'hazelcast.xml'. The following shows an empty configuration:
 \begin{lstlisting}[language=xml]
 <hazelcast 
    xsi:schemaLocation="http://www.hazelcast.com/schema/config                               
@@ -40,7 +40,7 @@ The programmatic configuration is the most essential one, the other mechanisms a
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 </hazelcast>
 \end{lstlisting}
-This example also imports an XML schema (XSD) for validation and if you are using an IDE, you probably get code completion. To reduce the size of the examples in the book, only the elements inside the <hazelcast> tags are provided. In the sources for the book you can find the full xml configuration. Another thing you might run into is the strange formatting of the java code; this is also done to reduce the size. 
+This example also imports an XML schema (XSD) for validation. If you are using an IDE, you probably get code completion. To reduce the size of the examples in the book, only the elements inside the <hazelcast> tags are listed. In the sources for the book you can find the full xml configuration. Another thing you might run into is the strange formatting of the java code; this is also done to reduce the size. 
 
 In most of our examples we will rely on multicast for member discovery so that the members will join the cluster:
 \begin{lstlisting}[language=xml]
@@ -61,12 +61,12 @@ public class Main {
 \end{lstlisting}
 The mechanism uses the following alternatives to resolve the configuration:
 \begin{enumerate}
-\item first checks if the 'hazelcast.config' system property is set; if it is, then the value is used as path. This is useful if you want to choose on startup of the application which hazelcast configuration file should be used. The config option can be set by adding the following to the java command: '-Dhazelcast.config=<path to the hazelcast.xml>'. The value can be a normal file path, but can also be a classpath reference if it is prefixed with 'classpath:'. 
-\item else it checks if there is a 'hazelcast.xml' in the working directory.
-\item after that it check if there is a 'hazelcast.xml' on the classpath. 
-\item finally loads the default hazelcast configuration 'hazelcast-default.xml' that is part of the Hazelcast jar
+\item First checks if the 'hazelcast.config' system property is set; if it is, then the value is used as path. This is useful if you want to choose the application which hazelcast configuration file should be used on startup. The config option can be set by adding the following to the java command: '-Dhazelcast.config=<path to the hazelcast.xml>'. The value can be a normal file path, but can also be a classpath reference if it is prefixed with 'classpath:'. 
+\item Else it checks if there is a 'hazelcast.xml' in the working directory.
+\item After that it check if there is a 'hazelcast.xml' on the classpath. 
+\item Finally loads the default hazelcast configuration 'hazelcast-default.xml' that is part of the Hazelcast jar
 \end{enumerate}
-Also be careful to check the Hazelcast output when you are relying on an hazelcast.xml file. If it contains errors, Hazelcast will not abort the startup but will default to the 'hazelcast-default.xml'. When this happens, the system could behave completely different than you would expect.
+Also be careful to check the Hazelcast logging when you are relying on an hazelcast.xml file. If it contains errors, Hazelcast will not abort the startup but will default to the 'hazelcast-default.xml'. When this happens, the system could behave completely different than you would expect.
 
 Another option to load a HazelcastInstance, is to make use of programmatic configuration, e.g: 
 \begin{lstlisting}[language=java]
@@ -82,7 +82,7 @@ public class Main {
    }
 }
 \end{lstlisting}
-The Hazelcast Config object has a fluent interface; meaning that the Config instance is returned when a config method on this instance is called. This makes chaining method calls very easy. The programmatic configuration is not only very useful for testing, but it also a solution for the static nature of the XML configuration. The content of the programmatic configuration can easily be created on the fly, e.g. based on database content. You could even decide to move the 'static' configuration to the hazelcast.xml, load this and then modify the dynamic parts, e.g. the network configuration.
+The Hazelcast Config object has a fluent interface; meaning that the Config instance is returned when a config method on this instance is called. This makes chaining method calls very easy. The programmatic configuration is not only very useful for testing, but it also a solution for the static nature of the XML configuration. The content of the programmatic configuration can easily be created on the fly, e.g. based on database content. You could even decide to move the 'static' configuration to the hazelcast.xml, load it and then modify the dynamic parts, e.g. the network configuration.
 
 In Hazelcast releases prior to 3.0, there was functionality for a static default HazelcastInstance, so you could say: 'Queue q = Hazelcast.getQueue("foo")'. This functionality has been removed because it lead to confusion when explicit created HazelcastInstances are combined with calls to the implicit default HazelcastInstance. So you probably want to keep a handle to the Hazelcast instance somewhere for future usage.
 
@@ -126,9 +126,9 @@ public class Member {
 \end{lstlisting}
 For most of the DistributedObjects you can find a get method on the HazelcastInstance. In case you are writing custom distributed data-structures using the SPI [reference to spi chapter], you can make use of the HazelcastInstance.getDistributedObject. One thing worth mentioning is that most of the DistributedObjects defined in the configuration are created lazily; so they are only created on the first operation that accesses them.
 
-To learn more about the queue and its configuration check [reference to Distributed Collections: Queue]
+To learn more about the queue and its configuration check [reference to Distributed Collections: Queue].
 \subsection{Unique names}
-Some of the data-structures will be static; they will be created and used through the application and the id's of these objects will be known up front. Other data-structures are going to be created on the fly. One of the problems is finding unique names when new data-structures need to be created. One of the solutions to this problem is to make use of the IdGenerator which will generate cluster wide id's. 
+Some of the data-structures will be static; they will be created and used through the application and the id's of these objects will be known up front. Other data-structures are going to be created on the fly. One of the problems is finding unique names when new data-structures need to be created. One of the solutions to this problem is to make use of the IdGenerator which will generate cluster wide unique id's. 
 
 \begin{lstlisting}[language=java]
 HazelcastInstance hz = Hazelcast.newHazelcastInstance();
@@ -189,13 +189,22 @@ Using a single asterisk (*) character any place in the name, the same configurat
 \end{lstlisting}
 The maps 'testmap1' and 'testmap2' both match 'testmap*' so they will use the same configuration. If you have a Spring background, you could consider the wildcard configuration to be a prototype bean definition although the difference is that in Hazelcast multiple gets of a data-structure with the same id will still result in the same instance and with prototype beans new instances are returned.
 
-Something thing you need to watch out for are multiple configurations that match. Hazelcast will not throw an error or log a warning. Also selecting the right configuration doesn't depend on the order of definition in the configuration file and also isn't based on the best fitting match. So really make sure that your wildcard configurations are very specific. One of the ways to do it is to include the package name:
+An important thing you need to watch out for are ambiguous configurations, e.g.:
+\begin{lstlisting}[language=xml]
+<map name="m*">
+   <time-to-live-seconds>10</time-to-live-seconds>
+</map>
+<map name="ma*">
+   <time-to-live-seconds>10</time-to-live-seconds>
+</map>
+\end{lstlisting}
+If a map is loading using 'hz.getMap("map")' then Hazelcast will not throw an error or log a warning but instead selects one of them. The selection doesn't depend on the definition order in the configuration file and also isn't based on the best fitting match. So make sure that your wildcard configurations are very specific. One of the ways to do it is to include the package name:
 \begin{lstlisting}[language=xml]
 <map name="com.foo.testmap*">
     <time-to-live-seconds>10</time-to-live-seconds>
 </map>
 \end{lstlisting}
-A map can be loaded calling 'Map map = hi.getMap("com.foo.testmap1")'. 
+A map can be loaded calling 'Map map = hi.getMap("com.foo.testmap1")'. Also make sure you check the Hazelcast logging.
 
 \section{Properties}
 In the hazelcast.xml file properties can be included like this:
@@ -213,7 +222,7 @@ Apart from properties in the hazelcast.xml, they can also be passed on the comma
 [todo:this functionality is not yet implemented in Hazelcast 3]
 
 \section{Logging}
-Hazelcast supports various logging mechanisms; 'jdk', 'log4', 'sl4j' or 'none' if you don't want to have any logging. The default is 'jdk': the logging that is part of the JRE, so no additional dependencies are needed. Logging can be set by adding a property in the hazelcast.xml:
+Hazelcast supports various logging mechanisms; 'jdk', 'log4', 'sl4j' or 'none' if you don't want to have any logging. The default is 'jdk': the logging library that is part of the JRE, so no additional dependencies are needed. Logging can be set by adding a property in the hazelcast.xml:
 \begin{lstlisting}[language=xml]
 <properties>
    <property name="hazelcast.logging.type">log4j</property>
@@ -224,7 +233,7 @@ Or if you are using the programmatic configuration:
 Config cfg = new Config() ;
 cfg.setProperty("hazelcast.logging.type", "log4j");
 \end{lstlisting}
-But it can also be configured from the command line using: 'java -Dhazelcast.logging.type=log4j'. If you are going to make use of 'log4j' or 'slf4j', make sure that the correct dependencies are included. See the examples sources for more information.
+It can also be configured from the command line using: 'java -Dhazelcast.logging.type=log4j'. If you are going to  use 'log4j' or 'slf4j', make sure that the correct dependencies are included in the classpath. See the examples sources for more information.
 
 If you are not satisfied with the provided logging implementations, you can always implement your own logging implementation by implementing the 'com.hazelcast.logging.LogListener'. See the Hazelcast reference manual for more information.
 
@@ -232,4 +241,4 @@ If you are not satisfied with the provided logging implementations, you can alwa
 If you want to play around with the example sources of this book, check the following link:[todo: link to source]. 
 
 \section{What is next?}
-Hazelcast supports a lot of functionality, so we cover only the most used functionality. Some things like named HazelcastInstances have been left out. [todo: more content?]
+Hazelcast has a lot of features, so we cover only the most used features. Some things like named HazelcastInstances have been left out. [todo: more content?]

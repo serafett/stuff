@@ -225,7 +225,9 @@ On thing worth mentioning is that the type id needs to be unique. [todo: ] The l
    </serializers>
 </serialization>
 \end{lstlisting}
-As you can see, we have connected the PersonTypeSerializer to the Person class. So if Hazelcast runs into an instance of Person which needs to be (de)serialized, the PersonTypeSerializer will be called. It isn't possible to override all TypeSerializers since Hazelcast already registered ones for a lot of well known types like primitives, primitive arrays, String, Date, etc.
+As you can see, we have connected the PersonTypeSerializer to the Person class. So if Hazelcast runs into an instance of Person which needs to be (de)serialized, the PersonTypeSerializer will be called. It isn't possible to override all TypeSerializers since Hazelcast already registered ones for well known types like primitives, primitive arrays, String, Date, etc.
+
+At the moment wildcards are not supported for type-class. Instead type-class can be a super-class or an interface. Hazelcast will pick the most specific one. First the super classes will be checked and then the interfaces.
 
 \subsection{Global Serializer}
 The new Hazelcast serialization functionality also makes it possible to configure a global serializer in case there are no other serializers found:
@@ -259,7 +261,7 @@ public class Person implements Serializable, HazelcastInstanceAware {
 \end{lstlisting}
 After this person is deserialized, Hazelcast will check if the object implements HazelcastInstanceAware and will call the setHazelcastInstance method. The hz field needs be transient since it should not be serialized. This technique also works for Externalizable, DataSerializable and Portable.
 
-Obtaining other dependencies than a HazelcastInstances is a bit more complicated in Hazelcast 2.x. Often the only way out is to rely on some form of singleton. But luckily Hazelcast 3 provides a new solution using the user context which can be retrieved using: HazelcastInstance.getUserContext. This method returns a ConcurrentMap where dependencies can be placed using some String as key. This makes it a lot easier to do a lookup for a dependency without relying on statics/singletons. The user context can be configured using the Config:
+Obtaining other dependencies than a HazelcastInstances was a bit more complicated in Hazelcast 2.x. Often the only way out is to rely on some form of singleton. But luckily Hazelcast 3 provides a new solution using the user context which can be retrieved using: HazelcastInstance.getUserContext. This method returns a ConcurrentMap where dependencies can be placed using some String as key. This makes it a lot easier to do a lookup for a dependency without relying on statics/singletons. The user context can be configured using the Config:
 \begin{lstlisting}[language=java]
 Config config = new Config();
 FooBar foobar = new FooBar();
@@ -278,7 +280,7 @@ This user context is a pure local data-structure so it will not be published to 
 
 \emph{No thread-safety provided:} Hazelcast will not provide synchronization on serialization infrastructure, e.g. classes implementing (Data)Serializable, Portable but also not on support structures like TypeSerializer or PortableFactory. In most cases this isn't an issue since either the instances will be used in isolation, or are immutable.
 
-\empth{Encryption for in memory storage:} In some cases, having raw data in memory, is a potential security risk. This problem can be solved by modifying the serialization behavior of the class so that it encrypts the data on writing and decrypts on reading. In some cases, e.g. storing a String in a map, the instance needs to be wrapped in a different type (e.g. EncryptedPortableString) to override the serialization mechanism.
+\emph{Encryption for in memory storage:} In some cases, having raw data in memory, is a potential security risk. This problem can be solved by modifying the serialization behavior of the class so that it encrypts the data on writing and decrypts on reading. In some cases, e.g. storing a String in a map, the instance needs to be wrapped in a different type (e.g. EncryptedPortableString) to override the serialization mechanism.
 
 \section{What is next}
 In this chapter we have seen different forms of serialization; making serialization extremely flexible, especially with the Portable and the TypeSerializers. In most cases this will be more than sufficient. But if you ever run into a limitation you could, create a task in http://github.com/hazelcast/hazelcast and perhaps it will be added to the next Hazelcast release.

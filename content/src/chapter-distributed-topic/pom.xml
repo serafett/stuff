@@ -19,6 +19,7 @@
 
     <modules>
         <module>basic-pub-sub</module>
+        <module>scaling</module>
     </modules>
 
     <dependencies>
