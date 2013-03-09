@@ -83,7 +83,7 @@ This can greatly boost the processing capacity since messages from some member t
 
 \emph{No delivery guarantee:} When messages are send to a subscriber, they are put on a queue first and then the message will be taken from that queue to be processed. If items are on the queue and member fails, all messages on that queue will be lost.
 
-\empth{Overflow:} When messages are send faster than they are consumed, it can lead to problems. The send will block until space becomes available [todo: is this true since an operation has a timeout]. 
+\emph{Overflow:} When messages are send faster than they are consumed, it can lead to problems. The send will block until space becomes available [todo: is this true since an operation has a timeout]. 
 
 \section{What is next}
 In this chapter we have seen the ITopic. From a high level there is some overlap with JMS, but the provided functionality is limited. On the other side, the ITopic is extremely easy to use, scalable and doesn't require message brokers to be running.

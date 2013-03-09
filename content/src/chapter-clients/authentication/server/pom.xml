@@ -4,17 +4,18 @@
     <packaging>jar</packaging>
 
     <artifactId>server</artifactId>
-    <name>Chapter Clients - Server</name>
+    <name>Chapter Clients - Authentication Server</name>
 
     <description>
-        Chapter Clients - Server
+        Chapter Clients - Authentication Server
     </description>
 
     <parent>
-        <groupId>book.hazelcast</groupId>
-        <artifactId>chapter-clients</artifactId>
+        <groupId>book.hazelcast.client.authentication</groupId>
+        <artifactId>authentication</artifactId>
         <version>0.1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
+
 
 </project>

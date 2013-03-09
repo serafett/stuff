@@ -1,28 +1,25 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <packaging>jar</packaging>
+    <packaging>pom</packaging>
 
-    <artifactId>client</artifactId>
-    <name>Chapter Clients - Client</name>
-
+    <artifactId>basic</artifactId>
+    <name>Chapter Clients - Basic</name>
+    <groupId>book.hazelcast.client.basic</groupId>
     <description>
-        Chapter Clients - Client
+        Basic Client/Server
     </description>
 
     <parent>
-        <groupId>book.hazelcast</groupId>
+        <groupId>book.hazelcast.client</groupId>
         <artifactId>chapter-clients</artifactId>
         <version>0.1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <dependencies>
-        <dependency>
-            <groupId>com.hazelcast</groupId>
-            <artifactId>hazelcast-client</artifactId>
-            <version>${hazelcast.version}</version>
-        </dependency>
-    </dependencies>
+    <modules>
+        <module>client</module>
+        <module>server</module>
+    </modules>
 
 </project>

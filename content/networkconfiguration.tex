@@ -164,7 +164,7 @@ Another reason partition groups can be useful is that normally Hazelcast conside
 \end{lstlisting}
 In this example there are 2 member groups, where the first member-group contains all member with an IP 10.10.1.0-255 and the second member-group contains all member with an IP of 10.10.2.0-255. You can also this approach to create different groups for each data-center so that when the primary datacenter goes offline, the backup datacenter can take over.
 
-\section{Creating Separate Clusters}
+\section{Cluster Groups}
 Sometimes it desirable to have multiple isolated clusters on the same network instead of a single cluster. For example when a network is used for different environments or different applications. Luckily this can be done using groups:
 \begin{lstlisting}[language=xml]
 <hazelcast>

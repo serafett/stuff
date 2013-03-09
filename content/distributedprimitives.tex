@@ -284,5 +284,13 @@ Although the ICountdownLatch is a very useful synchronization aid, it probably i
 
 \emph{Not interruptible:}
 
+\emph{Uncontrollable partition}: It currently isn't possible to control the partition the distributed primitive is going to be placed on and this means that more remoting is required than strictly needed. In the future this will be possible so you can say:
+\begin{lstlisting}[language=java]
+String partitionKey = "foobar";
+IAtomicLong counter1 = hz.getCountDownLatch(partitionKey,"counter1");
+IAtomicLong counter1 = hz.getCountDownLatch(partitionKey,"counter2");
+\end{lstlisting}
+In this case counter1 and counter 2 are going to be stored in the same partition.
+
 \section{What is next?}
 In this chapter we looked at various synchronization primitives that are supported by Hazelcast. If for whatever reason you need a different one you can try to build it on top of existing ones, or create a custom one using the Hazelcast SPI. One of the things I would like to see added the ability to control the partition the primitive is living on since this would improve locality of reference. 
