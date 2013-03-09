@@ -1,15 +1,15 @@
 \chapter{Learning the basics}
-In this chapter we'll learn very basics to getting started; so downloading Hazelcast, configuring Hazelcast in a Maven project. And we'll also deal with the different configuration mechanisms of Hazelcast and configuration tricks like wildcard configuration.
+In this chapter we'll learn the basic steps to getting started; like downloading Hazelcast, configuring Hazelcast in a Maven project. And we'll also deal with the different configuration mechanisms and configuration tricks like wildcard configuration.
 
 \section{Installing Hazelcast}
-Hazelcast relies on Java 5, but the examples rely on Java 7. So if you want to compile the examples, make sure Java 7 is installed. If not installed, it can be downloaded from the Oracle site: http://java.com/en/download/index.jsp.
+Hazelcast relies on Java 5, but the examples are written for Java 7. So if you want to compile the examples, make sure Java 7 is installed. If not installed, it can be downloaded from the Oracle site: http://java.com/en/download/index.jsp.
 
 Hazelcast can be downloaded from http://www.hazelcast.com/downloads.jsp and you can choose between 2 versions:
 [Talip: Do not mention anthing about Enterprise Edition as we might change our model to be entirely open source]
 
 \includegraphics[scale=0.60]{hazelcast-editions.png}
 
-For the purpose of this book we'll use the community edition. If your project uses Maven, there is no need to install Hazelcast at all, see [link to Hazelcast and Maven]. Otherwise make sure that the Hazelcast jar is added to the classpath. Apart from this jar, there is no need to install Hazelcast.  The lack of an installation process for Hazelcast is something I really like because it saves quite a lot of time, time that can be used to solve real problems instead of environmental ones.
+For the purpose of this book we'll use the community edition. If your project uses Maven, there is no need to install Hazelcast at all, see [link to Hazelcast and Maven]. Otherwise make sure that the Hazelcast jar is added to the classpath. Apart from this jar, there is no need to install Hazelcast. The lack of an installation process for Hazelcast is something I really like because it saves quite a lot of time, time that can be used to solve real problems instead of environmental ones.
 
 \section{Hazelcast and Maven}
 Hazelcast is very easy to include in your Maven 3 project without needing to go through a complex installation process. Hazelcast can be found in the standard Maven repositories, so you do not need to add additional repositories to the pom. To include Hazelcast in your project, just add the following to your pom:
@@ -27,7 +27,7 @@ That is it. Make sure that you check the Hazelcast website to make use of the mo
 \section{Configuring Hazelcast}
 Hazelcast can be configured in different ways:
 \begin{enumerate}
-\item programmatic configuration
+\item Programmatic configuration
 \item XML configuration 
 \item Spring configuration
 \end{enumerate}
@@ -40,7 +40,7 @@ The programmatic configuration is the most essential one, the other mechanisms a
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 </hazelcast>
 \end{lstlisting}
-This example also imports an XML schema (XSD) for validation. If you are using an IDE, you probably get code completion. To reduce the size of the examples in the book, only the elements inside the <hazelcast> tags are listed. In the sources for the book you can find the full xml configuration. Another thing you might run into is the strange formatting of the java code; this is also done to reduce the size. 
+This example imports an XML schema (XSD) for validation. If you are using an IDE, you probably get code completion. To reduce the size of the examples in the book, only the elements inside the <hazelcast> tags are listed. In the example code for the book you can find the full xml configuration. Another thing you might run into is the strange formatting of the java code; this is also done to reduce the size. 
 
 In most of our examples we will rely on multicast for member discovery so that the members will join the cluster:
 \begin{lstlisting}[language=xml]
@@ -59,7 +59,7 @@ public class Main {
    }
 }
 \end{lstlisting}
-The mechanism uses the following alternatives to resolve the configuration:
+Behind the scenes the following alternatives are used to resolve the configuration:
 \begin{enumerate}
 \item First checks if the 'hazelcast.config' system property is set; if it is, then the value is used as path. This is useful if you want to choose the application which hazelcast configuration file should be used on startup. The config option can be set by adding the following to the java command: '-Dhazelcast.config=<path to the hazelcast.xml>'. The value can be a normal file path, but can also be a classpath reference if it is prefixed with 'classpath:'. 
 \item Else it checks if there is a 'hazelcast.xml' in the working directory.
@@ -84,10 +84,10 @@ public class Main {
 \end{lstlisting}
 The Hazelcast Config object has a fluent interface; meaning that the Config instance is returned when a config method on this instance is called. This makes chaining method calls very easy. The programmatic configuration is not only very useful for testing, but it also a solution for the static nature of the XML configuration. The content of the programmatic configuration can easily be created on the fly, e.g. based on database content. You could even decide to move the 'static' configuration to the hazelcast.xml, load it and then modify the dynamic parts, e.g. the network configuration.
 
-In Hazelcast releases prior to 3.0, there was functionality for a static default HazelcastInstance, so you could say: 'Queue q = Hazelcast.getQueue("foo")'. This functionality has been removed because it lead to confusion when explicit created HazelcastInstances are combined with calls to the implicit default HazelcastInstance. So you probably want to keep a handle to the Hazelcast instance somewhere for future usage.
+In Hazelcast releases prior to 3.0, there was functionality for a static default HazelcastInstance, so you could say: 'Queue q = Hazelcast.getQueue("foo")'. This functionality has been removed because it lead to confusion when explicitly created HazelcastInstances are combined with calls to the implicit default HazelcastInstance. So you probably want to keep a handle to the Hazelcast instance somewhere for future usage.
 
 \section{Multiple Hazelcast instances}
-In most cases you will have a single Hazelcast Instance per JVM. But Multiple Hazelcast Instances can run in a single JVM. This is not only useful for testing, but also for more complex setups e.g. application servers running multiple independent applications that rely on Hazelcast. Multiple Hazelcast instances can be started like this:
+In most cases you will have a single Hazelcast Instance per JVM. But Multiple Hazelcast Instances can run in a single JVM. This is not only useful for testing, but also needed for more complex setups e.g. application servers running multiple independent applications using Hazelcast. Multiple Hazelcast instances can be started like this:
 \begin{lstlisting}[language=java]
 public class MultipleMembers {
    public static void main(String[] args){
@@ -96,7 +96,7 @@ public class MultipleMembers {
    }
 }
 \end{lstlisting}
-When you start this multiple members, you see something like this in the output:
+When you start this MultipleMembers, you see something like this in the output:
 \begin{lstlisting}
 Members [2] {
     Member [192.168.1.100]:5701 this
@@ -108,7 +108,7 @@ Members [2] {
     Member [192.168.1.100]:5702 this
 }
 \end{lstlisting}
-As you can see there is a 2 member cluster created.
+As you can see the created cluster has 2 members.
 
 \section{Loading a DistributedObject}
 In the previous sections we saw how a HazelcastInstance can be created, but in most cases you want to load a DistributedObject, e.g. a queue, from this HazelcastInstance. So lets define a queue in the hazelcast.xml:
@@ -124,7 +124,7 @@ public class Member {
    }
 }
 \end{lstlisting}
-For most of the DistributedObjects you can find a get method on the HazelcastInstance. In case you are writing custom distributed data-structures using the SPI [reference to spi chapter], you can make use of the HazelcastInstance.getDistributedObject. One thing worth mentioning is that most of the DistributedObjects defined in the configuration are created lazily; so they are only created on the first operation that accesses them.
+For most of the DistributedObjects you can find a get method on the HazelcastInstance. In case you are writing custom distributed data-structures using the SPI [reference to spi chapter], you can use the HazelcastInstance.getDistributedObject. One thing worth mentioning is that most of the DistributedObjects defined in the configuration are created lazily; so they are only created on the first operation that accesses them.
 
 To learn more about the queue and its configuration check [reference to Distributed Collections: Queue].
 \subsection{Unique names}
@@ -140,12 +140,12 @@ This technique can be used with wildcard configuration to create similar objects
 A distributed object created with a unique name often needs to be shared between member. This can be done by passing the id to that other members and using one of the HazelcastInstance.get methods, the DistributedObject can be retrieved. For more information see [reference to serialization chapter:Serialize DistributedObject]
 
 \subsection{Reloading a DistributedObject}
-In most cases once you have loaded the DistributedObject you probably keep a reference to it and inject it all places where it is needed. But you can safely reload the same DistributedObject from the HazelcastInstance without additional instances being created. In some cases, like deserialization, when you need to get reference to a Hazelcast DistributedObject, this is the only way out. If you have a Spring background, you could consider the configuration to be singleton bean definition. If there is no explicit configuration available for that specific data-structure, Hazelcast will use the default settings from the file 'hazelcast-default.xml' so you can safely load a DistributedObject from the HazelcastInstance without it being explicitly configured.
+In most cases once you have loaded the DistributedObject, you probably keep a reference to it and inject it all places where it is needed. But you can safely reload the same DistributedObject from the HazelcastInstance without additional instances being created. In some cases, like deserialization, when you need to get reference to a Hazelcast DistributedObject, this is the only way out. If you have a Spring background, you could consider the configuration to be singleton bean definition. If there is no explicit configuration available for that specific data-structure, Hazelcast will use the default settings from the file 'hazelcast-default.xml' so you can safely load a DistributedObject from the HazelcastInstance without it being explicitly configured.
 
 \section{Destroying a DistributedObject}
-DistributedObject can be destroyed using the DistributedObject.destroy() method which clears and releases all resources for this object within the cluster. But it should be used with a lot of care because of the following reason: once the destroy is called and the resources are released, a subsequent load with the same id from the HazelcastInstance will result in a new data-structure and will not lead to an exception. 
+DistributedObject can be destroyed using the DistributedObject.destroy() method which clears and releases all resources for this object within the cluster. But it should be used with a lot of care because of the following reason: once the destroy method is called and the resources are released, a subsequent load with the same id from the HazelcastInstance will result in a new data-structure and will not lead to an exception. 
 
-A similar issues happens to references: if a reference to a DistributedObject is used after the DistributedObject is destroyed, new resources will be created. In the following case we create a cluster with 2 members, and each member gets a reference to the queue q. First we place an item in the queue When the queue is destroyed from the first member (q1) and q2 is accessed, a new queue will be created. 
+A similar issues happens to references: if a reference to a DistributedObject is used after the DistributedObject is destroyed, new resources will be created. In the following case we create a cluster with 2 members, and each member gets a reference to the queue q. First we place an item in the queue. When the queue is destroyed by the first member (q1) and q2 is accessed, a new queue will be created. 
 \begin{lstlisting}[language=java]
 public class Member {
    public static void main(String[] args) throws Exception {
@@ -162,12 +162,12 @@ public class Member {
     }
 }
 \end{lstlisting}
-The output of the shows:
+When we start this Member, the output will show the following:
 \begin{lstlisting}
 q1.size: 1 q2.size:1
 q1.size: 0 q2.size:0
 \end{lstlisting}
-So there are no errors, the system will behave as if nothing happened, the only difference is that the new queue resources have been created. Therefor a lot of care needs to be taken into consideration to destroy DistributedObjects. 
+So there are no errors, the system will behave as if nothing happened, the only difference is that the new queue resources have been created. Therefore a lot of care needs to be taken into consideration when destroying DistributedObjects. 
 
 \section{Wildcard configuration}
 The Hazelcast xml configuration can contain configuration elements for all kinds of distributed data-structures: sets, executors, maps etc. For example:
@@ -204,7 +204,7 @@ If a map is loading using 'hz.getMap("map")' then Hazelcast will not throw an er
     <time-to-live-seconds>10</time-to-live-seconds>
 </map>
 \end{lstlisting}
-A map can be loaded calling 'Map map = hi.getMap("com.foo.testmap1")'. Also make sure you check the Hazelcast logging.
+A map can be loaded by calling 'Map map = hi.getMap("com.foo.testmap1")'. Also make sure you check the Hazelcast logging.
 
 \section{Properties}
 In the hazelcast.xml file properties can be included like this:
@@ -233,7 +233,7 @@ Or if you are using the programmatic configuration:
 Config cfg = new Config() ;
 cfg.setProperty("hazelcast.logging.type", "log4j");
 \end{lstlisting}
-It can also be configured from the command line using: 'java -Dhazelcast.logging.type=log4j'. If you are going to  use 'log4j' or 'slf4j', make sure that the correct dependencies are included in the classpath. See the examples sources for more information.
+It can also be configured from the command line using: 'java -Dhazelcast.logging.type=log4j'. If you are going to use 'log4j' or 'slf4j', make sure that the correct dependencies are included in the classpath. See the example sources for more information.
 
 If you are not satisfied with the provided logging implementations, you can always implement your own logging implementation by implementing the 'com.hazelcast.logging.LogListener'. See the Hazelcast reference manual for more information.
 

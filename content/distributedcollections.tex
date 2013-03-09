@@ -237,10 +237,17 @@ ItemListeners are useful if you need to react upon changes in collections. But r
 
 \emph{Replication:} The replication for IList and ISet can't be configured and will automatically have 1 synchronous backup and 0 asynchronous backups. Perhaps in the future this is going to be configurable.
 
-
 \emph{Destruction:} IQueue/ISet/IList instances immediately are 'destroyed' when they are empty and will not take up space. Listeners will remain registered, unless that collection is destroyed explicitly. Once an item is added to implicit destroyed collection, the collection will automatically be recreated.
 
 \emph{Not partitioned:}  The IList/ISet are implemented as a collection in a MultiMap. and therefor are not partitioned; so their size can't grow beyond the capacity of a single JVM. This is a big difference compared to Hazelcast 2.x where they were partitioned. This limitation needs to be taken into consideration when you are designing a distributed system. A few ways to solve this issue are to use a stripe of collections or to build your collection on top of the IMap. Another more flexible but probably more time consuming alternative is to write the collection on top of the new SPI functionality [reference to SPI chapter]
+
+\emph{Uncontrollable partition}: It currently isn't possible to control the partition the collection is going to be placed on and this means that more remoting is required than strictly needed. In the future this will be possible so you can say:
+\begin{lstlisting}[language=java]
+String partitionKey = "foobar";
+IQueue q1 = hz.getQueue(partitionKey,"q1");
+IQueue q2 = hz.getQueue(partitionKey,"q2");
+\end{lstlisting}
+In this case q1 and q2 are going to be stored in the same partition.
 
 \section{What is next?}
 The API's shown in these examples is only a subsection of what Hazelcast collections provides. todo: more text.

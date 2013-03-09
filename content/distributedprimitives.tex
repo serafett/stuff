@@ -284,11 +284,11 @@ Although the ICountdownLatch is a very useful synchronization aid, it probably i
 
 \emph{Not interruptible:}
 
-\emph{Uncontrollable partition}: It currently isn't possible to control the partition the distributed primitive is going to be placed on and this means that more remoting is required than strictly needed. In the future this will be possible so you can say:
+\emph{Uncontrollable partition}: It currently isn't possible to control the partition the distributed primitive is going to be placed on and this means that more remoting is required than strictly needed. In the future this will be possible so you can say something like:
 \begin{lstlisting}[language=java]
 String partitionKey = "foobar";
-IAtomicLong counter1 = hz.getCountDownLatch(partitionKey,"counter1");
-IAtomicLong counter1 = hz.getCountDownLatch(partitionKey,"counter2");
+IAtomicLong counter1 = hz.getAtomicLong(partitionKey,"counter1");
+IAtomicLong counter1 = hz.getAtomicLong(partitionKey,"counter2");
 \end{lstlisting}
 In this case counter1 and counter 2 are going to be stored in the same partition.
 
