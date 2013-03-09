@@ -30,23 +30,19 @@ The client HazelcastInstance is created based on the com.hazelcast.client.Client
 
 First start the full member and then start the client, and we can see that "Hello!" is printed by the full member. We'll also see that the client never appears as member in the member listing.	
  
-\emph{Failover} for the client can be realized by explicitly configuring multiple member addresses in the ClientConfig to increase the chance that one of these members will be up and running. Once the client has connected to the cluster, it will keep up to date with all the member addresses of the cluster, not just the provided members.
-
 \section{Configuration Options}
 In the client example, we did a minimal configuration of the ClientConfig and relied on defaults, but there is a lot that can be configured:
 \begin{enumerate}
-\item addresses: the known addresses of the cluster. They don't need to include all addresses, only enough to make sure that some will always be online.
-\item connection timeout: the amount of time in milliseconds the client waits for one of the members, configured with the addresses property, of the cluster to come online before giving up. Defaults to 5 minutes.
-\item credentials: can be used to configure username/password to connect to the cluster. See UsernamePasswordCredentials. [todo: this works in combination with the interceptor?]
-\item group config: configures the group name and the password to access the group.
-\item connection timeout defaults to 30000
+\item addresses: the known addresses of the cluster. It doesn't need to include all addresses, only enough to make sure that some will be online. see [failover]
+\item credentials: can be used to do authentication and authorization. This functionality is only available in the Enterprise version of Hazelcast.
+\item group config: see [group config section]
+\item connection timeout: the number of ms to wait before giving up while connecting. Defaults to 300000 ms (5 minutes).
 \item initial connection attempt limit:the  number of connection attempts the client makes the initial connection to the cluster. Defaults to 1.
 \item reconnect attempt limit: the number of reconnection attempts the client makes when a connection fails. Defaults to 1.
-\item reconnect timeout: [todo]. Defaults to 5000 ms.
-\item update automatic:[TODO] Defaults to true.
-\item socketInterceptor:.. see [security]
-\item listeners: EventListener
+\item reconnect timeout: the number of ms to wait before giving up while reconnecting. Defaults to 5000 ms.
+\item listeners: enabled listening to cluster state using a LifecycleListener, DistributedObjectListener or MembershipListener.
 \item router: see Routing for more information. Defaults to RoundRobinRouter.
+\item socketInterceptor:.. see [todo: still used?]
 \end{enumerate}
 [todo: the client is still in progress, so properties might change]
 
@@ -65,28 +61,19 @@ This means that if you have specific load balancing requirements, e.g. load bala
 Cluster cluster = hz.getCluster();
 cluster.addMembershipListener(thelistener);
 \end{lstlisting}
+
+The MembershipListener functionality makes it easy to to create a deterministic router since the MembershipListener:
+\begin{enumerate}
+\item will not be called concurrently
+\item init method will be called with a listening of all current members
+\item memberAdded and memberRemoved method will be called in the order the events happened within the cluster (all these events will be coordinated from the master node, so this node is responsible for creating a total order)
+\item no membership events will be lost
+\end{enumerate}
+
 Router instances should not be shared between clients; every client should gets its own instance and the router can be configured from the ClientConfig. The clients are thread-safe, and therefor can be called concurrently, so you don't need to pool them.
 
-\section{Security}
-Often security is one of the requirements for production environments. 
-
-
-[todo: security is fully client side; so a security risk since user developer doesn't need to apply security]
-kerberos
-
-
-LoginModuleConfig
-PermissionConfig
-
-
-\subsection{Authentication}
-
-Authentication is done on first request only I hope.
-
-\subsection{Authorization}
-
-\subsection{Encryption}
-In Hazelcast 3.0 it isn't possible to encrypt communication between client and cluster. This means that all network traffic, which not only includes normal operations like a map.put but also passwords in credentials and GroupConfig, can be read and potentially modified. If this is an issue, it is best not expose the client but manually expose the Hazelcast operations using a more secure remoting technology. 
+\section{Failover} 
+In a production environment you want the client to support failover to increase high availability. This is realized by in 2 parts. The first part is configuring multiple member addresses in the ClientConfig. As long as one of these members is online, the client will be able to connect to the cluster. The second part is the responsibility of the Router implementation. It can register itself as a MembershipListener and receives a list of all members in the cluster and will be notified if members are added or are removed. The Router can use this update to date list of member addresses for routing.
 
 \section{Group Configuration}
 To prevent clients from joining a cluster, it is possible to configure the cluster group the client is able to connect to. On this cluster group the group name and the password can be set:
@@ -99,7 +86,6 @@ config.getGroupConfig()
 HazelcastInstance client = HazelcastClient.newHazelcastClient(config);
 \end{lstlisting}
 The groupname defaults to 'dev' and the password defaults to 'dev-pass'. For more information see [network configuration: cluster groups].
-
 
 \section{Sharing classes}
 In some cases you need to share classes between the client and the server. Of course you can give all the classes from the server to the client, but in some cases this is undesirable; perhaps it would increase tight coupling, security/copyrights issues, increased client size etc. If you don't want to share all the classes of the server with the client, create a separate project (in Maven terms this could be a module) and share this project between client and server. I normally call this project the api project since it clearly defines the API of the system. 
@@ -114,6 +100,10 @@ One advantage of a lite member compared to a native client, was that the latter 
 One disadvantage of the lite member is that because they are seen as member in the cluster and therefor send heartbeats/pings to each other and check each others statuses continuously. So if the number of lite members compared to the number of real members, is high, and clients join/leave frequently, it can influence the health of the cluster. 
 
 Another disadvantage is that although a lite member doesn't host any partitions, it will run tasks from the Hazelcast executors. Personally I always found this undesirable since you don't want to have a client run server tasks.
+
+\section{Good to know}
+
+\emph{No Encryption:} In Hazelcast 3.0 it isn't possible to encrypt communication between client and cluster. This means that all network traffic, which not only includes normal operations like a map.put but also passwords in credentials and GroupConfig, can be read and potentially modified. If this is an issue, it is best not expose the client but manually expose the Hazelcast operations using a more secure remoting technology. 
 
 \section{What is next}
 In this short chapter we explained a few different ways to connect to a Hazelcast cluster using a client. But there are more client solutions available: like the C\# client, C++ client, Memcache Client and the Rest Client. For more information check the Client chapter of the Hazelcast reference manual.
