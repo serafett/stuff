@@ -1,7 +1,7 @@
 \chapter{Hazelcast Clients}
-Till so far the examples showed members that were full participants in the cluster; so they will known about others and they will host partitions. But in some cases you only want to connect to the cluster to read/write data or execute operations, but you don't want to participate as a full member in the cluster; in other words you want to have a client.
+Till so far the examples showed members that were full participants in the cluster; so they will known about others and they will host partitions. But in some cases you only want to connect to the cluster to read/write data from the cluster or execute operations, but you don't want to participate as a full member in the cluster; in other words you want to have a client.
 
-We are going to implement client example where a message will be put on a queue by a client and taken from the queue by a full member:
+We are going to implement a client example where a message will be put on a queue by a client and taken from the queue by a full member:
 \begin{lstlisting}[language=java]
 public class FullMember {
    public static void main(String[] args)throws Exception{
@@ -13,7 +13,7 @@ public class FullMember {
 }
 \end{lstlisting}
 
-With the client one can connect to the cluster purely as a client and not have any of the responsibilities a normal cluster member has. When a Hazelcast operation is performed by a client, it is forwarded to a cluster member where it will be processed. A client only needs to have the hazelcast-client.jar on the classpath (+/- 150 kB depending on the version) [todo: verify], the normal Hazelcast jar is not needed. Underneath you can see the client example:
+With the client one can connect to the cluster purely as a client and not have any of the responsibilities a normal cluster member has. When a Hazelcast operation is performed by a client, it is forwarded to a cluster member where it will be processed. A client only needs to have the hazelcast-client.jar on the classpath (+/- 150 kB depending on the version) [todo: verify], the normal Hazelcast jar is not needed. Underneath you can see a client example:
 \begin{lstlisting}[language=java]
 public class Client {
    public static void main(String[] args) throws Exception {
@@ -28,8 +28,8 @@ public class Client {
 \end{lstlisting}
 The client HazelcastInstance is created based on the com.hazelcast.client.ClientConfig. This config is configured with 127.0.0.1 as address since the full member will be running on the same machine as the client.
 
-First start the full member and then start the client, and we can see that "Hello!" is printed by the full member. We'll also see that the client never appears as member in the member listing.	
- 
+First start the full member and then start the client, and we can see that "Hello" is printed by the full member. We'll also see that the client never appears as a member in the member listing, printed the FullMember.
+
 \section{Configuration Options}
 In the client example, we did a minimal configuration of the ClientConfig and relied on defaults, but there is a lot that can be configured:
 \begin{enumerate}
@@ -44,8 +44,9 @@ In the client example, we did a minimal configuration of the ClientConfig and re
 \item router: see Routing for more information. Defaults to RoundRobinRouter.
 \end{enumerate}
 
-\section{Routing}.
-When a client connects to the cluster, it will have access to the full list of members and it will be kept in sync, even if the ClientConfig only has a subset of members. If an operation needs to be send to a specific member, it will directly be send to that member. If a operation can be executed on any member, Hazelcast does automatic load balancing over all members in the cluster. 
+\section{LoadBalancing}.
+[todo: this chapter needs to be updated for the Router-LoadBalancer rename that is pending]
+When a client connects to the cluster, it will have access to the full list of members and it will be kept in sync, even if the ClientConfig only has a subset of members. If a operation needs to be sent to a specific member, it will directly be sent to that member. If a operation can be executed on any member, Hazelcast does automatic load balancing over all members in the cluster. 
 
 One of the very new cool features of Hazelcast 3.0 is that the routing mechanism is pulled out into an interface:
 \begin{lstlisting}[language=java]
@@ -88,16 +89,19 @@ The groupname defaults to 'dev' and the password defaults to 'dev-pass'. For mor
 \section{Sharing classes}
 In some cases you need to share classes between the client and the server. Of course you can give all the classes from the server to the client, but in some cases this is undesirable; perhaps it would increase tight coupling, security/copyrights issues, increased client size etc. If you don't want to share all the classes of the server with the client, create a separate project (in Maven terms this could be a module) and share this project between client and server. I normally call this project the api project since it clearly defines the API of the system. 
 
-One advice; watch out with sharing domain objects between client and server because this can cause a tight coupling because the client starts to see the internals of your domain objects. A recommended practice is to introduce special objects that are optimized for client/server exchange; Data Transfer Objects (DTO's). They cause some duplication, but having some duplication is better to deal with than tight coupling, which can make a system very fragile.
+One advice; watch out with sharing domain objects between client and server. This can cause a tight coupling since the client starts to see the internals of your domain objects. A recommended practice is to introduce special objects that are optimized for client/server exchange; Data Transfer Objects (DTO's). They cause some duplication, but having some duplication is better to deal with than tight coupling, which can make a system very fragile.
 
 \section{What happened to the lite member?}
-If you have been using Hazelcast 2.x you might remember the lite member: the lite member participates as a cluster member, but isn't responsible for hosting any partitions. 
+If you have been using Hazelcast 2.x you might remember the option to create either a lite member or a native member. With Hazelcast 3.x the lite member has been dropped and there is now only a single client solution.
 
-One advantage of a lite member compared to a native client, was that the lite member knows about routing requests to the correct members since it knows all members in the cluster. And therefore it is better performing than a lite member. But with Hazelcast 3.x this limitation is removed from the native client.
+In Hazelcast 2.x there was an option to have a lite member or a native member. A lite member was seen as part of the cluster, although it will doesn't host any partitions. Because it knows about the other members, it knows about routing requests to correct member and therefor could have a better performance compared to the native member. But with Hazelcast 3.x a client still knows about all members and therefor can route requests to the correct member, without being part of the cluster.
 
-One disadvantage of the lite member is that because they are seen as member in the cluster and therefore send heartbeats/pings to each other and check each others statuses continuously. So if the number of lite members compared to the number of real members, is high, and clients join/leave frequently, it can influence the health of the cluster. 
-
-Another disadvantage of a lite member is that, although it doesn't host any partitions, it will run tasks from the Hazelcast executors. Personally I always found this undesirable since you don't want to have a client run server tasks.
+The lite member also had some serious drawbacks:
+\begin{enumerate}
+\item because lite members are seen as members in the cluster, they send heartbeats/pings to each other and check each others statuses continuously. So if the number of lite members compared to the number of real members, is high, and clients join/leave frequently, it can influence the health of the cluster. 
+\item although a lite member doesn't host any partitions, it will run tasks from the Hazelcast executors. Personally I always found this undesirable since you don't want to have a client run server tasks.
+\end{enumerate}
+S
 
 \section{Good to know}
 
