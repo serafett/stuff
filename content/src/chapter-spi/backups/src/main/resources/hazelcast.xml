@@ -9,8 +9,8 @@
     </network>
     <services>
         <service enabled="true">
-            <name>DistributedCounterService</name>
-            <class-name>DistributedCounterService</class-name>
+            <name>CounterService</name>
+            <class-name>CounterService</class-name>
         </service>
     </services>
 </hazelcast>

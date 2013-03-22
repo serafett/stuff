@@ -5,7 +5,7 @@ import com.hazelcast.spi.RemoteService;
 
 import java.util.Properties;
 
-public class DistributedCounterService implements ManagedService, RemoteService {
+public class CounterService implements ManagedService, RemoteService {
     private NodeEngine nodeEngine;
 
     @Override

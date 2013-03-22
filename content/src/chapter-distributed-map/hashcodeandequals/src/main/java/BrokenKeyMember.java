@@ -10,7 +10,7 @@ public class BrokenKeyMember {
     public static void main(String[] args) {
         HazelcastInstance hz = Hazelcast.newHazelcastInstance();
         Map<BrokenKey, String> hzmap = hz.getMap("map");
-        Map<BrokenKey, String> normalMap = new HashMap<BrokenKey, String>();
+        Map<BrokenKey, String> normalMap = new HashMap<>();
 
         BrokenKey key1 = new BrokenKey("a", "b");
         BrokenKey key2 = new BrokenKey("a", "c");
@@ -20,6 +20,7 @@ public class BrokenKeyMember {
 
         System.out.println("HazelcastMap.get: " + hzmap.get(key2));
         System.out.println("NormalMap.get: " + normalMap.get(key2));
+        System.exit(0);
     }
 
     private static class BrokenKey implements Serializable {

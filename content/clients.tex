@@ -42,21 +42,19 @@ In the client example, we did a minimal configuration of the ClientConfig and re
 \item reconnect timeout: the number of ms to wait before giving up while reconnecting. Defaults to 5000 ms.
 \item listeners: enabled listening to cluster state using a LifecycleListener, DistributedObjectListener or MembershipListener.
 \item router: see Routing for more information. Defaults to RoundRobinRouter.
-\item socketInterceptor:.. see [todo: still used?]
 \end{enumerate}
-[todo: the client is still in progress, so properties might change]
 
 \section{Routing}.
 When a client connects to the cluster, it will have access to the full list of members and it will be kept in sync, even if the ClientConfig only has a subset of members. If an operation needs to be send to a specific member, it will directly be send to that member. If a operation can be executed on any member, Hazelcast does automatic load balancing over all members in the cluster. 
 
-One of the very new cool features of Hazelcast 3.0 is that the load balancing mechanism is pulled out into an interface:
+One of the very new cool features of Hazelcast 3.0 is that the routing mechanism is pulled out into an interface:
 \begin{lstlisting}[language=java]
 public interface Router {
    void init(HazelcastInstance hz);
    Member next();
 }
 \end{lstlisting}
-This means that if you have specific load balancing requirements, e.g. load balance on cpu load, memory load, queue sizes etc, these requirements can be met by creating a custom Router implementation. I'm sure that in the next releases of Hazelcast some of these implementations will be provided out of the box. If you are going to implement a custom router, you can listen to member changes using:
+This means that if you have specific routing requirements, e.g. load balance on cpu load, memory load, queue sizes etc, these requirements can be met by creating a custom Router implementation. I'm sure that in the next releases of Hazelcast some of these implementations will be provided out of the box. If you are going to implement a custom router, you can listen to member changes using:
 \begin{lstlisting}[language=java]
 Cluster cluster = hz.getCluster();
 cluster.addMembershipListener(thelistener);
@@ -65,12 +63,12 @@ cluster.addMembershipListener(thelistener);
 The MembershipListener functionality makes it easy to to create a deterministic router since the MembershipListener:
 \begin{enumerate}
 \item will not be called concurrently
-\item init method will be called with a listening of all current members
-\item memberAdded and memberRemoved method will be called in the order the events happened within the cluster (all these events will be coordinated from the master node, so this node is responsible for creating a total order)
-\item no membership events will be lost
+\item init method will be called with a set of all current members
+\item no events will be lost between calling init and memberAdded or memberRemoved
+\item memberAdded and memberRemoved method will be called in the order the events happened within the cluster. There is a total ordering of membership events since they will be coordinated from the master node.
 \end{enumerate}
 
-Router instances should not be shared between clients; every client should gets its own instance and the router can be configured from the ClientConfig. The clients are thread-safe, and therefor can be called concurrently, so you don't need to pool them.
+Router instances should not be shared between clients; every client should gets its own instance and the router can be configured from the ClientConfig. The clients are thread-safe, and therefore can be called concurrently, so you don't need to pool them.
 
 \section{Failover} 
 In a production environment you want the client to support failover to increase high availability. This is realized by in 2 parts. The first part is configuring multiple member addresses in the ClientConfig. As long as one of these members is online, the client will be able to connect to the cluster. The second part is the responsibility of the Router implementation. It can register itself as a MembershipListener and receives a list of all members in the cluster and will be notified if members are added or are removed. The Router can use this update to date list of member addresses for routing.
@@ -93,17 +91,19 @@ In some cases you need to share classes between the client and the server. Of co
 One advice; watch out with sharing domain objects between client and server because this can cause a tight coupling because the client starts to see the internals of your domain objects. A recommended practice is to introduce special objects that are optimized for client/server exchange; Data Transfer Objects (DTO's). They cause some duplication, but having some duplication is better to deal with than tight coupling, which can make a system very fragile.
 
 \section{What happened to the lite member?}
-If you have been using Hazelcast 2.x you might remember the lite member. The lite member participates as a cluster member, but isn't responsible for hosting any partitions. 
+If you have been using Hazelcast 2.x you might remember the lite member: the lite member participates as a cluster member, but isn't responsible for hosting any partitions. 
 
-One advantage of a lite member compared to a native client, was that the latter didn't know about routing requests to the correct members and therefor was less performant. But with Hazelcast 3.x this limitation is removed and therefor the lite member doesn't serve a purpose anymore.
+One advantage of a lite member compared to a native client, was that the lite member knows about routing requests to the correct members since it knows all members in the cluster. And therefore it is better performing than a lite member. But with Hazelcast 3.x this limitation is removed from the native client.
 
-One disadvantage of the lite member is that because they are seen as member in the cluster and therefor send heartbeats/pings to each other and check each others statuses continuously. So if the number of lite members compared to the number of real members, is high, and clients join/leave frequently, it can influence the health of the cluster. 
+One disadvantage of the lite member is that because they are seen as member in the cluster and therefore send heartbeats/pings to each other and check each others statuses continuously. So if the number of lite members compared to the number of real members, is high, and clients join/leave frequently, it can influence the health of the cluster. 
 
-Another disadvantage is that although a lite member doesn't host any partitions, it will run tasks from the Hazelcast executors. Personally I always found this undesirable since you don't want to have a client run server tasks.
+Another disadvantage of a lite member is that, although it doesn't host any partitions, it will run tasks from the Hazelcast executors. Personally I always found this undesirable since you don't want to have a client run server tasks.
 
 \section{Good to know}
 
 \emph{No Encryption:} In Hazelcast 3.0 it isn't possible to encrypt communication between client and cluster. This means that all network traffic, which not only includes normal operations like a map.put but also passwords in credentials and GroupConfig, can be read and potentially modified. If this is an issue, it is best not expose the client but manually expose the Hazelcast operations using a more secure remoting technology. 
+
+\emph{SPI:} The Hazelcast client can also call SPI operations, see [SPI chapter]. But you need to make sure that the client has access the the appropriate classes and interfaces.  [todo: currently it doesn't work.]
 
 \section{What is next}
 In this short chapter we explained a few different ways to connect to a Hazelcast cluster using a client. But there are more client solutions available: like the C\# client, C++ client, Memcache Client and the Rest Client. For more information check the Client chapter of the Hazelcast reference manual.

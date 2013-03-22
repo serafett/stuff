@@ -1,27 +1,29 @@
 \chapter{Distributed Map}
-In this chapter, you'll learn how to use one of the most versatile data structures in Hazelcast; the com.hazelcast.core.IMap. The IMap extends the java.util.concurrent.ConcurrentMap interface, and therefor it also extends the java.util.Map but its implementation is designed to be used in a distributed environment. So changes made in one member are visible in another and when a member fails, backups will be restored an the cluster can continue as if nothing happened.
+In this chapter, you'll learn how to use one of the most versatile data structures in Hazelcast; the com.hazelcast.core.IMap. The IMap extends the java.util.concurrent.ConcurrentMap interface, and therefor it also extends the java.util.Map. The big difference between normal Map implementation and the Hazelcast IMap implementation is that the later is a distributed data-structure.
 
-Internally Hazelcast divides the map in partitions, by default 271 and can be changed with the 'hazelcast.map.partition.count' property, and distributes the partitions evenly among the members in the cluster. The partition is determined based on the key; each key belongs to a single partition. 
+Internally Hazelcast divides the map in partitions, and distributes the partitions evenly among the members in the cluster. The partition a map entry is stored on is based on the key of the map entry: each key belongs to a single partition. By default Hazelcast will use 271 partitions for all partitioned data-structures. The value can be changed with the 'hazelcast.map.partition.count' property.
 
-Scaling up is simple; just add more members and they will take their share of the load. The oldest member decides which partitions need to be moved to the new members and chooses partitions that contain the least amount of data to reduce network traffic. Hazelcast doesn't do any runtime rebalancing of partitions e.g. based on partition size or usage. 
-[Talip: reader might misunderstand that 'partitions are not rebalanced.' Try to explicitly say that Hazelcast rebalance the ownership of the partitions so that eventually each member can own the equal number of partitions but Hazelcast doesn't do rebalancing based on the partition size or usage.]
+When a new member is added, this member will take its share in the load. The oldest member in the cluster decides which partitions need to be moved to the new member. In Hazelcast 2.x the smallest partitions were moved to prevent network traffic. But with Hazelcast 3.0 the size of the partition isn't determined and therefor will not be part of the criteria to move a partition. Hazelcast can simply scale up by adding new cluster members. It is important to understand that at runtime Hazelcast will move partitions around based on the load: so number of requests, number of map entries, the memory usage of the partition. Hazelcast assumes that the load will be equally spread among the partitions.
 
-Scaling down also is simple; just shutdown the HazelcastInstances to release their share of the load. The partitions will automatically be reassigned to remaining members. Of course a hard kill of the JVM is possible, but then you run a risk of loosing something if you have not configured the backup mechanism correctly; see [reference to backup section]
+When a member is removed, all the partitions it owns, will be moved to other members in the cluster. So scaling down a cluster is simple, just remove members from the cluster. Apart from a 'soft' removal of the cluster, it can also happen that there is a 'hard' removal; e.g. the member crashes or it gets disconnected from the cluster due to network issues. Luckily Hazelcast provides various degrees of failover to deal with this situation. By default there will be one synchronous backup; so the failure of a single member will not lead to loss of data in the IMap.
 
-The offering of Hazelcast includes Elastic Memory where the map entries are not stored in the Java Heap. This is done to drastically reduce gc times. On Youtube there is demo: http://www.youtube.com/watch?v=TOhbhKqJpvw where 4 Terabyte of data from 1 billion entries is stored on 100 Amazon EC2 instances, supporting to 1.3 million of operations/second.
+If there are a huge number of map entries, it can lead to a considerable performance overhead. This is caused by the  garbage collector since the map entries are stored in the Java Heap. To reduce garbage collection times Hazelcast introduced Elestic Memory which is part of the commercial offering.
+
+[todo: is this with elastic memory or just normal ]
+On Youtube there is demo: http://www.youtube.com/watch?v=TOhbhKqJpvw where 4 Terabyte of data from 1 billion entries is stored on 100 Amazon EC2 instances, supporting to 1.3 million of operations/second.
 
 \section{Reading/Writing}
 The Hazelcast Map implements the ConcurrentMap/Map interface, so reading/writing key/values is very simple since you can use familiar methods like get/put etc. 
 
-To demonstrate this basic behavior a distributed is created in a member and some entries are written to this map. In another member these entries are going to be read and printed:
+To demonstrate this basic behavior, the following Member creates a Map and writes some entries in that map:
 \begin{lstlisting}[language=java]
 public class FillMapMember {
     public static void main(String[] args) {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        Map<String, String> employees = hzInstance.getMap("employees");
-        employees.put("1", "Tokyo");
-        employees.put("2", "Paris");
-        employees.put("3", "New York");
+        Map<String, String> map = hzInstance.getMap("map");
+        map.put("1", "Tokyo");
+        map.put("2", "Paris");
+        map.put("3", "New York");
     }
 }
 \end{lstlisting}
@@ -30,13 +32,13 @@ As you can see the Map is retrieved using the hzInstance.getMap(mapName) and the
 public class PrintAllMember {
     public static void main(String[] args) {
         HazelcastInstance hzInstance = Hazelcast.newHazelcastInstance();
-        Map<String, String> employees = hzInstance.getMap("employees");
-        for(Map.Entry<String,String> entry : employees.entrySet())
+        Map<String, String> map = hzInstance.getMap("map");
+        for(Map.Entry<String,String> entry : map.entrySet())
             System.out.println(entry.getKey()+" "+entry.getValue());
     }
 }
 \end{lstlisting}
-If the FillMapMember is runs before the PrintAllMember, we'll get output like this:
+If we first run the FillMapMember and then run the PrintAllMember, we get the following output:
 \begin{lstlisting}
 3 New York
 1 Tokyo
@@ -55,6 +57,7 @@ Employee e  = employees.get(123);
 e.setFired(true);
 employees.put(123,e);
 \end{lstlisting}
+Of course, you also need to watch out for data races: see [concurrency control].
 
 \subsection*{record type}
 Apart from writing the update back to the map, there is another very important setting called 'cache-value'. When the value is read from a map, the value is deserialized since the map contains the serialized value. The problem is that this can lead to a lot of deserialization overhead if the value is read frequently. To reduce this overhead, if the member owns the key, the value instance can be cached. So multiple requests for some key that is owned by that member, will result in the same instance being returned instead of a copy. 
@@ -77,7 +80,7 @@ RecordType.CACHED: Hazelcast will store values in the class CachedDataRecord whi
 
 The default record type is DATA. You should consider using OBJECT if majority of your hazelcast usage is composed of queries and entry processors.
 
-If you have been using Hazelcast 2.x you might remember the cache-value property. This is the Hazelcast 3 version of it.
+If you have been using Hazelcast 2.x you might remember the cache-value property. This property has been dropped and replaced by the recordType property.
 
 \section{Hashcode and equals}
 In most cases you probably will make use of some basic type like a Long, Integer or String as key. But in some cases you will need to create custom keys. But to do it correctly in Hazelcast, you need to understand how this mechanism works because it works differently compared to traditional map implementations. When you store a key/value in a Hazelcast map, instead of storing the Object, the object are serialized to byte arrays and these are stored. To use the hash/equals in Hazelcast you need to know the following rules:
@@ -790,6 +793,7 @@ The Hazelcast IMap is a very feature rich data-structures and by properly config
 
 TODO: What about cache where serialization for local object is 'skipped?
 [todo: tell about garbage collection.. or the lack of it..]
+[todo: large keys/values: streams not available]
 [todo: local entry listener]
 [todo: local entry set.. makes it easy to create a clustered solution where each member takes care of some parts of the tasks.. no central coordination needed]
 [TODO: ConcurrentMap operations never throw java.util.ConcurrentModificationException. Add somewhere.]
