@@ -62,11 +62,6 @@ public class CounterService implements ManagedService, RemoteService, MigrationA
     }
 
     @Override
-    public int getMaxBackupCount() {
-        return 1;
-    }
-
-    @Override
     public DistributedObject createDistributedObjectForClient(Object objectId) {
         return null;
     }

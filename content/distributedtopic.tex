@@ -3,7 +3,7 @@ In the 'Distributed Collections' chapter we talked about the IQueue, which can b
 
 Hazelcast provides a publish/subscribe mechanism in the form of the com.hazelcast.core.ITopic. It is a distributed mechanism for publishing messages to multiple subscribers. Any number of members can publish messages to a topic and any number of members can receive messages from the topics they are subscribed to. The message can be an ordinary POJO, although it must be able to serialize [see serialization chapter] since it needs to go over the network.
 
-I'll show how the distributed topic works based on a very simple example; there is a single topic that is shared between a publisher and a subscriber. The publisher publishes the current date on the topic:
+I'll show you how the distributed topic works based on a very simple example; there is a single topic that is shared between a publisher and a subscriber. The publisher publishes the current date on the topic:
 \begin{lstlisting}[language=java]
 public class PublisherMember {
     public static void main(String[] args){
@@ -31,7 +31,7 @@ public class SubscribedMember {
     }
 }
 \end{lstlisting}
-We first start up the subscriber, and we'll see: "Subscribed" in the console. Then we start the publisher, and after it has published the message "Published", the subscriber will output something like:
+We first start up the subscriber, and we'll see: "Subscribed" in the console. Then we start the publisher, and after it published the message "Published", the subscriber will output something like:
 \begin{lstlisting}
 Received: Sat Feb 15 13:05:24 EEST 2013
 \end{lstlisting}
@@ -73,7 +73,9 @@ This can greatly boost the processing capacity since messages from some member t
 
 \emph{Not transactional}. The ITopic is not transactional, so be careful when it is used inside a transaction. If the transaction fails after a message is send or consumed and the transaction is rolled back, the message sending or consumption will not be rolled back.
 
-\emph{No garbage collection} for the topics. So as long as the topics are not destroyed, they will be managed by Hazelcast and this can eventually lead to memory issues. One way to solve it is by periodically iterating over all topics, retrieving the local statistics and checking if there is a difference in the number of messages processed compared to the previous check. If there is, publish a a new timestamp (see Cluster.getClusterTime) in a Hazelcast map (where the topic name can be the key). If there is no change, retrieve the timestamp from the map and if the difference is too big, the topic can be destroyed.
+\emph{No garbage collection} for the topics. So as long as the topics are not destroyed, they will be managed by Hazelcast and this can eventually lead to memory issues since the topics are stored in memory. There are a few ways to deal with this issue. One way is to send a message to the subscribers that they 
+
+One way to solve it is by creating a garbage collection mechanism for the ITopic. Create a topic statistics IMap with the topic name as key and a pair containing the last processed message count and timestamp as value. When a topic is retrieved from the HazelcastInstance, an entry can be placed in the topic statics map if it is missing. Periodically iterate over all topics from the topics statics map e..g using the IMap.localKeySet(). Then retrieve the local statistics from the ITopic using the ITopic.getLocalTopicStats() method and check if there is a the number of processed messages has changed, using the information from the topic statistics map. If there is a difference, update the topic statics in the map; the new timestamp can be determined using the Cluster.getClusterTime() method. If there is no change, and period between the current timestamp and the last timestamp exceeds a certain threshold, the topic and the entry in the topic statistics map can be destroyed. It is important to understand that this solution isn't perfect, since is that it could happen that a message is send to a topic that has been destroyed. The topic will be recreated, but the subscribers are gone.
 
 \emph{No durable subscriptions}. If a subscriber goes offline, it will not receives messages that were send while it was offline.
 

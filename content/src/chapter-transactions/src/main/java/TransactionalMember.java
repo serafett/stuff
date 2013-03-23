@@ -1,14 +1,14 @@
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.core.TransactionalMap;
 import com.hazelcast.transaction.TransactionContext;
-
-import java.util.Map;
 
 public class TransactionalMember {
     public static void main(String[] args) {
         HazelcastInstance hz = Hazelcast.newHazelcastInstance();
-        Map<String, String> map = hz.getMap("map");
         TransactionContext txCxt = hz.newTransactionContext();
+        TransactionalMap<String, String> map = txCxt.getMap("map");
+
         txCxt.beginTransaction();
         try {
             map.put("1", "1");
@@ -17,6 +17,7 @@ public class TransactionalMember {
         } catch (Throwable t) {
             txCxt.rollbackTransaction();
         }
-        System.out.println("Map.size: " + map.size());
+        System.out.println("Finished");
+        System.exit(0);
     }
 }
