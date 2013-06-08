@@ -6,6 +6,8 @@ import com.hazelcast.spi.RemoteService;
 import java.util.Properties;
 
 public class CounterService implements ManagedService, RemoteService {
+    public static final String NAME = "CounterService";
+
     private NodeEngine nodeEngine;
 
     @Override
@@ -24,12 +26,7 @@ public class CounterService implements ManagedService, RemoteService {
 
     @Override
     public String getServiceName() {
-        return "DistributedCounterProxy";
-    }
-
-    @Override
-    public DistributedObject createDistributedObjectForClient(Object objectId) {
-        return null;
+        return NAME;
     }
 
     @Override

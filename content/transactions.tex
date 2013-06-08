@@ -1,59 +1,179 @@
 \chapter{Transactions}
 Till so far the examples didn't contain any transactions, but transactions can make life a lot easier since they provide:
 \begin{enumerate}
-\item Atomicity: without atomicity it could be that some of the operations on Hazelcast structures succeeds while other failed. Leaving the system in an inconsistent state, that can be hard to detect and repair.
+\item Atomicity: without atomicity it could be that some of the operations on Hazelcast structures succeeds while other failed. Leaving the system in an inconsistent state.
 \item Consistency: moves the state of the system from one valid state to the next.
 \item Isolation: the transaction should behave as if it was the only transaction running. Normally there are all kinds of isolation levels that allow certain anomalies to happen.
 \item Durability: makes sure that if a system crashes after a transaction commits, that nothing gets lost. 
 \end{enumerate}
-Hazelcast provides a transaction api that can be enabled when we need it. The Hazelcast transaction work with the Hazelcast Queue, Map, MultiMap, Set and List. A transaction is bound to the current thread using a ThreadLocal and can be retrieved by calling HazelcastInstance.getTransaction(). If a transaction is not bound to the current thread, a new unstarted transaction is returned and otherwise the existing transaction is returned. The transaction needs to be started with the begin() method, is aborted using the rollback() method and is committed using the commit() method. When the transaction is committed, rolled back or timed out, it will be unbound from its owning thread.
 
-Underneath you can find an example of the transaction api in practice:
+There are some fundamental changes in the transaction API of Hazelcast 3. In Hazelcast 2.x some of the data-structures could be used with or without a transaction, but in Hazelcast 3 transactions only are possible on explicit transactional data-structures, e.g. the TransactionalMap, TransactionalMultiMap and the TransactionalQueue. The reason behind this design choice is that not all operations can be made transactional, or if they can be made transactional, they would have huge performance/scalability implications. So to prevent running into surprises, transactions are only available on explicit transactional data-structures. 
+
+Another change in the transaction API, is that the TransactionContext is the new interface to use. It supports the same basic functionality as the Hazelcast 2.x Transaction, like begin, commit and rollback a transaction. But it also supports getting access to transactional data-structures like the TransactionalMap and TransactionalQueue.
+
+Underneath you can find an example of the transaction API in practice:
 \begin{lstlisting}[language=java]
-public class PutWithTransaction {
-    public static void main(String[] args) {
-        HazelcastInstance hz = Hazelcast.newHazelcastInstance();
-        Map map = hz.getMap("map");
-        Transaction txn = hz.getTransaction();
-        txn.begin();
-        try {
-            map.put("1", "Paris");
-            map.put("2", "Amsterdam")
-            txn.commit();
-        } catch (Throwable t) {
-            txn.rollback();
-        }
-        System.out.println("Map.size: " + map.size());
-    }
+public class TransactionalMember {
+   public static void main(String[] args) {
+      HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+      TransactionContext txCxt = hz.newTransactionContext();
+      TransactionalMap<String, String> map = txCxt.getMap("map");
+      txCxt.beginTransaction();
+      try {
+         map.put("1", "1");
+         map.put("2", "2");
+         txCxt.commitTransaction();
+      } catch (Throwable t) {
+         txCxt.rollbackTransaction();
+      }
+      System.out.println("Finished");
+      System.exit(0);
+   }
 }
 \end{lstlisting}
-As you can see using a transaction is quite simple.
+As you can see using a transaction is quite simple. 
+
+[todo: tell something about the txCtx.getXXX method. They should not be shared between threads.. they should also not be re-used. they are proxies wich do local caching: But at the moment transactional data structures (actually their proxies) are bound to the transaction itself. We are not using thread-locals but creating proxies for each transaction. This gives us the ability of caching data / storing state in proxy object and makes us avoid thread locals. ]
+
+\section{TransactionOptions}
+In some cases the default behavior of the Transaction isn't working and needs to be fine tuned. With the Hazelcast transaction API this can be done by using the TransactionOptions object and pass it to the HazelcastInstance.newTransactionContext(TransactionOptions) method.
+
+Currently Hazelcast provides the following configuration options:
+\begin{enumerate}
+\item timeoutMillis: the number of milliseconds a transaction will hold a lock. Defaults to 2 minutes. In most cases this timeout is enough since transaction should be executed quickly. [todo:]what happens to the transaction when the the timeout expires?
+\item TransactionType: the type of the transaction which is either TWO_PHASE or LOCAL. The TWO_PHASE is more reliable in case of failover because first all partitions that have been touched by the transaction are asked (in parallel) to prepare; so make sure that the data is still locked. Once that succeeds, the partitions are asked to write their changes and release the lock. 
+
+With LOCAL transaction, all the 
+\item durability: the number of backups for the transaction log, defaults to 1. See [partial commit failure for more info]
+\end{enumerate}
+
+The following fragment makes use of the TransactionOptions to configure a TransactionContext which is LOCAL, has a timeout of 1 minutes and durability 1?
+\begin{lstlisting}[language=java]
+TransactionOptions txOptions = new TransactionOptions()
+   .setTimeout(1, TimeUnit.MINUTES)
+   .setTransactionType(TransactionOptions.TransactionType.TWO_PHASE)
+   .setDurability(1);
+TransactionContext txCxt = hz.newTransactionContext(txOptions);
+\end{lstlisting}
+
+\emph{Not thread-safe} the TransactionOptions object isn't thread-safe, so if you share it between threads, make sure it isn't modified after it is configured. 
+
+\section{TransactionalTask}
+In the previous example we manually manage the transaction; we manually begin one and manually commit it when the operation is finished, and manually rollback the transaction on failure. This can cause a lot of code noise due to the repetitive boilerplate code. Luckily this can be simplified by making use of the TransactionalTask and the HazelcastInstance.executeTransaction(TransactionalTask) method. This method will automatically begin a transaction when the task starts and automatically commits it on success or does a rollback when a Throwable is thrown. 
+
+The previous example could be rewritten using the TransactionalTask like this:
+\begin{lstlisting}[language=java]
+public class TransactionalTaskMember {
+   public static void main(String[] args) throws Throwable {
+      HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+      hz.executeTransaction(new TransactionalTask() {
+         @Override
+         public Object execute(TransactionalTaskContext context) 
+               throws TransactionException {
+            TransactionalMap<String,String> map = context.getMap("map");
+            map.put("1", "1");
+            map.put("2", "2");
+            return null;
+         }
+      });
+      System.out.println("Finished");
+      System.exit(0);
+   }
+}
+\end{lstlisting}
+As you can see an anonymous inner class is used to create an instance of the TransactionalTask and to pass it to the HazelcastInstance.executeTransaction method to be executed using a transaction. It is important to understand that the execution of the task is done on the calling thread, so there is no hidden multi-threading going on.
+
+If a RuntimeException/Error is thrown while executing the TransactionalTask, the transaction is rolled back and the RuntimeException/Error will be rethrown. A checked exception is not allowed to be thrown by the TransactionalTask, so it needs to be caught and dealt with by either doing a rollback or by a commit. Often a checked exception is a valid business flow and the transaction still needs to be committed. 
+
+Just as with the raw TransactionContext, the TransactionalTask can be used in combination with the TransactionOptions by calling the HazelcastInstance.executeTransaction(TransactionOptions,TransactionalTask) method like this:
+\begin{lstlisting}[language=java]
+TransactionOptions txOptions = new TransactionOptions();
+...
+hz.executeTransaction(txOptions, new TransactionalTask() {
+     @Override
+     public Object execute(TransactionalTaskContext context) 
+           throws TransactionException {
+       ...
+     }
+  });
+\end{lstlisting}[language=java]
+
+[todo:Nested]
+
+\section{Partial commit failure}
+
+
+[todo]
+When a transaction is rolled back and non transactional data structures are modified these changes will not be rolled back.
+
+When a transactional operation is executed on a member, this member will keep track of the changes by putting them in a transaction-log. If a transaction hits multiple members, each member will store a subset of the transaction-log. When the transaction is preparing for commit, this transaction change log will be replicated 'durability' times.
+
 
 \section{Transaction Isolation}
-The Hazelcast transaction provides a READ\_COMMITTED isolation level [verify that it is actually repeatable read isolation level and not READ\_COMMITTED], so you will always see data that has been committed and therefor no dirty read is possible. 
+When concurrent interacting threads, are modifying distributed data-structures in Hazelcast, you could run into race problems. These race problems are not caused by Hazelcast, but just by sloppy application code. These problems are notorious hard to solve since they are hard to reproduce and therefore hard to debug. In most cases the default strategy to deal with race problems is to apply manual locking.
 
+Luckily the The Hazelcast transaction api, where isolation from other concurrent executing transaction will be coordinated for you. By default Hazelcast provides a REPEATABLE\_READ isolation level, so dirty reads and non repeatable reads are not possible, but phantom reads are. This isolation level is sufficient for most use cases since it is a nice balance between scalability and correctness.
+
+The REPEATABLE\_READ isolation level is implemented by automatically locking all reads/writes during the execution of a transaction and these locks will be kept till either the transaction commits or aborts. Because the reads and writes are locked, other transactions can't modify the data that has been accessed, so next time you read it, you will read the same data.
+
+\subsection*{No Dirty reads}
+One of the read anomalies that can happen in transactional systems is a dirty read. Imagine that there is a map with keys of type String and values of type Integer. If transaction-1 would modify key 'foo' and increment the value from 0 to 1, and transaction-2 would read key 'foo' and see value 1, but the transaction-1 would abort, then transaction-2 would have seen the value 1; a value that was never committed. This is called a dirty read. Luckily in Hazelcast dirty reads are not possible.
+
+\subsection*{Read Your Writes}
 The Hazelcast transaction supports Read Your Writes (RYW) consistency, meaning that when a transaction makes an update and later reads that data, it will see its own updates. Of course other transactions are not able to see these uncommitted changes, else they would suffer from dirty reads.
 
-\section{Locking}
-It is important to understand how the locking within Hazelcast transactions work; if a transaction is used and a key is read or written, the map will automatically lock the entry for that key. Other transactions are not able to use that map entry since they also automatically acquire the lock when they do a read/write. If within a transaction a lock can't be acquired, the operation will timeout after 30 seconds and throws an OperationTimeoutException. This timeout provides protection against deadlocks to a certain extend.
+\subsection*{No Serialized isolation level}
+Higher isolation level like SERIALIZED is not desirable due lack of scalability. With the SERIALIZED isolation level, the phantom read isn't allowed. Imagine an empty map and transaction 1 reads the size of this map it time t1 and will see 0. Then transaction 2 starts, inserts a map entry and commits. If transaction 1 would read the size and see 1, it is suffering from a phantom read. 
 
-Threads that don't use a transaction, are still able to read locked keys but are not able to acquire the lock, and therefor are not able to do a write. Another thing you need to look out for is manual unlocking of keys when transactions are used, because it leads to the commit failing with an IllegalStateException. 
+Often the only way to deal with a phantom read is to lock the whole data-structure to prevent other transactions inserting/removing map entries, but this is undesirable because it would cause a cluster wide blockage of this data-structure. That is why Hazelcast doesn't provide protection against phantom reads and therefor the isolation level is limited to REPEATABLE\_READ.
+
+\subsection*{Non transactional data-structures}
+It is important to understand that if during the execution of a transaction a non transactional data-structure, e.g. a non transactional IMap instance, is accessed, the access is done oblivious to a running transaction. So it could be that if you read the same non transactional data-structure multiple times, you could observe changes. Therefore you really need to take care when you choose to access non transactional data-structures while executing a transaction because you could burn your fingers.
+
+It isn't possible to access a transactional data-structure without a transaction. If that happens an IllegalStateException is thrown.
+
+\section{Locking}
+It is important to understand how the locking within Hazelcast transactions work; if a transaction is used and a key is read or written, the transaction will automatically lock the entry for that key for the remaining duration of the transaction. 
+
+
+Other transactions are not able to use that map entry since they also automatically acquire the lock when they do a read/write. Hazelcast doesn't have fine grained locks like a read write lock; the lock acquired is exclusive.
+
+If within a transaction a lock can't be acquired, the operation will timeout after 30 seconds and throws an OperationTimeoutException. This provides protection against deadlocks. [todo: timeout configurable?] If a lock was acquired successfully, but its lock expires and therefore will be released, the transaction will happily continue executing operations. Only when the transaction is preparing for commit, this released lock will be detected and a TransactionException will be thrown.
+
+If a transactional data-structure is accessed without a transaction, and IllegalStateException is thrown, so no locking will happen. 
 
 When an change is made in a transaction, it is deferred till the commit. When the transaction is committed, the changes are applied and all locks are released. When a transaction is aborted, the locks are released and the changes are discarded.
 
+If you are automatically retrying a transaction that throws an OperationTimeoutException, without controlling the number of retries, it is possible that the system will run into a livelock. These are even harder to deal with than deadlocks because the system is appearing to do something since the threads are busy. But there is no or not much progress due to transaction rollbacks. Therefore it is best to limit the number of retries and perhaps throw some kind of Exception to indicate failure.
+
+The lock timeout can be set using the TransactionOptions.timeoutMilliseconds [todo: reference]. 
+
+\section{Cashing and session}
+Hazelcast transactions provide support for caching reads/writes. If you have been using Hibernate then you probably know the Hibernate-Session, or if you have been using JPA then you probably know the EntityManager. One of the functions of the Hibernate-Session/EntityManager is that once a record is read from the database, if a subsequent read for the same record is executed, it can be retrieved from the session instead of going to the database. Hazelcast support similar functionality.
+
+One big difference between the EntityManager and the Hazelcast transaction, is that the EntityManager will track your dirty objects and will update/insert the objects when the transaction commits. So normally you load one or more entities, modify them, commit the transaction and let the EntityManager deal with writing the changes back to the database. The Hazelcast transaction API doesn't work like this, so the following idiom is broken:
+\begin{lstlisting}[language=java]
+TransactionContext txCxt = hz.newTransactionContext();
+TransactionalMap<String,Employee> employees = context.getMap("employees");
+Employee employee = employee.get("123");
+employee.fired = true;
+txCxt.commitTransaction();
+\end{lstlisting}
+
+\section{Performance}
+Although transactions may be easy to use, their usage can influence the application performance drastically due to locking and dealing with partial failed commits. Try to make keep transactions as short as possible, so that locks are held for the least amount of time and the least amount of data is locked. Also try to colocate data in the same partition if possible [todo reference to partitioning strategy]
+
 \section{Good to know}
 
-Nested transactions can be created by checking the transaction status immediately after the getTransaction() method is called. If it has status Transaction.TXN\_STATUS\_NO\_TXN, so a fresh transaction, then call begin() and eventually call commit() or rollback() on the transaction. A TransactionTemplate can help to reduce boiler plate code and an example can be found in the examples sources of this book. Also important to know is that because transactions can't be suspended, it isn't possible to support all transaction propagation levels like REQUIRES-NEW. 
+\emph{No readonly support} Hazelcast transactions can't be configured as readonly. Perhaps this will be added in the future.
 
-Hazelcast transactions can't be configured as readonly. Perhaps this will be added in the future.
+\emph{No support for transaction propagation.} Currently Hazelcast will throw an e
 
-Hazelcast has no support for distributed transactions although the transactions themselves are distributed since they touch multiple members spanning multiple JVM's.
+Currently there is no support for transaction propagation. In the future support for various transaction propagation levels can be expected. 
 
-[TODO: Verify] Transaction is hazelcast are not perfect; if during transaction commit one of the participating nodes goes down, then the system could end up in an inconsistent state. So best effort. But this is the same safety you get when you rely on a distributed transaction that makes use of a 2 phase commit since there some of the cohorts could have started with the commit while others have not.
+\emph{Hazelcast client.} Transactions can be used from the Hazelcast client.
 
-When transactions are used, some of the operations can throw a OperationTimeoutException [need to verify if this is the only exception, or perhaps jump to a higher exception like HazelcastException] if a resource can't be acquired within a certain timeout that need to be dealt with. These exceptions are not part of the API, e.g the Map.get.
-
-[TODO: Verify] A transaction that doesn't cause data to leave the member, can be optimized. Is there any synchronous remoting going on? So from a performance point of view it is best if you can partition all data in such a way that all data used in the transaction is local. 
+[todo: what about spi data structures: TransactionalTaskContext getTransactionalObject]
 
 \section{What is next}
 In this chapter we saw how to use transactions. You can also use Hazelcast transactions in JEE application using the JEE integration; see "J2EE Integration" in the Hazelcast manual for more information.

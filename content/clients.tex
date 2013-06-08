@@ -1,4 +1,8 @@
 \chapter{Hazelcast Clients}
+
+[todo: near caching]
+[todo: tell something about what happens when cluster not yet available.. blocking? timeout? exception?]
+
 Till so far the examples showed members that were full participants in the cluster; so they will known about others and they will host partitions. But in some cases you only want to connect to the cluster to read/write data from the cluster or execute operations, but you don't want to participate as a full member in the cluster; in other words you want to have a client.
 
 We are going to implement a client example where a message will be put on a queue by a client and taken from the queue by a full member:
@@ -42,6 +46,10 @@ In the client example, we did a minimal configuration of the ClientConfig and re
 \item reconnect timeout: the number of ms to wait before giving up while reconnecting. Defaults to 5000 ms.
 \item listeners: enabled listening to cluster state using a LifecycleListener, DistributedObjectListener or MembershipListener.
 \item loadBalancer: see LoadBalancing for more information. Defaults to RoundRobinLB.
+\item smart: [todo] defaults to true
+\item retryOperation: [todo] default to true.
+\item poolSize: [todo] defaults
+\item meapNearCacheConfigs: [todo] defaults to empty.
 \end{enumerate}
 
 \section{LoadBalancing}.

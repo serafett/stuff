@@ -1,12 +1,13 @@
 import com.hazelcast.core.DistributedObject;
 import com.hazelcast.partition.MigrationEndpoint;
-import com.hazelcast.partition.MigrationType;
 import com.hazelcast.spi.*;
 
 import java.util.Map;
 import java.util.Properties;
 
 public class CounterService implements ManagedService, RemoteService, MigrationAwareService {
+    public final static String NAME = "CounterService";
+
     private NodeEngine nodeEngine;
     Container[] containers;
 
@@ -29,7 +30,7 @@ public class CounterService implements ManagedService, RemoteService, MigrationA
 
     @Override
     public String getServiceName() {
-        return "CounterService";
+        return NAME;
     }
 
     @Override
@@ -62,11 +63,6 @@ public class CounterService implements ManagedService, RemoteService, MigrationA
             Container c = containers[e.getPartitionId()];
             c.clear();
         }
-    }
-
-    @Override
-    public DistributedObject createDistributedObjectForClient(Object objectId) {
-        return null;
     }
 
     @Override

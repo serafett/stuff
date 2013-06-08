@@ -2,12 +2,12 @@ import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.spi.AbstractOperation;
 import com.hazelcast.spi.BackupAwareOperation;
-import com.hazelcast.spi.KeyBasedOperation;
 import com.hazelcast.spi.Operation;
+import com.hazelcast.spi.PartitionAwareOperation;
 
 import java.io.IOException;
 
-class IncOperation extends AbstractOperation implements KeyBasedOperation, BackupAwareOperation {
+class IncOperation extends AbstractOperation implements PartitionAwareOperation, BackupAwareOperation {
     private String objectId;
     private int amount, returnValue;
 
@@ -39,11 +39,6 @@ class IncOperation extends AbstractOperation implements KeyBasedOperation, Backu
         System.out.println("Executing " + objectId + ".inc() on: " + getNodeEngine().getThisAddress());
         Container c = service.containers[getPartitionId()];
         returnValue = c.inc(objectId, amount);
-    }
-
-    @Override
-    public int getKeyHash() {
-        return ("CounterService" + objectId).hashCode();
     }
 
     @Override

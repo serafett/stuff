@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Properties;
 
 public class CounterService implements ManagedService, RemoteService, MigrationAwareService {
+    public final static String NAME = "CounterService";
     private NodeEngine nodeEngine;
     Container[] containers;
 
@@ -29,7 +30,7 @@ public class CounterService implements ManagedService, RemoteService, MigrationA
 
     @Override
     public String getServiceName() {
-        return "CounterService";
+        return NAME;
     }
 
     @Override

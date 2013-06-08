@@ -30,7 +30,7 @@ public class CounterProxy implements Counter {
         AwaitOperation operation = new AwaitOperation(objectId, value);
         int partitionId = nodeEngine.getPartitionService().getPartitionId(objectId);
         InvocationBuilder builder = nodeEngine.getOperationService()
-                .createInvocationBuilder("CounterService", operation, partitionId);
+                .createInvocationBuilder(CounterService.NAME, operation, partitionId);
         try {
             Invocation invocation = builder.build();
             final Future future = invocation.invoke();
@@ -45,7 +45,7 @@ public class CounterProxy implements Counter {
         IncOperation operation = new IncOperation(objectId, amount);
         int partitionId = nodeEngine.getPartitionService().getPartitionId(objectId);
         InvocationBuilder builder = nodeEngine.getOperationService()
-                .createInvocationBuilder("CounterService", operation, partitionId);
+                .createInvocationBuilder(CounterService.NAME, operation, partitionId);
         try {
              Invocation invocation = builder.build();
             final Future<Integer> future = invocation.invoke();

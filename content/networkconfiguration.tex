@@ -138,6 +138,8 @@ And the aws tag accepts an attribute called "conn-timeout-seconds". The default 
 
 In case you are using a different cloud provider than Amazon EC2, you can still make use of Hazelcast. What you can do it to use the programmatic api to configure a tcp-ip cluster and the well known members need to be retrieved from your cloud provider (e.g. using jclouds).
 
+todo: if you don't specify anything, it will try to connect to all instances and you will see a lot of noise in your logging.
+
 A full step by step tutorial on how to start a demo application on Amazon EC2 can be found in the appendix.
 
 \section{Partition Group Configuration}
@@ -175,6 +177,10 @@ Sometimes it desirable to have multiple isolated clusters on the same network in
 </hazelcast>
 \end{lstlisting}
 The password is optional and defaults to 'dev-pass'. A group is something else than a partition-group; with the former you create isolated clusters and with the latter you control how partitions are being mapped to members.
+
+[todo: what happens when multiple hz instances using different groups on the same jvm are running. Are they still able to create clusters? How many ports is a hz instance going to try before giving up?]
+
+[todo: if you are running multiple groups on the same machine, you might consider giving each of the groups their own port range the prevent clashing]
 
 \section{SSL}
 In a production environment often you want to prevent that the communication between Hazelcast members can be tampered or can be read, with ... because it could contains sensitive information. Luckily Hazelcast provides a solution for that: SSL encryption.
@@ -291,6 +297,7 @@ You can also specify which network interfaces that Hazelcast should use. Servers
 [todo: when there are multiple interfaces, which is selected by default?]
 [todo: does this work for multicast?]
 [todo: every machine could have different interfaces. So should all the interfaces be listed of all machines? Or should an hazelcast config per machine be 'generated'?]
+[todo: to speed up testing, disable all join mechanisms in hazelcast]
 
 \section{What is next}
 The network configuration for Hazelcast is very extensive. There are some features like IPv6,  network partitioning (split-brain syndrome), specifying network interfaces, socket interceptors, WAN replication, that have been left out, but can be found on the Hazelcast reference manual. Also the mailing-list is a very valuable source of information.

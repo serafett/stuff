@@ -20,6 +20,11 @@ public class Person implements Portable {
     }
 
     @Override
+    public int getFactoryId() {
+        return PortableFactoryImpl.FACTORY_ID;
+    }
+
+    @Override
     public void writePortable(PortableWriter writer) throws IOException {
         System.out.println("Serialize");
         writer.writeUTF("name", name);

@@ -16,7 +16,11 @@ In this section we are going to show you a very basic CounterService which lifec
 The CounterService needs to implement the ManagedService
 \begin{lstlisting}[language=java]
 public class CounterService implements ManagedService {
+   public static final String NAME = "CounterService";
    private NodeEngine nodeEngine;
+   public String getServiceName() {
+      return NAME;
+   }  
    public void init(NodeEngine e, Properties p) {
       System.out.println("CounterService.init");
       this.nodeEngine = e;
@@ -28,7 +32,13 @@ public class CounterService implements ManagedService {
    }
 }
 \end{lstlisting}
-As you can see 2 methods are added: the init and the shutdown. These methods will be called by Hazelcast when the HazelcastInstance is initialized and is shutdown. The init method also received the NodeEngine, which provides access to the internals, like the PartitionService, of Hazelcast. The last method is the reset; this method will be called when members have run into the split-brain problem. This occurs when disconnected members that have created their own cluster are merged back into the main cluster. Services can also implement the SplitBrainHandleService to indicate that they can take part in the merge process. For the CounterService we are going to implement as a no-op.
+As you can see the following methods need to be implemented: 
+\begin{enumerate}
+\item getServiceName: returns the name of the Service. This can be any name, as long as it doesn't conflict with other services.
+\item init: is called when this CounterService is initialized. Gives you the ability to do some initializing. The NodeEngine gives access to the internals of Hazelcast like the HazelcastInstance, PartitionService etc.
+\item shutdown: is called when CounterService is shutdown. Gives the ability to clean up resources.
+\item reset: this method will be called when members have run into the split-brain problem. This occurs when disconnected members that have created their own cluster are merged back into the main cluster. Services can also implement the SplitBrainHandleService to indicate that they can take part in the merge process. For the CounterService we are going to implement as a no-op.
+\end{enumerate}
 
 The next step is to enable the CounterService; in our case we are going to make use of the hazelcast.xml:
 \begin{lstlisting}[language=xml]
@@ -43,6 +53,8 @@ The next step is to enable the CounterService; in our case we are going to make 
 </services>
 \end{lstlisting}
 If you need to set additional properties on the Service, a '<properties>' section can be added to the service. These properties will be injected in the CounterService.init method. We also enabled multicast discovery since we'll rely on that later.
+
+[todo: do we need to configure the name again?]
 
 Of course we want to see this in action:
 \begin{lstlisting}[language=java]
@@ -77,18 +89,11 @@ public class CounterService
       String id = String.valueOf(objectId)
       return new CounterProxy(id,nodeEngine);
    }
-   public String getServiceName() {
-      return "CounterService";
-   }
-   public DistributedObject createDistributedObjectForClient(Object objectId) {
-      return null;
-   }
    public void destroyDistributedObject(Object objectId) {
    }
 }
 \end{lstlisting}
 [todo: destroyDistributedObject] [mehmet: destroy is implemented for proxies extending AbstractDistributedObject]
-[todo: createDistributedObjectForClient] [mehmet: after my poc for binary client impl, we can change or remove this method!]
 
 As you can see the createDistributedObject returns a CounterProxy. This proxy is a local representation to a (potentially) remote managed data/logic.  
 \begin{lstlisting}[language=java]
@@ -107,7 +112,7 @@ public class CounterProxy
       int partitionId = nodeEngine.getPartitionService()
          .getPartitionId(objectId);
       InvocationBuilder builder = nodeEngine.getOperationService()
-         .createInvocationBuilder("CounterService", 
+         .createInvocationBuilder(CounterService.NAME, 
             operation, partitionId);
       Invocation invocation = builder.build();
       try {
@@ -204,7 +209,7 @@ public class Member {
       Counter[] counters = new Counter[4];
       for (int k = 0; k < counters.length; k++) {
          Counter counter = (Counter) instances[0]
-            .getDistributedObject("CounterService", "counter" + k);
+            .getDistributedObject(CounterService.NAME, "counter" + k);
          counters[k] = counter;
          System.out.println(counter.inc(1));
       }
@@ -471,7 +476,7 @@ public class Member {
          instances[k] = Hazelcast.newHazelcastInstance();
 
       Counter counter = instances[0].getDistributedObject(
-         "CounterService", "counter" + 0);
+         CounterService.NAME, "counter" + 0);
       counter.inc(1);
    }
 }

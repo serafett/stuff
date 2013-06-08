@@ -76,6 +76,9 @@ public class Person implements Portable {
    public int getClassId() {
       return PortableFactoryImpl.PERSON_CLASS_ID;
    }
+   public int getFactoryId() {
+      return PortableFactoryImpl.FACTORY_ID;
+   }
    public void writePortable(PortableWriter writer) 
          throws IOException {
       System.out.println("Serialize");
@@ -91,13 +94,16 @@ public class Person implements Portable {
    }
 }
 \end{lstlisting}
-As you can see, the write method include the field names, making it possible to read particular fields without being forced to read all. This is useful for querying and indexing because it reduces overhead because deserialization isn't needed. Unlike the DataSerializable, the order of reading and writing fields isn't important since it is based on name. Also a no-arg constructor is added so that it can be initialized from the PortableFactoryImpl, but if you place it in the same package you could give it a package friendly access modifier to reduce visibility. The last interesting method is the 'getClassId' which returns the identifier of that class; each Portable class needs to have a unique class id (a non zero value).
+As you can see, the write method include the field names, making it possible to read particular fields without being forced to read all. This is useful for querying and indexing because it reduces overhead because deserialization isn't needed. Unlike the DataSerializable, the order of reading and writing fields isn't important since it is based on name. Also a no-arg constructor is added so that it can be initialized from the PortableFactoryImpl, but if you place it in the same package you could give it a package friendly access modifier to reduce visibility. 
+
+The last 2 interesting methods are getClassId which returns the identifier of that class; each Portable class needs to have a unique class id (a non zero value). And the other method is the getFactoryId which must return the id of the PortableFactory that is going to take care of serializing and deserializing.
 
 The next step is the 'PortableFactory' which is responsible for creating a new Portable instance based on the class id. In our case the implementation is very simple since we only have a single Portable class:
 \begin{lstlisting}[language=java]
 import com.hazelcast.nio.serialization.*;
 public class PortableFactoryImpl implements PortableFactory {
     public final static int PERSON_CLASS_ID = 1;
+    public final static int FACTORY_ID = 1;
     public Portable create(int classId) {
         switch (classId) {
             case PERSON_CLASS_ID: 
@@ -112,9 +118,13 @@ But in practice the switch case probably will be a lot bigger. If an unmatched c
 The last step is to connect the PortableFactory to the Hazelcast configuration:
 \begin{lstlisting}[language=xml]
 <serialization>
-    <portable-factory-class>PortableFactoryImpl</portable-factory-class>
+   <portable-factories>
+      <portable-factory factory-id="1">PortableFactoryImpl</portable-factory>
+   </portable-factories>
 </serialization>
 \end{lstlisting}
+Hazelcast can have multiple PortableFactories, but each factory needs to be identified with a unique factory-id. We need to make sure that this factory-id in the xml is the same as in the code. [todo: why isn't this inferred?]
+
 Of course we also want to see it in action:
 \begin{lstlisting}[language=java]
 public class Member {
@@ -178,8 +188,10 @@ Subtyping with the Portable functionality is easy, let every subclass have its o
 In practice it can happen that multiple versions of same class are serialized and deserialized; imagine a Hazelcast client with an older Person class compared to the cluster. Luckily the Portable functionality supports versioning. In the configuration you can explicitly pass a version using the '<portable-version>' tag (defaults to 0):
 \begin{lstlisting}[language=xml]
 <serialization>
-   <portable-factory-class>PortableFactoryImpl</portable-factory-class>
    <portable-version>1</portable-version>
+   <portable-factories>
+      <portable-factory factory-id="1">PortableFactoryImpl</portable-factory>
+   </portable-factories>
 </serialization>
 \end{lstlisting}
 When a Portable instance is deserialized, apart from the serialized fields of that Portable also metadata like the class id and the version is stored. That is why it is important that every time you make a change in the serialized fields of a class, that the version is changed. In most cases incrementing the version is the simplest approach.
@@ -228,10 +240,10 @@ public class PersonTypeSerializer
 On thing worth mentioning is that the type id needs to be unique. [todo: ] The last step is to wire up the PersonTypeSerializer in the hazelcast.xml:
 \begin{lstlisting}[language=xml]
 <serialization>
-   <serializers>
-      <type-serializer type-class="Person">PersonTypeSerializer</type-serializer>
-   </serializers>
-</serialization>
+      <serializers>
+          <type-serializer type-class="Person">PersonTypeSerializer</type-serializer>
+      </serializers>
+  </serialization>
 \end{lstlisting}
 As you can see, we have connected the PersonTypeSerializer to the Person class. So if Hazelcast runs into an instance of Person which needs to be (de)serialized, the PersonTypeSerializer will be called. It isn't possible to override all TypeSerializers since Hazelcast already registered ones for well known types like primitives, primitive arrays, String, Date, etc.
 

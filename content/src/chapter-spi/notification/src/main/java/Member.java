@@ -9,7 +9,7 @@ public class Member {
             instances[k] = instance;
         }
 
-        Counter counter = instances[0].getDistributedObject("CounterService", "counter" + 0);
+        Counter counter = instances[0].getDistributedObject(CounterService.NAME, "counter" + 0);
         counter.inc(10);
 
         System.out.println("Finished");

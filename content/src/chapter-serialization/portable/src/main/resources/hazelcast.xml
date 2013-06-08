@@ -4,6 +4,9 @@
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 
     <serialization>
-        <portable-factory-class>PortableFactoryImpl</portable-factory-class>
+        <portable-version>1</portable-version>
+        <portable-factories>
+            <portable-factory factory-id="1">PortableFactoryImpl</portable-factory>
+        </portable-factories>
     </serialization>
 </hazelcast>
