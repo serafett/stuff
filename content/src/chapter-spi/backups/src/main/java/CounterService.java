@@ -1,6 +1,5 @@
 import com.hazelcast.core.DistributedObject;
 import com.hazelcast.partition.MigrationEndpoint;
-import com.hazelcast.partition.MigrationType;
 import com.hazelcast.spi.*;
 
 import java.util.Map;
@@ -34,12 +33,22 @@ public class CounterService implements ManagedService, RemoteService, MigrationA
     }
 
     @Override
-    public void beforeMigration(MigrationServiceEvent e) {
+    public void beforeMigration(PartitionMigrationEvent e) {
         //no-op
     }
 
     @Override
-    public Operation prepareMigrationOperation(MigrationServiceEvent e) {
+    public void clearPartitionReplica(int partitionId) {
+        //todo: book
+    }
+
+    @Override
+    public Operation prepareReplicationOperation(PartitionReplicationEvent event) {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public Operation prepareMigrationOperation(PartitionMigrationEvent e) {
         if (e.getReplicaIndex() > 1) return null;
 
         Container container = containers[e.getPartitionId()];
@@ -49,7 +58,7 @@ public class CounterService implements ManagedService, RemoteService, MigrationA
     }
 
     @Override
-    public void commitMigration(MigrationServiceEvent e) {
+    public void commitMigration(PartitionMigrationEvent e) {
         if (e.getMigrationEndpoint() == MigrationEndpoint.SOURCE
                 && e.getMigrationType() == MigrationType.MOVE) {
             containers[e.getPartitionId()].clear();
@@ -57,15 +66,11 @@ public class CounterService implements ManagedService, RemoteService, MigrationA
     }
 
     @Override
-    public void rollbackMigration(MigrationServiceEvent e) {
+    public void rollbackMigration(PartitionMigrationEvent e) {
         if (e.getMigrationEndpoint() == MigrationEndpoint.DESTINATION)
             containers[e.getPartitionId()].clear();
     }
 
-    @Override
-    public DistributedObject createDistributedObjectForClient(Object objectId) {
-        return null;
-    }
 
     @Override
     public void destroyDistributedObject(Object objectId) {

@@ -34,12 +34,22 @@ public class CounterService implements ManagedService, RemoteService, MigrationA
     }
 
     @Override
-    public void beforeMigration(MigrationServiceEvent e) {
+    public void beforeMigration(PartitionMigrationEvent e) {
         //no-op
     }
 
     @Override
-    public Operation prepareMigrationOperation(MigrationServiceEvent e) {
+    public void clearPartitionReplica(int partitionId) {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public Operation prepareReplicationOperation(PartitionReplicationEvent event) {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public Operation prepareMigrationOperation(PartitionMigrationEvent e) {
         if (e.getReplicaIndex() > 1) return null;
 
         Container container = containers[e.getPartitionId()];
@@ -49,7 +59,7 @@ public class CounterService implements ManagedService, RemoteService, MigrationA
     }
 
     @Override
-    public void commitMigration(MigrationServiceEvent e) {
+    public void commitMigration(PartitionMigrationEvent e) {
         if (e.getMigrationEndpoint() == MigrationEndpoint.SOURCE
                 && e.getMigrationType() == MigrationType.MOVE) {
             Container c = containers[e.getPartitionId()];
@@ -58,7 +68,7 @@ public class CounterService implements ManagedService, RemoteService, MigrationA
     }
 
     @Override
-    public void rollbackMigration(MigrationServiceEvent e) {
+    public void rollbackMigration(PartitionMigrationEvent e) {
         if (e.getMigrationEndpoint() == MigrationEndpoint.DESTINATION) {
             Container c = containers[e.getPartitionId()];
             c.clear();
